@@ -1,20 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <AssemblyName>napper-lsp</AssemblyName>
     <NuGetAuditMode>direct</NuGetAuditMode>
+    <!-- AOT-safe: no reflection-based serialization. Surfaces any regression at publish time. -->
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="Workspace.fs" />
-    <Compile Include="Client.fs" />
+    <Compile Include="Protocol.fs" />
     <Compile Include="Server.fs" />
-    <Compile Include="Program.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Ionide.LanguageServerProtocol" Version="0.7.0" />
   </ItemGroup>
 
   <ItemGroup>

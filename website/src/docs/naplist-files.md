@@ -81,20 +81,22 @@ Run another `.naplist` file:
 
 Nesting is recursive — playlists can reference other playlists.
 
-### F# and C# scripts (spec: naplist-script-step)
+### Scripts (spec: naplist-script-step)
 
-Run an orchestration script:
+Run an orchestration script in any supported language — a single playlist can mix them:
 
 ```
+./scripts/seed-data.js
+./scripts/setup.py
 ./scripts/setup.fsx
 ./scripts/setup.csx
 ```
 
-Scripts can use the injected `NapRunner` to run requests and playlists programmatically. See [F# Scripting](/docs/fsharp-scripting/) or [C# Scripting](/docs/csharp-scripting/).
+Scripts can use the injected `nap` runner (`NapRunner`) to run requests and playlists programmatically. See the [Scripting Overview](/docs/scripting/), or the [JavaScript](/docs/javascript-scripting/), [Python](/docs/python-scripting/), [F#](/docs/fsharp-scripting/), and [C#](/docs/csharp-scripting/) guides.
 
 ## Variables (spec: naplist-var-scope)
 
-Variables defined in `[vars]` are available to all steps. Steps can also set variables for downstream steps using F# or C# scripts.
+Variables defined in `[vars]` are available to all steps. Steps can also set variables for downstream steps using scripts in any supported language (`ctx.set` / `nap.vars`).
 
 ## Running playlists
 

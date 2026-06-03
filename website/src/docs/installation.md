@@ -12,7 +12,7 @@ eleventyNavigation:
 
 ![Screenshot: Napper VS Code extension installed and active in the VS Code Activity Bar, showing the Napper panel icon](installation-vscode-activity-bar.png)
 
-Napper has two components: the **CLI binary** and the **VS Code extension**. The CLI is standalone with no runtime dependencies. The extension shells out to the CLI, so you need both for full VS Code integration.
+Napper has two parts: the **CLI binary** and an **editor integration**. The CLI is a self-contained native binary (not a .NET DLL) with no runtime dependencies — it ships the [language server](/docs/) inside it too. The editor integration shells out to the CLI, so you need both for the full experience. There are native extensions for **VS Code** and **Zed**, and any LSP-capable editor can connect to the bundled language server.
 
 ---
 
@@ -43,10 +43,10 @@ ext install nimblesite.napper
 
 ### Install a VSIX manually
 
-If you need a specific version or are working in an air-gapped environment, download the `.vsix` file from [GitHub Releases](https://github.com/MelbourneDeveloper/napper/releases) and install it manually.
+If you need a specific version or are working in an air-gapped environment, download the `.vsix` file from [GitHub Releases](https://github.com/Nimblesite/napper/releases) and install it manually.
 
 **Via the VS Code UI:**
-1. Download `napper-<version>.vsix` from the [Releases page](https://github.com/MelbourneDeveloper/napper/releases)
+1. Download `napper-<version>.vsix` from the [Releases page](https://github.com/Nimblesite/napper/releases)
 2. Open the Extensions panel (`Ctrl+Shift+X` / `Cmd+Shift+X`)
 3. Click the `...` menu (top-right of the panel)
 4. Select **Install from VSIX...**
@@ -79,14 +79,14 @@ The CLI is a self-contained binary with **no runtime dependencies** — no .NET,
 
 ### Download from GitHub Releases
 
-Download the binary for your platform from [GitHub Releases](https://github.com/MelbourneDeveloper/napper/releases). The current release is **v0.10.0**.
+Download the binary for your platform from [GitHub Releases](https://github.com/Nimblesite/napper/releases). The current release is **v0.10.0**.
 
 | Platform | Binary |
 |----------|--------|
-| macOS (Apple Silicon) | [`napper-osx-arm64`](https://github.com/MelbourneDeveloper/napper/releases/latest/download/napper-osx-arm64) |
-| macOS (Intel) | [`napper-osx-x64`](https://github.com/MelbourneDeveloper/napper/releases/latest/download/napper-osx-x64) |
-| Linux (x64) | [`napper-linux-x64`](https://github.com/MelbourneDeveloper/napper/releases/latest/download/napper-linux-x64) |
-| Windows (x64) | [`napper-win-x64.exe`](https://github.com/MelbourneDeveloper/napper/releases/latest/download/napper-win-x64.exe) |
+| macOS (Apple Silicon) | [`napper-osx-arm64`](https://github.com/Nimblesite/napper/releases/latest/download/napper-osx-arm64) |
+| macOS (Intel) | [`napper-osx-x64`](https://github.com/Nimblesite/napper/releases/latest/download/napper-osx-x64) |
+| Linux (x64) | [`napper-linux-x64`](https://github.com/Nimblesite/napper/releases/latest/download/napper-linux-x64) |
+| Windows (x64) | [`napper-win-x64.exe`](https://github.com/Nimblesite/napper/releases/latest/download/napper-win-x64.exe) |
 
 **macOS / Linux — make it executable and move to PATH:**
 ```bash
@@ -104,18 +104,18 @@ Move `napper-win-x64.exe` to a folder on your `PATH`, or rename it to `napper.ex
 The install script auto-detects your platform and verifies the SHA256 checksum:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/MelbourneDeveloper/napper/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.sh | bash
 ```
 
 Install a specific version:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/MelbourneDeveloper/napper/main/scripts/install.sh | bash -s 0.10.0
+curl -fsSL https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.sh | bash -s 0.10.0
 ```
 
 ### Install script (Windows)
 
 ```powershell
-irm https://raw.githubusercontent.com/MelbourneDeveloper/napper/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.ps1 | iex
 ```
 
 Install a specific version:
@@ -128,7 +128,7 @@ Install a specific version:
 If you have the .NET SDK and `make` installed, you can build from source:
 
 ```bash
-git clone https://github.com/MelbourneDeveloper/napper.git
+git clone https://github.com/Nimblesite/napper.git
 cd napper
 make install-binaries
 ```
@@ -150,13 +150,16 @@ You should see the version number and the list of available commands.
 
 | Scenario | Requirement |
 |----------|-------------|
-| Running `.nap` / `.naplist` files | None — the CLI binary is self-contained |
+| Running `.nap` / `.naplist` files | None — the CLI is a self-contained native binary, not a .NET DLL |
 | VS Code extension | VS Code 1.95.0 or later |
+| Zed extension | Zed (latest) |
+| JavaScript script hooks (`.js`) | [Node.js 18+](https://nodejs.org/) |
+| Python script hooks (`.py`) | [Python 3.9+](https://www.python.org/downloads/) |
 | F# script hooks (`.fsx`) | [.NET 10 SDK](https://dotnet.microsoft.com/download) |
 | C# script hooks (`.csx`) | [.NET 10 SDK](https://dotnet.microsoft.com/download) |
 | Building from source | .NET 10 SDK + `make` |
 
-No account is required. Napper is entirely open source and free.
+You only need a script runtime for the language you actually script in — a JavaScript shop never installs .NET, and a .NET shop never installs Node. No account is required. Napper is entirely open source and free.
 
 ---
 
@@ -234,9 +237,9 @@ On macOS, you may see a warning that the binary is from an unidentified develope
 xattr -dr com.apple.quarantine /usr/local/bin/napper
 ```
 
-**Script hooks fail with "dotnet not found"**
+**Script hooks fail with "runtime not found"**
 
-F# (`.fsx`) and C# (`.csx`) script hooks require the .NET 10 SDK. Download it from [dotnet.microsoft.com](https://dotnet.microsoft.com/download). Plain `.nap` and `.naplist` files do not need the SDK.
+Script hooks need the runtime for the language they are written in — and only that one. JavaScript (`.js`) needs [Node.js 18+](https://nodejs.org/), Python (`.py`) needs [Python 3.9+](https://www.python.org/downloads/), and F# (`.fsx`) / C# (`.csx`) need the [.NET 10 SDK](https://dotnet.microsoft.com/download). Napper resolves each runtime from its setting (`nap.nodePath`, `nap.pythonPath`, `nap.dotnetPath`), the matching environment variable, or your `PATH`. Plain `.nap` and `.naplist` files need no runtime at all. The JavaScript and Python SDKs are bundled with Napper, so `import "napper"` works with no `npm install` or `pip install`.
 
 ---
 

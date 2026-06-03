@@ -24,7 +24,7 @@ let log (msg: string) =
         Console.Error.WriteLine(msg)
         Console.Error.Flush())
 
-let private findRepoRoot () : string option =
+let findRepoRoot () : string option =
     let mutable dir = DirectoryInfo(AppContext.BaseDirectory)
 
     while dir <> null
@@ -57,12 +57,14 @@ let private findNapper () : string =
         elif File.Exists localBin then localBin
         else NapperBinaryName
 
-let runCliWithTimeout (timeoutMs: int) (args: string) (cwd: string) : int * string * string =
-    let binary = findNapper ()
+/// Generic process runner. Black-box: launches an arbitrary executable, captures
+/// stdout/stderr, enforces a timeout. Reused by both the napper CLI runner and the
+/// version-stamper test (zero duplication).
+let runProcessWithTimeout (timeoutMs: int) (fileName: string) (args: string) (cwd: string) : int * string * string =
     let sw = Stopwatch.StartNew()
-    log $"[test] napper %s{args}"
+    log $"[test] %s{fileName} %s{args}"
     let psi = ProcessStartInfo()
-    psi.FileName <- binary
+    psi.FileName <- fileName
     psi.Arguments <- args
     psi.WorkingDirectory <- cwd
     psi.RedirectStandardOutput <- true
@@ -78,14 +80,17 @@ let runCliWithTimeout (timeoutMs: int) (args: string) (cwd: string) : int * stri
     if not (proc.WaitForExit(timeoutMs)) then
         proc.Kill(true)
         sw.Stop()
-        log $"[test] TIMEOUT after %d{timeoutMs}ms | napper %s{args}"
-        failwith $"napper process timed out after %d{timeoutMs}ms: napper %s{args}"
+        log $"[test] TIMEOUT after %d{timeoutMs}ms | %s{fileName} %s{args}"
+        failwith $"process timed out after %d{timeoutMs}ms: %s{fileName} %s{args}"
 
     let stdout = stdoutTask.Result
     let stderr = stderrTask.Result
     sw.Stop()
-    log $"[test] napper %s{args} | exit=%d{proc.ExitCode} elapsed=%d{sw.ElapsedMilliseconds}ms"
+    log $"[test] %s{fileName} %s{args} | exit=%d{proc.ExitCode} elapsed=%d{sw.ElapsedMilliseconds}ms"
     proc.ExitCode, stdout, stderr
+
+let runCliWithTimeout (timeoutMs: int) (args: string) (cwd: string) : int * string * string =
+    runProcessWithTimeout timeoutMs (findNapper ()) args cwd
 
 let runCli (args: string) (cwd: string) : int * string * string =
     runCliWithTimeout DefaultTimeoutMs args cwd

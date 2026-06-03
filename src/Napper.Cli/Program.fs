@@ -93,6 +93,7 @@ let printHelp () =
     printfn "  nap check <file>                          Validate a .nap or .naplist file"
     printfn "  nap generate openapi <spec> --output-dir <dir>  Generate .nap files from OpenAPI spec"
     printfn "  nap convert http <file|dir> --output-dir <dir>  Convert .http files to .nap format"
+    printfn "  nap lsp                                   Run the language server (LSP 3.17 over stdio)"
     printfn "  nap help                                  Show this help"
     printfn ""
     printfn "Options:"
@@ -276,9 +277,11 @@ let private writeGenerated (outDir: string) (result: OpenApiGenerator.Generation
 /// Display generation results
 let private displayGenerated (output: string) (generated: OpenApiGenerator.GenerationResult) (outDir: string) : unit =
     match output with
-    | "json" -> printfn "{\"files\":%d,\"playlist\":\"%s\"}" generated.NapFiles.Length generated.Playlist.FileName
+    | "json" ->
+        // %s only: F# printf's %d/%f path is reflection-based and aborts under NativeAOT.
+        printfn "{\"files\":%s,\"playlist\":\"%s\"}" (string generated.NapFiles.Length) generated.Playlist.FileName
     | _ ->
-        printfn "Generated %d .nap files from OpenAPI spec" generated.NapFiles.Length
+        printfn "Generated %s .nap files from OpenAPI spec" (string generated.NapFiles.Length)
         printfn "  Playlist: %s" generated.Playlist.FileName
         printfn "  Environment: %s" generated.Environment.FileName
         printfn "  Output: %s" outDir
@@ -400,8 +403,9 @@ let convertHttp (args: CliArgs) : int =
                     match DotHttp.Parser.parse content with
                     | Error msg -> eprintfn "Error parsing %s: %s" (Path.GetFileName httpPath) msg
                     | Ok(httpFile: DotHttp.HttpFile) ->
-                        Logger.info
-                            $"Parsed {httpPath}: {httpFile.Requests.Length} requests, dialect={httpFile.Dialect}"
+                        // No {httpFile.Dialect}: interpolating the DU triggers reflective
+                        // structured-print (GetUnionFields) which aborts under NativeAOT.
+                        Logger.info $"Parsed {httpPath}: {httpFile.Requests.Length} requests"
 
                         // Convert env files if present
                         match args.EnvFile with
@@ -476,18 +480,38 @@ let convertHttp (args: CliArgs) : int =
                     eprintfn "Warning: %s%s" prefix w.Message
 
                 match args.Output with
-                | "json" -> printfn "{\"files\":%d,\"warnings\":%d}" totalFiles allWarnings.Length
+                | "json" -> printfn "{\"files\":%s,\"warnings\":%s}" (string totalFiles) (string allWarnings.Length)
                 | _ ->
-                    printfn "Converted %d requests to .nap files" totalFiles
+                    printfn "Converted %s requests to .nap files" (string totalFiles)
                     printfn "  Output: %s" outDir
 
                     if not (List.isEmpty allWarnings) then
-                        printfn "  Warnings: %d" allWarnings.Length
+                        printfn "  Warnings: %s" (string allWarnings.Length)
 
                 0
 
 [<EntryPoint>]
 let main argv =
+    // LSP subcommand: take over stdio immediately, suppress all other stdout.
+    // Logging goes to a file (never stdout — that would corrupt the LSP stream),
+    // opt-in via --verbose / NAPPER_LSP_VERBOSE so we don't litter on every spawn.
+    if argv.Length > 0 && argv[0] = "lsp" then
+        let verbose =
+            (argv |> Array.contains "--verbose")
+            || Environment.GetEnvironmentVariable "NAPPER_LSP_VERBOSE" = "1"
+
+        if verbose then
+            try
+                Logger.init true
+            with _ ->
+                ()
+
+        let input = Console.OpenStandardInput()
+        let output = Console.OpenStandardOutput()
+        let exitCode = Napper.Lsp.LspRunner.run input output
+        Logger.close ()
+        Environment.Exit(exitCode)
+
     let args = parseArgs argv
     Logger.init args.Verbose
     let joinedArgs = argv |> String.concat " "
@@ -516,9 +540,32 @@ let main argv =
                 eprintfn "Usage: nap convert http <file|dir> --output-dir <dir>"
                 2
         | "version"
-        | "--version" ->
-            let v = Reflection.Assembly.GetExecutingAssembly().GetName().Version
-            printfn "%d.%d.%d" v.Major v.Minor v.Build
+        | "--version"
+        | "-V" ->
+            // Implements [DTK-NAPPER-VERSION-CONTRACT]
+            // Plain text: "napper <semver>" per Shipwright version contract
+            let asm = Reflection.Assembly.GetExecutingAssembly()
+
+            let infoVersion =
+                asm.GetCustomAttributes(typeof<Reflection.AssemblyInformationalVersionAttribute>, false)
+                |> Array.tryHead
+                |> Option.map (fun a -> (a :?> Reflection.AssemblyInformationalVersionAttribute).InformationalVersion)
+                |> Option.defaultWith (fun () ->
+                    let v = asm.GetName().Version
+                    $"{v.Major}.{v.Minor}.{v.Build}")
+            // Strip any build metadata suffix (e.g. "+commit")
+            let semver = infoVersion.Split('+')[0]
+            // Check for --json flag in remaining args
+            let isJson = argv |> Array.exists (fun a -> a = "--json")
+
+            if isJson then
+                // JSON version manifest per Shipwright version-manifest.schema.json
+                printfn
+                    """{"manifestVersion":1,"name":"napper","version":"%s","kind":"cli","language":"dotnet","product":"napper","capabilities":["cli","lsp"]}"""
+                    semver
+            else
+                printfn "napper %s" semver
+
             0
         | "help"
         | "--help"

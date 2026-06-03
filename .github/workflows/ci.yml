@@ -1,0 +1,342 @@
+# agent-pmo:74cf183
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/Napper.VsCode/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.fsproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Cache Cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src/Napper.Zed/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src/Napper.Zed/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install dependencies
+        working-directory: src/Napper.VsCode
+        run: npm ci
+
+      - name: Validate Shipwright manifest
+        run: npx --yes @nimblesite/shipwright-validate-manifest --schema schemas/shipwright.schema.json src/Napper.VsCode/shipwright.json
+
+      - name: Restore dotnet tools
+        run: dotnet tool restore
+
+      - name: Restore dotnet packages
+        run: dotnet restore
+
+      # Types.Generated.fs is gitignored and rebuilt from Types.td (typeDiagram DSL,
+      # the canonical source of truth). A fresh checkout has no generated file, so the
+      # F# build below fails (FS0225) unless we regenerate it first. typediagram is
+      # pinned to the version that ships F# support (Nimblesite/typeDiagram#36).
+      - name: Generate F# types (typeDiagram)
+        run: |
+          npm install -g typediagram@0.9.0
+          make generate-types
+
+      - name: Format check (Fantomas)
+        run: dotnet fantomas --check src/
+
+      - name: Format check (Prettier)
+        working-directory: src/Napper.VsCode
+        run: npm run format:check
+
+      - name: Format check (cargo fmt)
+        run: cargo fmt --manifest-path src/Napper.Zed/Cargo.toml -- --check
+
+      - name: Lint F# (warnings as errors)
+        run: dotnet build --no-restore --nologo -warnaserror
+
+      - name: Lint TypeScript (ESLint)
+        working-directory: src/Napper.VsCode
+        run: npm run lint
+
+      - name: Lint Rust (clippy)
+        run: cargo clippy --manifest-path src/Napper.Zed/Cargo.toml
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/Napper.VsCode/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.fsproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Cache Cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src/Napper.Zed/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src/Napper.Zed/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install ReportGenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Install dotnet-script
+        run: dotnet tool install -g dotnet-script
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore
+        run: dotnet restore
+
+      # Regenerate the gitignored Types.Generated.fs before any F# compile (see lint job).
+      - name: Generate F# types (typeDiagram)
+        run: |
+          npm install -g typediagram@0.9.0
+          make generate-types
+
+      - name: Build (warnings as errors)
+        run: dotnet build --no-restore --nologo -warnaserror
+
+      - name: Install VS Code extension dependencies
+        working-directory: src/Napper.VsCode
+        run: npm ci
+
+      - name: Install NativeAOT prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Build CLI, compile extension & tests
+        working-directory: src/Napper.VsCode
+        run: npm run pretest
+
+      - name: TypeScript unit tests with coverage
+        working-directory: src/Napper.VsCode
+        run: npm run test:unit
+
+      - name: Add CLI to PATH
+        run: echo "${{ github.workspace }}/src/Napper.VsCode/bin" >> "$GITHUB_PATH"
+
+      - name: Shipwright version-contract gate
+        run: |
+          set -euo pipefail
+          napper --version
+          napper --version | grep -Eq '^napper [0-9]+\.[0-9]+\.[0-9]+'
+          napper --version --json | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8")); if(d.manifestVersion!==1||d.name!=="napper"||d.kind!=="cli"||d.language!=="dotnet"){console.error("bad version json",d);process.exit(1)} console.log("version json OK")'
+
+      - name: TypeScript E2E tests
+        working-directory: src/Napper.VsCode
+        run: xvfb-run --auto-servernum npm test
+
+      - name: F# tests with coverage
+        run: make test-fsharp
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Rust tests with coverage
+        working-directory: src/Napper.Zed
+        run: cargo tarpaulin --out xml html --output-dir ../../coverage/rust/report --skip-clean
+
+      - name: Check coverage thresholds
+        run: make _coverage_check
+
+      - name: Upload TypeScript coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-coverage
+          path: src/Napper.VsCode/coverage/
+          retention-days: 7
+
+      - name: Upload F# coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fsharp-coverage
+          path: coverage/fsharp/report/
+          retention-days: 7
+
+      - name: Upload DotHttp coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dothttp-coverage
+          path: coverage/dothttp/report/
+          retention-days: 7
+
+      - name: Upload Napper.Lsp coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lsp-coverage
+          path: coverage/lsp/report/
+          retention-days: 7
+
+      - name: Upload Rust coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage
+          path: coverage/rust/report/
+          retention-days: 7
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/Napper.VsCode/package-lock.json
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.fsproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Install VS Code extension dependencies
+        working-directory: src/Napper.VsCode
+        run: npm ci
+
+      - name: Compile extension
+        working-directory: src/Napper.VsCode
+        run: npx webpack --mode production
+
+      - name: Package universal VSIX
+        working-directory: src/Napper.VsCode
+        run: npx @vscode/vsce package --no-dependencies --skip-license
+
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: src/Napper.VsCode/*.vsix
+          retention-days: 7
+
+  aot-smoke:
+    name: NativeAOT smoke (linux-x64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Regenerate the gitignored Types.Generated.fs before publishing (see lint job).
+      - name: Generate F# types (typeDiagram)
+        run: |
+          npm install -g typediagram@0.9.0
+          make generate-types
+
+      # Guards the [cli-aot-migration] contract on every PR: the LSP and CLI must
+      # publish AND RUN under NativeAOT. A reflection regression compiles fine but
+      # crashes at runtime, so we exercise the real native binary here.
+      - name: Install NativeAOT prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish CLI (NativeAOT)
+        run: dotnet publish src/Napper.Cli/Napper.Cli.fsproj -r linux-x64 -p:PublishAot=true -o out/aot --nologo
+
+      - name: Smoke test the native binary (CLI + LSP)
+        run: |
+          set -euo pipefail
+          chmod +x out/aot/napper
+          # CLI works with zero .NET runtime present.
+          out/aot/napper --version
+          # The LSP answers an initialize handshake over stdio (no reflection crash).
+          BODY='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{},"rootUri":""}}'
+          LEN=$(printf '%s' "$BODY" | wc -c)
+          OUT=$( { printf 'Content-Length: %s\r\n\r\n%s' "$LEN" "$BODY"; printf 'Content-Length: 44\r\n\r\n{"jsonrpc":"2.0","method":"exit","params":{}}'; } | out/aot/napper lsp )
+          echo "$OUT"
+          echo "$OUT" | grep -q '"name":"napper-lsp"' || { echo "::error::LSP initialize did not return capabilities under AOT"; exit 1; }
+
+  build-website:
+    name: Website Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Build
+        working-directory: website
+        run: npx eleventy

@@ -378,7 +378,8 @@ let private buildBody (ep: EndpointInfo) : string list =
         | Some body -> [ SectionRequestBody; TripleQuote; body; TripleQuote; "" ]
 
 let private buildAssertions (op: OpenApiOperation) : string list =
-    let status = sprintf "%s%d" AssertStatusPrefix (findSuccessStatus op.Responses)
+    // String concat, not sprintf %d: F#'s %d path is reflection-based and aborts under NativeAOT.
+    let status = AssertStatusPrefix + string (findSuccessStatus op.Responses)
 
     let bodyAsserts =
         match extractResponseSchema op.Responses with

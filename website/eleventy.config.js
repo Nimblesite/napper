@@ -6,7 +6,7 @@ export default function (eleventyConfig) {
       name: "Napper",
       url: "https://napperapi.dev",
       description:
-        "CLI-first, test-oriented HTTP API testing tool for VS Code with F# and C# scripting.",
+        "CLI-first, test-oriented HTTP API testing tool for VS Code, Zed, and any editor — script in JavaScript, Python, F#, or C#.",
       author: "Christian Findlay",
       themeColor: "#1B4965",
       stylesheet: "/assets/css/styles.css",
@@ -16,7 +16,7 @@ export default function (eleventyConfig) {
         url: "https://napperapi.dev",
         logo: "/assets/images/logo.png",
         sameAs: [
-          "https://github.com/MelbourneDeveloper/napper",
+          "https://github.com/Nimblesite/napper",
           "https://marketplace.visualstudio.com/items?itemName=nimblesite.napper",
         ],
       },
@@ -73,7 +73,7 @@ export default function (eleventyConfig) {
   eleventyConfig.addTransform("og-site-name", function (content) {
     if (this.page.outputPath?.endsWith(".html")) {
       return content.replace(
-        '<meta property="og:site_name" content="Napper — CLI-First API Testing for VS Code">',
+        '<meta property="og:site_name" content="Napper — CLI-First API Testing for VS Code, Zed &amp; Any Editor">',
         '<meta property="og:site_name" content="Napper">'
       );
     }

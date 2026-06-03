@@ -1,0 +1,35 @@
+{
+  "_agent_pmo": "74cf183",
+  "name": "Napper (F# / Rust / TypeScript)",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:1-10.0",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/rust:1": { "profile": "default" }
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "make setup",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Ionide.Ionide-fsharp",
+        "ms-dotnettools.csharp",
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "usernamehw.errorlens"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "[fsharp]": { "editor.defaultFormatter": "Ionide.Ionide-fsharp" },
+        "[rust]": { "editor.defaultFormatter": "rust-lang.rust-analyzer" },
+        "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+        "FSharp.analyzers": true,
+        "FSharp.dotNetRoot": "/usr/share/dotnet",
+        "rust-analyzer.check.command": "clippy",
+        "rust-analyzer.check.extraArgs": ["--", "-D", "warnings"],
+        "eslint.validate": ["typescript", "javascript"]
+      }
+    }
+  }
+}

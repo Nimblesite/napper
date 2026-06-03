@@ -1,44 +1,263 @@
 name: Release
 
+# Tag-triggered Shipwright release. Implements [SWR-REL-WORKFLOW], [SWR-REL-GITHUB].
+#
+# Pipeline: validate tag -> CI gate (on 0.0.0-dev source) -> per-platform NativeAOT
+# build + per-platform VSIX -> package archives -> GitHub Release + Marketplace +
+# Homebrew + Scoop -> website.
+#
+# DEPLOYMENT CONTRACT: the PRIMARY artifact is a self-contained NativeAOT native binary
+# (zero .NET runtime on the user's machine) bundled inside the per-platform VSIX and
+# shipped via GitHub Releases / Homebrew / Scoop. A `dotnet tool` NuGet package is a
+# SECONDARY, best-effort channel (publish-nuget): it is non-blocking and is NOT a
+# dependency of any release/marketplace/brew/scoop job, so it can never stop a release.
+# .NET is a BUILD-time dependency only.
+
 on:
   push:
-    tags: ["v*"]
-  workflow_dispatch:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
 
 permissions:
   contents: write
 
 jobs:
-  bump-versions:
+  # ── Validate the tag and derive the version ──────────────── [SWR-REL-VERSION]
+  validate-tag:
+    name: Validate tag
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      tag: ${{ steps.parse.outputs.tag }}
+    steps:
+      - name: Parse and validate tag
+        id: parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag '$TAG' must match vMAJOR.MINOR.PATCH[-prerelease] (e.g. v0.11.0)"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG (version ${TAG#v})"
+
+  # ── CI gate: lint + test + build + manifest validation on SOURCE (0.0.0-dev) ──
+  # No publish step runs until this passes. Implements [SWR-REL-WORKFLOW] gate,
+  # [SWR-GATE-CI].
+  gate:
+    name: CI gate
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
+          dotnet-version: "10.0.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Types.Generated.fs is gitignored and rebuilt from Types.td (typeDiagram DSL).
+      # A fresh checkout has none, so the F# build fails (FS0225) without this.
+      - name: Generate F# types (typeDiagram)
+        run: |
+          npm install -g typediagram@0.9.0
+          bash scripts/generate-types.sh
+      - name: Restore
+        run: dotnet restore
+      - name: Lint + build (warnings as errors)
+        run: dotnet build --no-restore --nologo -warnaserror
+      - name: Validate deployment manifest
+        run: npx --yes @nimblesite/shipwright-validate-manifest --schema schemas/shipwright.schema.json src/Napper.VsCode/shipwright.json
+      - name: Shipwright version-contract + stamper tests
+        # Deterministic, network-free gate: proves the --version contract and the
+        # release stamper. The full functional/e2e suite (which hits external
+        # services) runs on every PR to main per [SWR-REL-PRERELEASE-CI]; a transient
+        # third-party outage must never block a tagged release.
+        run: dotnet test src/Napper.Core.Tests --no-build --nologo --filter "FullyQualifiedName~VersionContract"
+
+  # ── Per-platform NativeAOT binary + per-platform VSIX ────── [SWR-VSIX-CI-MATRIX]
+  # NativeAOT cannot cross-compile across OS/arch, so each leg builds on a runner
+  # whose OS+arch matches the target. The binary it produces needs no .NET runtime.
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: [validate-tag, gate]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: darwin-arm64, rid: osx-arm64,   os: macos-15,         archive: tar.gz, npm_config_arch: arm64 }
+          - { platform: darwin-x64,   rid: osx-x64,     os: macos-15-intel,   archive: tar.gz, npm_config_arch: x64 }
+          - { platform: linux-x64,    rid: linux-x64,   os: ubuntu-latest,    archive: tar.gz, npm_config_arch: x64 }
+          - { platform: linux-arm64,  rid: linux-arm64, os: ubuntu-24.04-arm, archive: tar.gz, npm_config_arch: arm64 }
+          - { platform: win32-x64,    rid: win-x64,     os: windows-latest,   archive: zip,    npm_config_arch: x64 }
+          - { platform: win32-arm64,  rid: win-arm64,   os: windows-11-arm,   archive: zip,    npm_config_arch: arm }
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+      TAG: ${{ needs.validate-tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: src/Napper.VsCode/package-lock.json
 
-      - name: Extract version from tag
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Install Linux NativeAOT prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
-      - name: Bump versions and push
-        run: make bump-version VERSION="$VERSION" COMMIT=true
+      # Regenerate the gitignored Types.Generated.fs before any F# compile. Uses bash
+      # (Linux/macOS/Windows-git-bash) so it works on every native runner.
+      - name: Generate F# types (typeDiagram)
+        shell: bash
+        run: |
+          npm install -g typediagram@0.9.0
+          bash scripts/generate-types.sh
 
-  build-vsix:
-    needs: [bump-versions]
+      - name: Stamp version from tag
+        shell: bash
+        run: dotnet fsi scripts/stamp-version.fsx --tag "$TAG"
+
+      - name: Publish NativeAOT binary (${{ matrix.rid }})
+        shell: bash
+        run: |
+          dotnet publish src/Napper.Cli/Napper.Cli.fsproj \
+            -r ${{ matrix.rid }} \
+            -p:PublishAot=true \
+            -o out/${{ matrix.rid }} \
+            --nologo
+
+      - name: Verify binary version contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe=""; [ "${{ runner.os }}" = "Windows" ] && exe=".exe"
+          BIN="out/${{ matrix.rid }}/napper$exe"
+          ACTUAL="$("$BIN" --version | head -1 | tr -d '\r')"
+          echo "napper --version -> $ACTUAL"
+          if [ "$ACTUAL" != "napper ${VERSION}" ]; then
+            echo "::error::binary version '$ACTUAL' != 'napper ${VERSION}'"
+            exit 1
+          fi
+          "$BIN" --version --json | node -e '
+            const d = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const v = process.env.VERSION;
+            const want = { manifestVersion: 1, name: "napper", version: v, kind: "cli", language: "dotnet" };
+            for (const [k, val] of Object.entries(want)) {
+              if (d[k] !== val) { console.error(`--version --json ${k}=${d[k]} expected ${val}`); process.exit(1); }
+            }
+            console.log("--version --json: OK");
+          '
+
+      - name: Prove binary needs no .NET runtime (clean room)
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe=""; [ "${{ runner.os }}" = "Windows" ] && exe=".exe"
+          BIN="$PWD/out/${{ matrix.rid }}/napper$exe"
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            # Pristine Ubuntu with ZERO .NET installed — the real end-user gate.
+            # If the AOT binary secretly needed a runtime, this is where it epic-fails.
+            docker run --rm -v "$PWD/out/${{ matrix.rid }}:/b" ubuntu:24.04 /b/napper --version
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            # Empty environment: no PATH, no DOTNET_ROOT — must still run standalone.
+            env -i "$BIN" --version
+          else
+            echo "clean-room run skipped on Windows (system DLL resolution is PATH-independent)"
+          fi
+          echo "clean-room: binary ran with no .NET runtime present"
+
+      - name: Stage raw binary for archiving
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe=""; [ "${{ runner.os }}" = "Windows" ] && exe=".exe"
+          mkdir -p rawbin
+          cp "out/${{ matrix.rid }}/napper$exe" "rawbin/napper$exe"
+
+      - name: Upload raw binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: rawbin-${{ matrix.rid }}
+          path: rawbin/*
+          if-no-files-found: error
+
+  # ── Per-platform VSIX packaging (decoupled from the native build) ─── [SWR-VSIX-PACKAGE]
+  # vsce packaging only ZIPS the staged native binary + manifest; it never executes the
+  # target binary, so it is fully cross-platform and runs entirely on Linux. Packaging
+  # here (instead of on each native runner) sidesteps the win32-arm npm toolchain gap —
+  # @vscode/vsce-sign ships no win32-arm build, so `npm ci` fails outright on a Windows
+  # ARM runner — and the Windows file-lock (EPERM) flakiness, while still producing one
+  # correctly-targeted VSIX per platform. Implements [SWR-VSIX-CI-MATRIX], [SWR-VSIX-VERIFY].
+  package-vsix:
+    name: Package VSIX ${{ matrix.platform }}
+    needs: [validate-tag, build]
+    # Ship whatever platforms built: one flaky native leg drops only its own VSIX.
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: darwin-arm64, rid: osx-arm64 }
+          - { platform: darwin-x64, rid: osx-x64 }
+          - { platform: linux-x64, rid: linux-x64 }
+          - { platform: linux-arm64, rid: linux-arm64 }
+          - { platform: win32-x64, rid: win-x64 }
+          - { platform: win32-arm64, rid: win-arm64 }
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+      TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
         with:
-          ref: main
+          dotnet-version: "10.0.x"
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: src/Napper.VsCode/package-lock.json
+
+      # The VSIX manifest version comes from package.json (and the bundled
+      # shipwright.json expectedVersion), so the source carriers MUST be stamped from
+      # the tag before packaging — otherwise the Marketplace VSIX would ship 0.0.0-dev.
+      # Same first-class stamper used by the native legs ([SWR-VERSION-BUILD-STAMPING]).
+      - name: Stamp version from tag
+        run: dotnet fsi scripts/stamp-version.fsx --tag "$TAG"
+
+      # The native binary was built on its own OS/arch runner; pull just that one.
+      # A missing leg (e.g. an ARM-runner outage) drops only its VSIX, never the others.
+      - name: Download native binary for ${{ matrix.platform }}
+        uses: actions/download-artifact@v4
+        with:
+          name: rawbin-${{ matrix.rid }}
+          path: rawbin
+
+      - name: Stage binary into the extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe=""; case "${{ matrix.platform }}" in win32-*) exe=".exe";; esac
+          mkdir -p "src/Napper.VsCode/bin/${{ matrix.platform }}"
+          cp "rawbin/napper$exe" "src/Napper.VsCode/bin/${{ matrix.platform }}/napper$exe"
+          chmod +x "src/Napper.VsCode/bin/${{ matrix.platform }}/napper$exe" || true
 
       - name: Install extension dependencies
         working-directory: src/Napper.VsCode
@@ -48,112 +267,348 @@ jobs:
         working-directory: src/Napper.VsCode
         run: npx webpack --mode production
 
-      - name: Package universal VSIX
+      - name: Package per-platform VSIX
         working-directory: src/Napper.VsCode
-        run: npx @vscode/vsce package --no-dependencies --skip-license
+        run: npx @vscode/vsce package --no-dependencies --skip-license --target ${{ matrix.platform }}
+
+      - name: Verify VSIX contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe=""; case "${{ matrix.platform }}" in win32-*) exe=".exe";; esac
+          VSIX="$(ls src/Napper.VsCode/*.vsix | head -1)"
+          echo "VSIX: $VSIX"
+          # The packaged file name carries the stamped version: napper-<ver>.vsix.
+          case "$VSIX" in *"$VERSION"*) : ;; *) echo "::error::VSIX '$VSIX' does not carry version $VERSION"; exit 1;; esac
+          unzip -l "$VSIX" > vsix-contents.txt
+          cat vsix-contents.txt
+          grep -q "shipwright.json" vsix-contents.txt \
+            || { echo "::error::shipwright.json missing from VSIX"; exit 1; }
+          grep -Fq "bin/${{ matrix.platform }}/napper$exe" vsix-contents.txt \
+            || { echo "::error::bin/${{ matrix.platform }}/napper$exe missing from VSIX"; exit 1; }
+          # No foreign-platform binaries may ship in a per-platform VSIX.
+          if grep -E "bin/(darwin|linux|win32)-[a-z0-9]+/" vsix-contents.txt \
+             | grep -vq "bin/${{ matrix.platform }}/"; then
+            echo "::error::VSIX contains a foreign-platform binary directory"; exit 1
+          fi
+          echo "VSIX content verification: OK"
 
       - name: Upload VSIX
         uses: actions/upload-artifact@v4
         with:
-          name: vsix
+          name: vsix-${{ matrix.platform }}
           path: src/Napper.VsCode/*.vsix
+          if-no-files-found: error
 
-  build-cli:
-    needs: [bump-versions]
-    strategy:
-      matrix:
-        include:
-          - rid: osx-arm64
-            asset: napper-osx-arm64
-          - rid: osx-x64
-            asset: napper-osx-x64
-          - rid: linux-x64
-            asset: napper-linux-x64
-          - rid: win-x64
-            asset: napper-win-x64.exe
+  # ── Package CLI assets uniformly on Linux ───────────────── [SWR-REL-GITHUB]
+  # Produces, per platform: the raw binary, an archive (.tar.gz / .zip), a per-archive
+  # .sha256 sidecar, and a combined checksums-sha256.txt.
+  package-cli:
+    name: Package CLI assets
+    needs: [validate-tag, build]
+    # Ship whatever platforms built: a single flaky leg (e.g. an ARM runner outage)
+    # must not block the release. Runs unless the gate failed (build skipped).
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          ref: main
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Publish CLI (${{ matrix.rid }})
+          path: rawbins
+          pattern: rawbin-*
+      - name: Build archives, raw assets, and checksums
+        shell: bash
         run: |
-          dotnet publish src/Napper.Cli/Napper.Cli.fsproj \
-            -r ${{ matrix.rid }} \
-            --self-contained \
-            -p:PublishTrimmed=true \
-            -p:PublishSingleFile=true \
-            -o out/${{ matrix.rid }} \
-            --nologo
-
-      - name: Prepare asset
-        run: |
-          if [ "${{ matrix.rid }}" = "win-x64" ]; then
-            mv out/${{ matrix.rid }}/napper.exe ${{ matrix.asset }}
-          else
-            mv out/${{ matrix.rid }}/napper ${{ matrix.asset }}
-            chmod +x ${{ matrix.asset }}
-          fi
-
-      - name: Upload CLI binary
-        uses: actions/upload-artifact@v4
+          set -euo pipefail
+          mkdir -p assets
+          for dir in rawbins/rawbin-*; do
+            rid="${dir#rawbins/rawbin-}"
+            if [[ "$rid" == win-* ]]; then
+              cp "$dir/napper.exe" "assets/napper-$rid.exe"
+              stage="$(mktemp -d)"; cp "$dir/napper.exe" "$stage/napper.exe"
+              (cd "$stage" && zip -q -9 "$GITHUB_WORKSPACE/assets/napper-$TAG-$rid.zip" napper.exe)
+            else
+              cp "$dir/napper" "assets/napper-$rid"; chmod +x "assets/napper-$rid"
+              stage="$(mktemp -d)"; cp "$dir/napper" "$stage/napper"; chmod +x "$stage/napper"
+              tar -C "$stage" -czf "assets/napper-$TAG-$rid.tar.gz" napper
+            fi
+          done
+          # Per-archive .sha256 sidecars + a combined manifest.
+          cd assets
+          for f in napper-"$TAG"-*.tar.gz napper-"$TAG"-*.zip; do
+            [ -e "$f" ] || continue
+            sha256sum "$f" > "$f.sha256"
+          done
+          sha256sum napper-* > checksums-sha256.txt
+          ls -la
+          echo "── checksums-sha256.txt ──"; cat checksums-sha256.txt
+      - uses: actions/upload-artifact@v4
         with:
-          name: cli-${{ matrix.rid }}
-          path: ${{ matrix.asset }}
+          name: cli-assets
+          path: assets/*
+          if-no-files-found: error
 
-  publish-nuget:
-    needs: [bump-versions]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Extract version from tag
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-
-      - name: Pack dotnet tool
-        run: |
-          dotnet pack src/Napper.Cli/Napper.Cli.fsproj \
-            -c Release \
-            -p:Version=${{ env.VERSION }} \
-            --nologo
-
-      - name: Push to NuGet
-        run: |
-          dotnet nuget push src/Napper.Cli/nupkg/napper.${{ env.VERSION }}.nupkg \
-            --api-key ${{ secrets.NUGET_API_KEY }} \
-            --source https://api.nuget.org/v3/index.json
-
+  # ── GitHub Release with all CLI assets + per-platform VSIXs ──── [SWR-REL-GITHUB]
   release:
-    needs: [build-vsix, build-cli, publish-nuget]
+    name: Create GitHub Release
+    needs: [validate-tag, package-cli, package-vsix]
+    if: ${{ !cancelled() && needs.package-vsix.result != 'skipped' }}
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    timeout-minutes: 10
+    env:
+      TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
-      - name: Download all artifacts
+      - name: Download CLI assets
         uses: actions/download-artifact@v4
         with:
           path: assets
+          name: cli-assets
+      - name: Download per-platform VSIXs
+        uses: actions/download-artifact@v4
+        with:
+          path: assets
+          pattern: vsix-*
           merge-multiple: true
-
-      - name: Generate SHA256 checksums
-        working-directory: assets
-        run: sha256sum * > ../checksums-sha256.txt
-
+      - name: List release assets
+        run: ls -la assets
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
+          files: assets/*
           generate_release_notes: true
-          files: |
-            assets/*
-            checksums-sha256.txt
+          draft: false
+          prerelease: ${{ contains(env.TAG, '-') }}
+
+  # ── Publish per-platform VSIXs to the VS Code Marketplace ─────── [SWR-VSIX-PUBLISH]
+  publish-marketplace:
+    name: Publish to VS Code Marketplace
+    needs: [validate-tag, package-vsix]
+    if: ${{ !cancelled() && needs.package-vsix.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Turn the Marketplace's opaque "TF400813: user aaaaaaaa-... not authorized" (what
+      # you get from an empty/blank PAT) into an actionable, operator-facing error. The
+      # GitHub Release + Homebrew + Scoop do NOT depend on this job, so a missing token
+      # never blocks the native-binary release — only the Marketplace publish waits.
+      - name: Require Marketplace credential
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VSCE_PAT:-}" ]; then
+            echo "::error title=VSCE_PAT secret is not set::Add a VS Code Marketplace Personal Access Token as the repo secret VSCE_PAT, then re-run, to publish the per-platform VSIXs. The GitHub Release (with all VSIX + CLI assets), Homebrew, and Scoop already shipped independently. Token guide: https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token"
+            exit 1
+          fi
+          echo "VSCE_PAT present — proceeding with Marketplace publish."
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download all per-platform VSIXs
+        uses: actions/download-artifact@v4
+        with:
+          path: vsix-artifacts
+          pattern: vsix-*
+          merge-multiple: true
+      - name: Publish all platforms in one atomic call
+        run: npx @vscode/vsce publish --packagePath $(find vsix-artifacts -name '*.vsix' | tr '\n' ' ')
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+  # ── SECONDARY, best-effort dotnet-tool NuGet package ──────────────────────────
+  # continue-on-error + NOT a dependency of release / marketplace / brew / scoop, so a
+  # NuGet failure (key, outage, pack issue) can NEVER block the release. The NativeAOT
+  # native binary + VSIX remain the primary, .NET-free deployment.
+  publish-nuget:
+    name: Publish dotnet tool to NuGet (best-effort)
+    needs: [validate-tag, gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Generate F# types (typeDiagram)
+        run: |
+          npm install -g typediagram@0.9.0
+          bash scripts/generate-types.sh
+      - name: Pack dotnet tool (version from tag)
+        run: dotnet pack src/Napper.Cli/Napper.Cli.fsproj -c Release -p:Version="$VERSION" --nologo
+      - name: Push to NuGet (skip if already published)
+        run: |
+          dotnet nuget push "src/Napper.Cli/nupkg/napper.${VERSION}.nupkg" \
+            --api-key "${{ secrets.NIMBLESITE_NUGET_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+  # ── Homebrew tap: hashes come from the build's .sha256 sidecars ────────────────
+  update-homebrew:
+    name: Update Homebrew Formula
+    needs: [validate-tag, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TAG: ${{ needs.validate-tag.outputs.tag }}
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: Nimblesite/homebrew-tap
+          token: ${{ secrets.BREW_SCOOP_PAT }}
+      - name: Read SHA256s from release sidecars
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/Nimblesite/napper/releases/download/${TAG}"
+          sidecar() { curl -fsSL "$BASE/napper-${TAG}-$1.tar.gz.sha256" | cut -d ' ' -f 1; }
+          {
+            echo "SHA256_MACOS_ARM64=$(sidecar osx-arm64)"
+            echo "SHA256_MACOS_X64=$(sidecar osx-x64)"
+            echo "SHA256_LINUX_X64=$(sidecar linux-x64)"
+            echo "SHA256_LINUX_ARM64=$(sidecar linux-arm64)"
+          } >> "$GITHUB_ENV"
+      - name: Write formula
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p Formula
+          cat > Formula/napper.rb <<FORMULA
+          # typed: false
+          # frozen_string_literal: true
+
+          class Napper < Formula
+            desc "CLI-first, test-oriented HTTP API testing tool. Send requests, run assertions, manage environments."
+            homepage "https://napperapi.dev"
+            license "MIT"
+            version "${VERSION}"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/Nimblesite/napper/releases/download/${TAG}/napper-${TAG}-osx-arm64.tar.gz"
+                sha256 "${SHA256_MACOS_ARM64}"
+              end
+              on_intel do
+                url "https://github.com/Nimblesite/napper/releases/download/${TAG}/napper-${TAG}-osx-x64.tar.gz"
+                sha256 "${SHA256_MACOS_X64}"
+              end
+            end
+
+            on_linux do
+              on_arm do
+                url "https://github.com/Nimblesite/napper/releases/download/${TAG}/napper-${TAG}-linux-arm64.tar.gz"
+                sha256 "${SHA256_LINUX_ARM64}"
+              end
+              on_intel do
+                url "https://github.com/Nimblesite/napper/releases/download/${TAG}/napper-${TAG}-linux-x64.tar.gz"
+                sha256 "${SHA256_LINUX_X64}"
+              end
+            end
+
+            def install
+              bin.install "napper"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("\#{bin}/napper --version")
+            end
+          end
+          FORMULA
+          cat Formula/napper.rb
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/napper.rb
+          git diff --cached --quiet && { echo "No changes"; exit 0; }
+          git commit -m "Update napper to ${TAG}"
+          git push
+
+  # ── Scoop bucket: hash from the build's .sha256 sidecar, JSON via a real serializer ──
+  update-scoop:
+    name: Update Scoop Manifest
+    needs: [validate-tag, release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TAG: ${{ needs.validate-tag.outputs.tag }}
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - name: Checkout scoop-bucket
+        uses: actions/checkout@v4
+        with:
+          repository: Nimblesite/scoop-bucket
+          token: ${{ secrets.BREW_SCOOP_PAT }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read SHA256 from release sidecar
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/Nimblesite/napper/releases/download/${TAG}"
+          echo "SHA256=$(curl -fsSL "$BASE/napper-${TAG}-win-x64.zip.sha256" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+          echo "ASSET_URL=$BASE/napper-${TAG}-win-x64.zip" >> "$GITHUB_ENV"
+      - name: Write manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p bucket
+          node - <<'NODE'
+          const { mkdirSync, writeFileSync } = require("node:fs");
+          const manifest = {
+            version: process.env.VERSION,
+            description: "CLI-first, test-oriented HTTP API testing tool. Send requests, run assertions, manage environments.",
+            homepage: "https://napperapi.dev",
+            license: "MIT",
+            architecture: { "64bit": { url: process.env.ASSET_URL, hash: process.env.SHA256, bin: "napper.exe" } },
+            checkver: { github: "https://github.com/Nimblesite/napper" },
+            autoupdate: {
+              architecture: {
+                "64bit": { url: "https://github.com/Nimblesite/napper/releases/download/v$version/napper-v$version-win-x64.zip" }
+              }
+            }
+          };
+          mkdirSync("bucket", { recursive: true });
+          writeFileSync("bucket/napper.json", `${JSON.stringify(manifest, null, 2)}\n`);
+          NODE
+          cat bucket/napper.json
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bucket/napper.json
+          git diff --cached --quiet && { echo "No changes"; exit 0; }
+          git commit -m "Update napper to ${TAG}"
+          git push
+
+  # ── Refresh the website after the release assets exist ──
+  # Ordered after brew/scoop, but gated only on the GitHub Release itself so a
+  # transient Homebrew/Scoop failure can never skip the production website push.
+  deploy-website:
+    name: Deploy Website
+    needs: [release, update-homebrew, update-scoop]
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Trigger Pages deploy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy-pages.yml --repo ${{ github.repository }} --ref main

@@ -12,14 +12,15 @@ eleventyNavigation:
 
 ![Screenshot: Napper VS Code extension showing the request explorer panel, syntax-highlighted .nap file, and response viewer with JSON body and assertion results](introduction-overview.png)
 
-**Napper** is a free, open-source, CLI-first API testing tool that integrates natively with VS Code. It is a modern alternative to Postman, Bruno, `.http` files, and curl.
+**Napper** is a free, open-source, CLI-first API testing tool for anyone testing APIs. It integrates natively with VS Code and Zed, and works in any editor through a portable language server. It is a modern alternative to Postman, Bruno, `.http` files, and curl.
 
-Napper is built for developers who want:
+Napper is built for anyone who wants:
 
 - **Simple things to be simple** — a one-off request is nearly as terse as curl (spec: nap-minimal)
-- **Complex things to be possible** — full F# and C# scripting for advanced flows (spec: script-fsx, script-csx)
+- **Complex things to be possible** — script advanced flows in JavaScript, Python, F#, or C# (spec: script-js, script-py, script-fsx, script-csx)
 - **Everything in version control** — plain text files, no binary blobs (spec: nap-file, naplist-file, env-file)
-- **First-class VS Code support** — syntax highlighting, Test Explorer, environment switching
+- **First-class editor support** — VS Code & Zed extensions plus a portable LSP: syntax highlighting, Test Explorer, environment switching
+- **No runtime to install** — Napper ships as a self-contained native binary, not a .NET DLL
 - **Easy migration** — convert existing `.http` files with a single CLI command (spec: cli-convert)
 
 ## How does Napper work?
@@ -67,7 +68,7 @@ body.id exists
 duration < 500ms
 ```
 
-Chain requests into test suites with `.naplist` files (spec: naplist-file). Add F# or C# scripts for advanced orchestration (spec: script-fsx, script-csx). Output JUnit XML for your CI pipeline (spec: output-junit).
+Chain requests into test suites with `.naplist` files (spec: naplist-file). Add JavaScript, Python, F#, or C# scripts for advanced orchestration — your language, your runtime, no sandbox (spec: script-js, script-py, script-fsx, script-csx). Output JUnit XML for your CI pipeline (spec: output-junit).
 
 ## Already using .http files? (spec: cli-convert)
 

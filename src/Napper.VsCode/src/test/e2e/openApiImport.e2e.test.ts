@@ -5,8 +5,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { execFile } from 'child_process';
-import { activateExtension, getRegisteredCommands, readFixtureFile } from '../helpers/helpers';
+import {
+  activateExtension,
+  getExtensionPath,
+  getRegisteredCommands,
+  readFixtureFile,
+} from '../helpers/helpers';
 import { downloadSpec, saveTempSpec } from '../../openApiImport';
+import { bundledBinaryPath } from '../../binaryUtils';
 import {
   BASE_URL_KEY,
   CLI_CMD_GENERATE,
@@ -19,7 +25,6 @@ import {
   CMD_IMPORT_OPENAPI_URL,
   CONFIG_CLI_PATH,
   CONFIG_SECTION,
-  DEFAULT_CLI_PATH,
   ENCODING_UTF8,
   NAPENV_EXTENSION,
   NAP_EXTENSION,
@@ -133,7 +138,10 @@ const ECOMMERCE_SPEC_FIXTURE = 'ecommerce-spec.json',
     const configured = vscode.workspace
       .getConfiguration(CONFIG_SECTION)
       .get<string>(CONFIG_CLI_PATH, '');
-    return configured.length > 0 ? configured : DEFAULT_CLI_PATH;
+    // An explicit `napper.cliPath` override wins; otherwise resolve the REAL bundled
+    // binary exactly as the shipped extension does (bin/<platform>/napper) — never PATH —
+    // so this e2e exercises the deployed resolution path. ([SWR-IDE-RESOLUTION])
+    return configured.length > 0 ? configured : bundledBinaryPath(getExtensionPath(''));
   },
   runCliGenerate = async (specPath: string, outDir: string): Promise<string> =>
     new Promise<string>((resolve, reject) => {

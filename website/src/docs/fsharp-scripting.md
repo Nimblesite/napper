@@ -111,6 +111,6 @@ Orchestration scripts receive a `runner` object:
 
 ## Requirements
 
-F# scripts require the **.NET 10 SDK** installed on the machine. The Napper CLI binary itself is self-contained, but `.fsx` scripts are executed via F# Interactive.
+F# scripts require the **.NET 10 SDK** installed on the machine. The Napper CLI binary itself is self-contained, but `.fsx` scripts are executed via F# Interactive. F# is one of four scripting languages — you only need the .NET SDK if you actually write `.fsx`/`.csx` hooks.
 
-Prefer C#? See [C# Scripting](/docs/csharp-scripting/) for the same capabilities using `.csx` files.
+Prefer a different language? Napper scripts in [JavaScript](/docs/javascript-scripting/), [Python](/docs/python-scripting/), and [C#](/docs/csharp-scripting/) too — the same `ctx` and `nap` surface in every one. See the [Scripting Overview](/docs/scripting/).

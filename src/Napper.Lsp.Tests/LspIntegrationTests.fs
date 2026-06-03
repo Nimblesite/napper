@@ -1,40 +1,24 @@
 /// Integration tests for napper-lsp.
 /// Every test launches the real binary and talks JSON-RPC over stdio —
-/// the exact same protocol VSCode and Zed use.
+/// the exact same protocol VSCode and Zed use. These prove the shipped binary
+/// works end to end; coverage of [Napper.Lsp]* comes from the in-process
+/// protocol tests (LspProtocolTests / LspCommandTests) which exercise the very
+/// same LspRunner loop without the process boundary.
 module Napper.Lsp.Tests.LspIntegrationTests
 
-open System.Text
 open System.Text.Json.Nodes
 open System.Threading.Tasks
 open Xunit
 open Napper.Lsp.Tests.LspClient
-
-/// Build the standard initialize params
-let private initializeParams () : JsonNode =
-    let p = JsonObject()
-    p["processId"] <- num 1
-    p["capabilities"] <- JsonObject()
-    p["rootUri"] <- str "file:///tmp/test-workspace"
-    p :> JsonNode
+open Napper.Lsp.Tests.LspWire
 
 /// Run a full initialize handshake (initialize request + initialized notification)
 let private handshake (server: LspServerProcess) : Task<JsonNode> =
     task {
-        let! response = server.SendRequest("initialize", 1, initializeParams ())
-        do! server.SendNotification("initialized", JsonObject())
+        let! response = server.SendRequest(MInitialize, 1, initializeParams ())
+        do! server.SendNotification(MInitialized, JsonObject())
         return response
     }
-
-/// Build a textDocument/didOpen params object
-let private didOpenParams (uri: string) (version: int) (text: string) : JsonNode =
-    let p = JsonObject()
-    let td = JsonObject()
-    td["uri"] <- str uri
-    td["languageId"] <- str "nap"
-    td["version"] <- num version
-    td["text"] <- str text
-    p["textDocument"] <- td
-    p :> JsonNode
 
 [<Fact>]
 let ``initialize handshake returns capabilities`` () : Task =
@@ -42,12 +26,12 @@ let ``initialize handshake returns capabilities`` () : Task =
         use server = new LspServerProcess()
         server.Start()
 
-        let! response = server.SendRequest("initialize", 1, initializeParams ())
+        let! response = server.SendRequest(MInitialize, 1, initializeParams ())
 
-        Assert.NotNull(response["result"])
-        Assert.Null(response["error"])
+        Assert.NotNull(response[FResult])
+        Assert.Null(response[FError])
 
-        let result = response["result"]
+        let result = response[FResult]
         Assert.NotNull(result["capabilities"])
 
         // TextDocumentSync must be Full (1 = Full in LSP spec)
@@ -65,86 +49,163 @@ let ``initialize handshake returns capabilities`` () : Task =
     }
 
 [<Fact>]
-let ``initialized notification accepted without error`` () : Task =
+let ``initialized handshake leaves the real server fully operational`` () : Task =
     task {
         use server = new LspServerProcess()
         server.Start()
 
-        let! _initResponse = server.SendRequest("initialize", 1, initializeParams ())
-        do! server.SendNotification("initialized", JsonObject())
-        do! Task.Delay(200)
+        let! initResponse = server.SendRequest(MInitialize, 1, initializeParams ())
+        Assert.Null(initResponse[FError])
+        Assert.NotNull(initResponse[FResult])
+        let caps = initResponse[FResult]["capabilities"]
+        Assert.NotNull(caps)
+        let sync = caps["textDocumentSync"]
+        Assert.Equal(1, sync.GetValue<int>())
 
+        do! server.SendNotification(MInitialized, JsonObject())
+
+        // A synchronous round-trip is far stronger proof of liveness than a sleep:
+        // open a doc and query it back through the real binary.
+        let uri = "file:///tmp/post-init.nap"
+
+        do!
+            server.SendNotification(
+                MDidOpen,
+                didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n"
+            )
+
+        let! symResponse = server.SendRequest(MDocumentSymbol, 2, textDocParams uri)
+        Assert.Null(symResponse[FError])
+        let symbols = symResponse[FResult] :?> JsonArray
+        Assert.True(symbols.Count >= 1, "server must answer real requests after the initialized handshake")
         Assert.True(server.IsRunning, "Server died after initialized notification")
     }
 
 [<Fact>]
-let ``textDocument/didOpen tracks document`` () : Task =
+let ``textDocument/didOpen tracks document so symbols, lenses and requestInfo all see it`` () : Task =
     task {
         use server = new LspServerProcess()
         server.Start()
         let! _ = handshake server
 
-        let napContent = "[request]\nmethod = GET\nurl = https://example.com\n"
-        do! server.SendNotification("textDocument/didOpen", didOpenParams "file:///tmp/test.nap" 1 napContent)
-        do! Task.Delay(200)
+        let uri = "file:///tmp/test.nap"
 
+        let content =
+            "[meta]\nname = \"T\"\n\n[request]\nmethod = GET\nurl = https://example.com\n"
+
+        do! server.SendNotification(MDidOpen, didOpenParams uri 1 content)
+
+        // documentSymbol proves the opened content is actually tracked.
+        let! symResponse = server.SendRequest(MDocumentSymbol, 10, textDocParams uri)
+        Assert.Null(symResponse[FError])
+        let symbols = symResponse[FResult] :?> JsonArray
+        let names = symbols |> Seq.map (fun s -> s["name"].GetValue<string>()) |> Seq.toList
+        Assert.Contains("[meta]", names)
+        Assert.Contains("[request]", names)
+
+        // codeLens proves the [request] section produced a lens with the right detail.
+        let! lensResponse = server.SendRequest(MCodeLens, 11, textDocParams uri)
+        Assert.Null(lensResponse[FError])
+        let lenses = lensResponse[FResult] :?> JsonArray
+        Assert.True(lenses.Count >= 1, "expected a code lens on the [request] section")
+        let lensData = lenses[0]["data"]
+        Assert.NotNull(lensData)
+        Assert.Equal("GET https://example.com", lensData.GetValue<string>())
+
+        // requestInfo proves the parsed request round-trips through the real binary.
+        let! infoResponse = server.SendRequest(MExecuteCommand, 12, executeCommandParams CmdRequestInfo uri)
+        Assert.Null(infoResponse[FError])
+        let info = infoResponse[FResult]
+        let methodNode = info["method"]
+        let urlNode = info["url"]
+        Assert.Equal("GET", methodNode.GetValue<string>())
+        Assert.Equal("https://example.com", urlNode.GetValue<string>())
         Assert.True(server.IsRunning, "Server died after didOpen")
     }
 
 [<Fact>]
-let ``textDocument/didChange updates document`` () : Task =
+let ``textDocument/didChange replaces tracked content and ignores stale versions`` () : Task =
     task {
         use server = new LspServerProcess()
         server.Start()
         let! _ = handshake server
+        let uri = "file:///tmp/test.nap"
 
-        // Open
         do!
             server.SendNotification(
-                "textDocument/didOpen",
-                didOpenParams "file:///tmp/test.nap" 1 "[request]\nmethod = GET\nurl = https://example.com\n"
+                MDidOpen,
+                didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n"
             )
 
-        // Change
-        let changeParams = JsonObject()
-        let versionedDoc = JsonObject()
-        versionedDoc["uri"] <- str "file:///tmp/test.nap"
-        versionedDoc["version"] <- num 2
-        changeParams["textDocument"] <- versionedDoc
+        // Before the change the tracked request is the GET.
+        let! before = server.SendRequest(MExecuteCommand, 20, executeCommandParams CmdRequestInfo uri)
+        let beforeInfo = before[FResult]
+        let beforeMethod = beforeInfo["method"]
+        let beforeUrl = beforeInfo["url"]
+        Assert.Equal("GET", beforeMethod.GetValue<string>())
+        Assert.Equal("https://example.com", beforeUrl.GetValue<string>())
 
-        let change = JsonObject()
-        change["text"] <- str "[request]\nmethod = POST\nurl = https://example.com/users\n"
-        let changes = JsonArray()
-        changes.Add(change)
-        changeParams["contentChanges"] <- changes
+        // A newer version replaces the content.
+        do!
+            server.SendNotification(
+                MDidChange,
+                didChangeParams uri 2 "[request]\nmethod = POST\nurl = https://example.com/users\n"
+            )
 
-        do! server.SendNotification("textDocument/didChange", changeParams)
-        do! Task.Delay(200)
+        let! after = server.SendRequest(MExecuteCommand, 21, executeCommandParams CmdRequestInfo uri)
+        let afterInfo = after[FResult]
+        let afterMethod = afterInfo["method"]
+        let afterUrl = afterInfo["url"]
+        Assert.Equal("POST", afterMethod.GetValue<string>())
+        Assert.Equal("https://example.com/users", afterUrl.GetValue<string>())
 
+        // A stale (older version) change must be ignored — content stays at v2.
+        do!
+            server.SendNotification(
+                MDidChange,
+                didChangeParams uri 1 "[request]\nmethod = PUT\nurl = https://example.com/stale\n"
+            )
+
+        let! stale = server.SendRequest(MExecuteCommand, 22, executeCommandParams CmdRequestInfo uri)
+        let staleInfo = stale[FResult]
+        let staleMethod = staleInfo["method"]
+        let staleUrl = staleInfo["url"]
+        Assert.Equal("POST", staleMethod.GetValue<string>())
+        Assert.Equal("https://example.com/users", staleUrl.GetValue<string>())
         Assert.True(server.IsRunning, "Server died after didChange")
     }
 
 [<Fact>]
-let ``textDocument/didClose removes document`` () : Task =
+let ``textDocument/didClose removes the document so later queries see nothing`` () : Task =
     task {
         use server = new LspServerProcess()
         server.Start()
         let! _ = handshake server
+        let uri = "file:///tmp/test.nap"
 
         do!
             server.SendNotification(
-                "textDocument/didOpen",
-                didOpenParams "file:///tmp/test.nap" 1 "GET https://example.com\n"
+                MDidOpen,
+                didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n"
             )
 
-        let closeParams = JsonObject()
-        let closeDoc = JsonObject()
-        closeDoc["uri"] <- str "file:///tmp/test.nap"
-        closeParams["textDocument"] <- closeDoc
+        // While open: symbols are present and requestInfo resolves.
+        let! openSyms = server.SendRequest(MDocumentSymbol, 30, textDocParams uri)
+        Assert.Null(openSyms[FError])
+        let openSymbols = openSyms[FResult] :?> JsonArray
+        Assert.True(openSymbols.Count >= 1, "the [request] section should be visible while open")
+        let! openInfo = server.SendRequest(MExecuteCommand, 31, executeCommandParams CmdRequestInfo uri)
+        Assert.NotNull(openInfo[FResult])
+        let openMethod = openInfo[FResult]["method"]
+        Assert.Equal("GET", openMethod.GetValue<string>())
 
-        do! server.SendNotification("textDocument/didClose", closeParams)
-        do! Task.Delay(200)
-
+        // After close the document is gone: empty symbols and a null requestInfo.
+        do! server.SendNotification(MDidClose, didCloseParams uri)
+        let! closedSyms = server.SendRequest(MDocumentSymbol, 32, textDocParams uri)
+        Assert.Null(closedSyms[FError])
+        Assert.Equal(0, (closedSyms[FResult] :?> JsonArray).Count)
+        let! closedInfo = server.SendRequest(MExecuteCommand, 33, executeCommandParams CmdRequestInfo uri)
+        Assert.Null(closedInfo[FResult])
         Assert.True(server.IsRunning, "Server died after didClose")
     }
 
@@ -155,12 +216,12 @@ let ``shutdown and exit clean lifecycle`` () : Task =
         server.Start()
         let! _ = handshake server
 
-        let! shutdownResponse = server.SendRequest("shutdown", 2)
+        let! shutdownResponse = server.SendRequest(MShutdown, 2)
         // Shutdown returns result (may be null for void) with no error
-        Assert.Null(shutdownResponse["error"])
+        Assert.Null(shutdownResponse[FError])
         Assert.True(server.IsRunning, "Server died before exit notification")
 
-        do! server.SendNotification("exit")
+        do! server.SendNotification(MExit)
         do! Task.Delay(1000)
 
         Assert.False(server.IsRunning, "Server should have exited after exit notification")
@@ -180,12 +241,12 @@ let ``malformed request with unknown params does not crash server`` () : Task =
         let! response = server.SendRequest("textDocument/totallyBogusMethod", 999, bogusParams)
 
         // Should return an error, not crash
-        Assert.NotNull(response["error"])
+        Assert.NotNull(response[FError])
         Assert.True(server.IsRunning, "Server crashed on malformed request")
 
         // Verify it still responds to a valid request after the bogus one
-        let! shutdownResponse = server.SendRequest("shutdown", 100)
-        Assert.Null(shutdownResponse["error"])
+        let! shutdownResponse = server.SendRequest(MShutdown, 100)
+        Assert.Null(shutdownResponse[FError])
     }
 
 [<Fact>]
@@ -197,18 +258,11 @@ let ``unknown method returns LSP error`` () : Task =
 
         let! response = server.SendRequest("textDocument/somethingThatDoesNotExist", 42)
 
-        Assert.NotNull(response["error"])
+        Assert.NotNull(response[FError])
         Assert.True(server.IsRunning, "Server crashed on unknown method")
     }
 
 // ─── Document Symbols ────────────────────────────────────
-
-let private docSymbolParams (uri: string) : JsonNode =
-    let p = JsonObject()
-    let td = JsonObject()
-    td["uri"] <- str uri
-    p["textDocument"] <- td
-    p :> JsonNode
 
 [<Fact>]
 let ``documentSymbol returns sections for nap file`` () : Task =
@@ -222,14 +276,14 @@ let ``documentSymbol returns sections for nap file`` () : Task =
         let content =
             "[meta]\nname = \"Test\"\n\n[request]\nmethod = GET\nurl = https://example.com\n\n[assert]\nstatus = 200\n"
 
-        do! server.SendNotification("textDocument/didOpen", didOpenParams uri 1 content)
+        do! server.SendNotification(MDidOpen, didOpenParams uri 1 content)
 
-        let! response = server.SendRequest("textDocument/documentSymbol", 10, docSymbolParams uri)
+        let! response = server.SendRequest(MDocumentSymbol, 10, textDocParams uri)
 
-        Assert.Null(response["error"])
-        Assert.NotNull(response["result"])
+        Assert.Null(response[FError])
+        Assert.NotNull(response[FResult])
 
-        let symbols = response["result"] :?> JsonArray
+        let symbols = response[FResult] :?> JsonArray
         Assert.True(symbols.Count >= 3, $"Expected at least 3 symbols (meta, request, assert), got {symbols.Count}")
 
         // Check section names
@@ -251,14 +305,14 @@ let ``documentSymbol returns sections for naplist file`` () : Task =
         let content =
             "[meta]\nname = \"Smoke tests\"\n\n[steps]\nauth/login.nap\nusers/get-user.nap\n"
 
-        do! server.SendNotification("textDocument/didOpen", didOpenParams uri 1 content)
+        do! server.SendNotification(MDidOpen, didOpenParams uri 1 content)
 
-        let! response = server.SendRequest("textDocument/documentSymbol", 11, docSymbolParams uri)
+        let! response = server.SendRequest(MDocumentSymbol, 11, textDocParams uri)
 
-        Assert.Null(response["error"])
-        Assert.NotNull(response["result"])
+        Assert.Null(response[FError])
+        Assert.NotNull(response[FResult])
 
-        let symbols = response["result"] :?> JsonArray
+        let symbols = response[FResult] :?> JsonArray
         Assert.True(symbols.Count >= 2, $"Expected at least 2 symbols (meta, steps), got {symbols.Count}")
 
         let names = symbols |> Seq.map (fun s -> s["name"].GetValue<string>()) |> Seq.toList
@@ -267,13 +321,6 @@ let ``documentSymbol returns sections for naplist file`` () : Task =
     }
 
 // ─── Code Lens ───────────────────────────────────────────
-
-let private codeLensParams (uri: string) : JsonNode =
-    let p = JsonObject()
-    let td = JsonObject()
-    td["uri"] <- str uri
-    p["textDocument"] <- td
-    p :> JsonNode
 
 [<Fact>]
 let ``codeLens returns lenses for nap file with request section`` () : Task =
@@ -284,14 +331,14 @@ let ``codeLens returns lenses for nap file with request section`` () : Task =
 
         let uri = "file:///tmp/test.nap"
         let content = "[request]\nmethod = GET\nurl = https://example.com\n"
-        do! server.SendNotification("textDocument/didOpen", didOpenParams uri 1 content)
+        do! server.SendNotification(MDidOpen, didOpenParams uri 1 content)
 
-        let! response = server.SendRequest("textDocument/codeLens", 12, codeLensParams uri)
+        let! response = server.SendRequest(MCodeLens, 12, textDocParams uri)
 
-        Assert.Null(response["error"])
-        Assert.NotNull(response["result"])
+        Assert.Null(response[FError])
+        Assert.NotNull(response[FResult])
 
-        let lenses = response["result"] :?> JsonArray
+        let lenses = response[FResult] :?> JsonArray
         Assert.True(lenses.Count >= 1, $"Expected at least 1 code lens, got {lenses.Count}")
 
         // First lens should be on line 0 (where [request] is)
@@ -305,14 +352,6 @@ let ``codeLens returns lenses for nap file with request section`` () : Task =
 
 // ─── Execute Command: requestInfo ────────────────────────
 
-let private executeCommandParams (command: string) (arg: string) : JsonNode =
-    let p = JsonObject()
-    p["command"] <- str command
-    let args = JsonArray()
-    args.Add(str arg)
-    p["arguments"] <- args
-    p :> JsonNode
-
 [<Fact>]
 let ``executeCommand requestInfo returns method and URL`` () : Task =
     task {
@@ -322,15 +361,14 @@ let ``executeCommand requestInfo returns method and URL`` () : Task =
 
         let uri = "file:///tmp/test.nap"
         let content = "[request]\nmethod = POST\nurl = https://api.example.com/users\n"
-        do! server.SendNotification("textDocument/didOpen", didOpenParams uri 1 content)
+        do! server.SendNotification(MDidOpen, didOpenParams uri 1 content)
 
-        let! response =
-            server.SendRequest("workspace/executeCommand", 20, executeCommandParams "napper.requestInfo" uri)
+        let! response = server.SendRequest(MExecuteCommand, 20, executeCommandParams CmdRequestInfo uri)
 
-        Assert.Null(response["error"])
-        Assert.NotNull(response["result"])
+        Assert.Null(response[FError])
+        Assert.NotNull(response[FResult])
 
-        let result = response["result"]
+        let result = response[FResult]
         Assert.Equal("POST", result["method"].GetValue<string>())
         Assert.Equal("https://api.example.com/users", result["url"].GetValue<string>())
     }
@@ -346,14 +384,14 @@ let ``executeCommand copyCurl returns curl string`` () : Task =
 
         let uri = "file:///tmp/test.nap"
         let content = "[request]\nmethod = GET\nurl = https://example.com/api\n"
-        do! server.SendNotification("textDocument/didOpen", didOpenParams uri 1 content)
+        do! server.SendNotification(MDidOpen, didOpenParams uri 1 content)
 
-        let! response = server.SendRequest("workspace/executeCommand", 21, executeCommandParams "napper.copyCurl" uri)
+        let! response = server.SendRequest(MExecuteCommand, 21, executeCommandParams CmdCopyCurl uri)
 
-        Assert.Null(response["error"])
-        Assert.NotNull(response["result"])
+        Assert.Null(response[FError])
+        Assert.NotNull(response[FResult])
 
-        let curl = response["result"].GetValue<string>()
+        let curl = response[FResult].GetValue<string>()
         Assert.Contains("curl", curl)
         Assert.Contains("GET", curl)
         Assert.Contains("https://example.com/api", curl)
@@ -390,17 +428,12 @@ let ``executeCommand listEnvironments returns env names`` () : Task =
         try
             let rootUri = $"file://{tmpDir}"
 
-            let! response =
-                server.SendRequest(
-                    "workspace/executeCommand",
-                    22,
-                    executeCommandParams "napper.listEnvironments" rootUri
-                )
+            let! response = server.SendRequest(MExecuteCommand, 22, executeCommandParams CmdListEnvironments rootUri)
 
-            Assert.Null(response["error"])
-            Assert.NotNull(response["result"])
+            Assert.Null(response[FError])
+            Assert.NotNull(response[FResult])
 
-            let envs = response["result"] :?> JsonArray
+            let envs = response[FResult] :?> JsonArray
             let envNames = envs |> Seq.map (fun e -> e.GetValue<string>()) |> Seq.toList
 
             // Should find staging and production, NOT base (.napenv) or local (.napenv.local)

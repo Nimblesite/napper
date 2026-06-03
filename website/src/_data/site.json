@@ -1,17 +1,17 @@
 {
   "name": "Napper",
-  "title": "Napper — CLI-First API Testing for VS Code",
-  "description": "The developer-first HTTP testing tool. As simple as curl for one-off requests, scales to full test suites with F# and C# scripting, assertions, and CI integration.",
+  "title": "Napper — CLI-First API Testing for VS Code, Zed & Any Editor",
+  "description": "The developer-first HTTP testing tool from Nimblesite. Native CLI binaries, a VS Code extension, and a portable language server. As simple as curl for one-off requests, scales to full test suites with scripting in your language — JavaScript, Python, F#, or C#.",
   "url": "https://napperapi.dev",
   "author": "Christian Findlay",
   "language": "en",
   "themeColor": "#1B4965",
   "stylesheet": "/assets/css/styles.css",
-  "github": "https://github.com/MelbourneDeveloper/napper",
+  "github": "https://github.com/Nimblesite/napper",
   "ogImage": "/assets/images/logo.png",
   "ogImageWidth": "800",
   "ogImageHeight": "800",
-  "keywords": "API testing, HTTP client, VS Code extension, F# scripting, C# scripting, Postman alternative, Bruno alternative, CLI testing, REST API, test automation, http file converter, dothttp migration",
+  "keywords": "API testing, HTTP client, VS Code extension, Zed extension, language server, LSP, JavaScript scripting, Python scripting, F# scripting, C# scripting, Postman alternative, Bruno alternative, CLI testing, REST API, test automation, http file converter, dothttp migration",
   "company": {
     "name": "Nimblesite",
     "url": "https://nimblesite.co"
@@ -21,7 +21,7 @@
     "url": "https://napperapi.dev",
     "logo": "/assets/images/logo.png",
     "sameAs": [
-      "https://github.com/MelbourneDeveloper/napper",
+      "https://github.com/Nimblesite/napper",
       "https://marketplace.visualstudio.com/items?itemName=nimblesite.napper"
     ]
   }

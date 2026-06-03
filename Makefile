@@ -1,416 +1,298 @@
-.PHONY: build-all build-cli build-extension build-vsix build-zed bump-version clean-install dump-cli-help install-binaries package-vsix test-fsharp test-rust test-vsix test clean format lint
+# =============================================================================
+# Standard Makefile — Napper
+# =============================================================================
+# agent-pmo:74cf183
 
-SHELL := /usr/bin/env bash
-.SHELLFLAGS := -euo pipefail -c
+.PHONY: build test lint fmt clean ci setup package-vsix test-fsharp build-zed stamp generate-types
 
-# --- Platform detection ---
-ARCH := $(shell uname -m)
-OS := $(shell uname -s)
-
-ifeq ($(OS),Darwin)
-  ifeq ($(ARCH),arm64)
-    NAP_RID ?= osx-arm64
-  else ifeq ($(ARCH),x86_64)
-    NAP_RID ?= osx-x64
-  else
-    $(error Unsupported arch: $(ARCH))
-  endif
-else ifeq ($(OS),Linux)
-  NAP_RID ?= linux-x64
+# --- Cross-platform support ---
+ifeq ($(OS),Windows_NT)
+  SHELL      := powershell.exe
+  .SHELLFLAGS := -NoProfile -Command
+  _RM        = Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+  _MKDIR     = New-Item -ItemType Directory -Force
+  HOME       ?= $(USERPROFILE)
 else
-  $(error Unsupported OS: $(OS))
+  SHELL      := /usr/bin/env bash
+  .SHELLFLAGS := -euo pipefail -c
+  _RM        = rm -rf
+  _MKDIR     = mkdir -p
 endif
 
-EXT_BIN := src/Napper.VsCode/bin
-LOG_DIR := .commandtree/logs
-FSHARP_COVERAGE_DIR := coverage/fsharp
-DOTHTTP_COVERAGE_DIR := coverage/dothttp
-LSP_COVERAGE_DIR := coverage/lsp
-TS_COVERAGE_DIR := coverage/typescript
-RUST_COVERAGE_DIR := coverage/rust
+# --- Platform detection for .NET RID and Shipwright/vsce target ---
+ifeq ($(OS),Windows_NT)
+  _NAP_RID     ?= win-x64
+  _DTK_PLATFORM := win32-x64
+else
+  _ARCH    := $(shell uname -m)
+  _UNAME_S := $(shell uname -s)
+  ifeq ($(_UNAME_S),Darwin)
+    ifeq ($(filter arm64,$(_ARCH)),arm64)
+      _NAP_RID     ?= osx-arm64
+      _DTK_PLATFORM := darwin-arm64
+    else
+      _NAP_RID     ?= osx-x64
+      _DTK_PLATFORM := darwin-x64
+    endif
+  else
+    _NAP_RID     ?= linux-x64
+    _DTK_PLATFORM := linux-x64
+  endif
+endif
 
-# ============================================================
-# Build targets
-# ============================================================
+_EXT_BIN     := src/Napper.VsCode/bin/$(_DTK_PLATFORM)
+_LOG_DIR     := .commandtree/logs
+_COV         := coverage
+_FSHARP_COV  := $(_COV)/fsharp
+_DOTHTTP_COV := $(_COV)/dothttp
+_LSP_COV     := $(_COV)/lsp
+_TS_COV      := $(_COV)/typescript
+_RUST_COV    := $(_COV)/rust
 
-build-cli:
-	@echo "==> Building CLI for $(NAP_RID)..."
-	dotnet publish src/Napper.Cli/Napper.Cli.fsproj \
-	  -r "$(NAP_RID)" \
-	  --self-contained \
-	  -p:PublishTrimmed=true \
-	  -p:PublishSingleFile=true \
-	  -o "out/$(NAP_RID)" \
-	  --nologo
-	@echo "==> CLI built → out/$(NAP_RID)/"
-	@mkdir -p "$(EXT_BIN)"
-	cp "out/$(NAP_RID)/napper" "$(EXT_BIN)/napper"
-	@echo "==> Copied CLI → $(EXT_BIN)/"
-	@mkdir -p "$(HOME)/.local/bin"
-	cp "out/$(NAP_RID)/napper" "$(HOME)/.local/bin/napper"
-	chmod +x "$(HOME)/.local/bin/napper"
-	@echo "==> Installed CLI → ~/.local/bin/napper"
-	@EXPECTED_VERSION=$$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' Directory.Build.props); \
-	ACTUAL_VERSION=$$("out/$(NAP_RID)/napper" --version); \
-	if [ "$$ACTUAL_VERSION" != "$$EXPECTED_VERSION" ]; then \
-	  echo "ERROR: Version mismatch — expected $$EXPECTED_VERSION, got $$ACTUAL_VERSION"; \
-	  exit 1; \
-	fi; \
-	echo "==> CLI version verified: $$ACTUAL_VERSION"
+# Type-model generation: Types.td (typeDiagram DSL) is the canonical source of
+# truth for the Napper.Core ADTs; Types.Generated.fs is gitignored and rebuilt
+# by `make generate-types`. See REPO rule "Type Models" + Nimblesite/typeDiagram#36.
+_TYPES_TD    := src/Napper.Core/Types.td
+_TYPES_GEN   := src/Napper.Core/Types.Generated.fs
 
-build-extension:
-	@echo "==> Compiling VSCode extension..."
-	cd src/Napper.VsCode && npm ci && npx webpack --mode production
-	@echo "==> Extension compiled"
+# Runs dotnet test + reportgenerator for one project.
+# $(1)=project dir  $(2)=coverage dir  $(3)=log name
+define _dotnet_test
+	$(_RM) "$(2)" && $(_MKDIR) "$(2)"
+	dotnet test $(1) --nologo \
+	  --settings $(1)/coverage.runsettings \
+	  --results-directory "$(2)/raw" \
+	  --logger "console;verbosity=detailed" \
+	  -- RunConfiguration.FailFastEnabled=true \
+	  2>&1 | tee "$(_LOG_DIR)/$(3).log"
+	reportgenerator \
+	  -reports:"$(2)/raw/*/coverage.cobertura.xml" \
+	  -targetdir:"$(2)/report" \
+	  -reporttypes:"Html;TextSummary;Cobertura;lcov"
+endef
 
-build-vsix: build-cli build-extension
-	@echo "==> Packaging universal VSIX..."
-	cd src/Napper.VsCode && npx @vscode/vsce package --no-dependencies --skip-license
-	@echo "==> VSIX packaged (universal — no CLI bundled)"
-	@VSIX_FILE=$$(ls -1 src/Napper.VsCode/*.vsix 2>/dev/null | head -1); \
-	[ -n "$$VSIX_FILE" ] && echo "    VSIX: $$VSIX_FILE"; \
-	echo "    CLI installed at: ~/.local/bin/napper (for local use)"
+# Checks one coverage result against coverage-thresholds.json.
+# Exits non-zero immediately (FAIL FAST) if coverage < threshold.
+# Ratchets threshold up to floor(coverage)-1 when coverage improves.
+# $(1)=project key  $(2)=summary file  $(3)=label
+define _cov_check
+	@{ \
+	  t=$$(jq -r '.projects["$(1)"].threshold // .default_threshold' coverage-thresholds.json); \
+	  if [ -f "$(2)" ]; then \
+	    c=$$(awk '/Line coverage:/ {gsub(/%/,""); print $$3}' "$(2)" 2>/dev/null || echo "0"); \
+	    echo "  $(3): $${c}% (threshold $${t}%)"; \
+	    if [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ]; then \
+	      echo "  *** FAIL: $(3) coverage $${c}% is below threshold $${t}% — ABORTING ***"; \
+	      exit 1; \
+	    fi; \
+	    new_t=$$(( $$(echo "scale=0; $${c}/1" | bc) - 1 )); \
+	    if [ $$(echo "$${new_t} > $${t}" | bc -l) -eq 1 ]; then \
+	      tmp=$$(mktemp); \
+	      jq --argjson nt "$${new_t}" '.projects["$(1)"].threshold = $$nt' coverage-thresholds.json > "$${tmp}" && mv "$${tmp}" coverage-thresholds.json; \
+	      echo "  RATCHET: $(3) threshold -> $${new_t}%"; \
+	    else \
+	      echo "  OK"; \
+	    fi; \
+	  else echo "  $(3): no data (skipping)"; fi; \
+	}
+endef
 
-package-vsix: build-extension
-	@echo "==> Packaging universal VSIX..."
-	cd src/Napper.VsCode && npx @vscode/vsce package --no-dependencies --skip-license
-	@echo "==> VSIX packaged"
+# =============================================================================
+# Standard Targets
+#
+# The 7 portfolio-wide targets. See REPO-STANDARDS-SPEC [MAKE-TARGETS].
+# Repo-specific targets live in their own section below.
+# =============================================================================
+
+# build: compile/assemble all shippable artifacts (CLI native binary + extension bundle).
+build: generate-types _build_cli _build_extension
+
+test: generate-types _test_fsharp _test_rust _test_vsix _coverage_check
+
+lint: generate-types
+	dotnet build --nologo -warnaserror
+	cd src/Napper.VsCode && npm run lint
+	cargo clippy --manifest-path src/Napper.Zed/Cargo.toml
+
+fmt:
+	dotnet fantomas src/
+	cd src/Napper.VsCode && npx prettier --write "src/**/*.ts"
+	cargo fmt --manifest-path src/Napper.Zed/Cargo.toml
 
 clean:
-	@echo "==> Cleaning all build artifacts..."
-	rm -rf out/
-	rm -rf src/Napper.Core/bin/ src/Napper.Core/obj/
-	rm -rf src/Napper.Cli/bin/ src/Napper.Cli/obj/
-	rm -rf tests/Napper.Core.Tests/bin/ tests/Napper.Core.Tests/obj/
-	rm -rf src/Napper.VsCode/bin/
-	rm -rf src/Napper.VsCode/dist/
-	rm -rf src/Napper.VsCode/out/
-	rm -f  src/Napper.VsCode/*.vsix
-	rm -rf coverage/
-	@echo "==> Clean complete"
+	$(_RM) out/ $(_COV)/
+	$(_RM) src/Napper.Core/bin/ src/Napper.Core/obj/
+	$(_RM) src/Napper.Cli/bin/ src/Napper.Cli/obj/
+	$(_RM) src/Napper.VsCode/bin/ src/Napper.VsCode/dist/ src/Napper.VsCode/out/
+	$(_RM) src/Napper.VsCode/*.vsix
 
-build-all: clean build-cli
-	@echo "==> Building VS Code extension..."
-	cd src/Napper.VsCode && npm ci && npx webpack --mode production && npm run compile:tests
-	@echo "==> Extension compiled"
-	@echo "==> Packaging VSIX (universal)..."
-	cd src/Napper.VsCode && npx @vscode/vsce package --no-dependencies --skip-license
-	@VSIX_FILE=$$(ls -1 src/Napper.VsCode/*.vsix 2>/dev/null | head -1); \
-	echo ""; \
-	echo "==> BUILD COMPLETE"; \
-	echo "    CLI:  ~/.local/bin/napper"; \
-	echo "    CLI:  $(EXT_BIN)/napper"; \
-	[ -n "$$VSIX_FILE" ] && echo "    VSIX: $$VSIX_FILE"; \
-	echo ""; \
-	napper --help | head -1
+ci: lint test build
 
+setup:
+	dotnet tool restore && dotnet restore
+	cd src/Napper.VsCode && npm ci
+	cd website && npm ci
+	rustup component add clippy rustfmt 2>/dev/null || true
+	dotnet tool install --global dotnet-reportgenerator-globaltool 2>/dev/null || true
+
+# stamp: write a release version into every source version carrier
+# (Directory.Build.props, the extension package.json, and shipwright.json) using
+# structured parsers. Implements [SWR-VERSION-BUILD-STAMPING]. Source stays at
+# 0.0.0-dev; only the release/runner working tree is stamped — never committed.
+#   make stamp VERSION=1.2.3      (or)      make stamp TAG=v1.2.3
+stamp:
+	dotnet fsi scripts/stamp-version.fsx $(if $(TAG),--tag $(TAG),--version $(VERSION))
+
+# =============================================================================
+# Repo-Specific Targets
+#
+# Specific to this repo; NOT part of the standard 7. Preserved during
+# remediation per REPO-STANDARDS-SPEC [MAKE-TARGETS].
+# =============================================================================
+
+# package-vsix: build then package the platform VSIX and verify its contents.
+package-vsix: clean build
+	cd src/Napper.VsCode && npx @vscode/vsce package --no-dependencies --skip-license --target $(_DTK_PLATFORM)
+	@VSIX=$$(ls src/Napper.VsCode/*.vsix 2>/dev/null | head -1); \
+	  [ -n "$$VSIX" ] || { echo "ERROR: no VSIX file found"; exit 1; }; \
+	  echo "==> Verifying VSIX contents: $$VSIX"; \
+	  unzip -l "$$VSIX" > /tmp/vsix-contents.txt; \
+	  grep -q "shipwright.json" /tmp/vsix-contents.txt || { echo "ERROR: shipwright.json missing from VSIX"; exit 1; }; \
+	  grep -q "bin/$(_DTK_PLATFORM)/napper" /tmp/vsix-contents.txt || { echo "ERROR: bin/$(_DTK_PLATFORM)/napper missing from VSIX"; exit 1; }; \
+	  echo "  shipwright.json: OK"; \
+	  echo "  bin/$(_DTK_PLATFORM)/napper: OK"; \
+	  echo "==> VSIX packaged and verified"
+
+# test-fsharp: F#-only test subset (consumed by CI's F# coverage step).
+test-fsharp: generate-types _test_fsharp
+
+# generate-types: regenerate Napper.Core ADTs from the typeDiagram source of truth.
+# Types.td is canonical and checked in; Types.Generated.fs is gitignored and
+# rebuilt here. The preamble adds the namespace and the one host-type bridge
+# (typeDiagram opaque Duration -> BCL TimeSpan) that the DSL cannot express.
+# Requires `typediagram` with F# support (Nimblesite/typeDiagram#36).
+generate-types:
+	@command -v typediagram >/dev/null 2>&1 || { echo "ERROR: typediagram not on PATH (needs F# support, Nimblesite/typeDiagram#36)"; exit 1; }
+	@printf '%s\n' \
+	  '// <auto-generated> DO NOT EDIT. Rebuilt by: make generate-types' \
+	  '// Canonical source of truth: src/Napper.Core/Types.td (typeDiagram DSL).' \
+	  '// See https://github.com/Nimblesite/typeDiagram/issues/36' \
+	  '' \
+	  'namespace Napper.Core' \
+	  '' \
+	  '// Host-type bridge: the typeDiagram opaque type Duration maps to BCL TimeSpan.' \
+	  'type Duration = System.TimeSpan' \
+	  '' > "$(_TYPES_GEN)"
+	@typediagram --to fsharp "$(_TYPES_TD)" >> "$(_TYPES_GEN)"
+	@echo "==> Generated $(_TYPES_GEN) from $(_TYPES_TD)"
+
+# build-zed: build the Zed extension wasm (requires the tree-sitter CLI).
 build-zed:
-	@echo "==> Checking prerequisites..."
-	@command -v cargo &>/dev/null || { echo "ERROR: cargo not found. Install Rust: https://rustup.rs"; exit 1; }
-	@command -v tree-sitter &>/dev/null || { echo "ERROR: tree-sitter CLI not found. Install: npm install -g tree-sitter-cli"; exit 1; }
+	@command -v cargo &>/dev/null || { echo "ERROR: cargo not found"; exit 1; }
+	@command -v tree-sitter &>/dev/null || { echo "ERROR: tree-sitter not found"; exit 1; }
 	@if ! rustup target list --installed 2>/dev/null | grep -q wasm32-wasi; then \
-	  echo "==> Adding wasm32-wasip1 target..."; \
 	  rustup target add wasm32-wasip1; \
 	fi
-	@echo "==> Generating Tree-sitter parsers..."
-	@for grammar in nap naplist napenv; do \
-	  echo "    $$grammar"; \
-	  (cd src/Napper.Zed/grammars/tree-sitter-$$grammar && tree-sitter generate); \
+	@for g in nap naplist napenv; do \
+	  (cd src/Napper.Zed/grammars/tree-sitter-$$g && tree-sitter generate); \
 	done
-	@echo "==> Building Rust extension (WASM)..."
 	cd src/Napper.Zed && cargo build --release --target wasm32-wasip1
-	@echo "==> Running clippy..."
 	cd src/Napper.Zed && cargo clippy --target wasm32-wasip1
-	@echo "==> Build complete"
-	@echo ""
-	@echo "To test in Zed:"
-	@echo "  1. Open Zed"
-	@echo "  2. Run: zed: install dev extension"
-	@echo "  3. Select: $$(pwd)/src/Napper.Zed"
 
-# ============================================================
-# Version management
-# ============================================================
+# =============================================================================
+# Private helpers
+# =============================================================================
 
-# Usage: make bump-version VERSION=0.2.0 [COMMIT=true]
-bump-version:
-ifndef VERSION
-	$(error Usage: make bump-version VERSION=x.y.z [COMMIT=true])
-endif
-	@echo "==> Bumping all projects to v$(VERSION)"
-	sed -i.bak 's|<Version>.*</Version>|<Version>$(VERSION)</Version>|' Directory.Build.props
-	rm -f Directory.Build.props.bak
-	@echo "    Directory.Build.props → $(VERSION)"
-	cd src/Napper.VsCode && npm version "$(VERSION)" --no-git-tag-version --allow-same-version
-	@echo "    src/Napper.VsCode/package.json → $(VERSION)"
-	@if [ -f Cargo.toml ]; then \
-	  sed -i.bak 's/^version = ".*"/version = "$(VERSION)"/' Cargo.toml; \
-	  rm -f Cargo.toml.bak; \
-	  echo "    Cargo.toml → $(VERSION)"; \
-	fi
-	@echo "==> All projects bumped to v$(VERSION)"
-ifeq ($(COMMIT),true)
-	@echo "==> Committing and pushing version bump..."
-	@if [ -n "$${CI:-}" ]; then \
-	  git config user.name "github-actions[bot]"; \
-	  git config user.email "github-actions[bot]@users.noreply.github.com"; \
-	fi
-	git add Directory.Build.props src/Napper.VsCode/package.json src/Napper.VsCode/package-lock.json
-	@[ -f Cargo.toml ] && git add Cargo.toml || true
-	git commit -m "release: update version to v$(VERSION)"
-	git push
-	@echo "==> Committed and pushed v$(VERSION)"
-endif
+# NativeAOT publish per [CLI-AOT-MIGRATION]: a single statically-linked native
+# binary per RID, zero runtime deps. The LSP (napper lsp) ships inside it.
+_build_cli:
+	dotnet publish src/Napper.Cli/Napper.Cli.fsproj \
+	  -r "$(_NAP_RID)" \
+	  -p:PublishAot=true \
+	  -o "out/$(_NAP_RID)" --nologo
+	@$(_MKDIR) "$(_EXT_BIN)"
+	cp "out/$(_NAP_RID)/napper" "$(_EXT_BIN)/napper"
+	chmod +x "$(_EXT_BIN)/napper"
+	@# Verify the AOT binary honors the version contract [SWR-VERSION-CLI-OUTPUT].
+	@# Glob-match the plain text output — never regex/sed over the props XML.
+	@ACTUAL=$$("out/$(_NAP_RID)/napper" --version); \
+	case "$$ACTUAL" in \
+	  "napper "?*) echo "  napper --version: $$ACTUAL" ;; \
+	  *) echo "ERROR: bad --version output: '$$ACTUAL' (expected 'napper <semver>')"; exit 1 ;; \
+	esac
 
-# ============================================================
-# Install
-# ============================================================
+_build_extension:
+	cd src/Napper.VsCode && npm ci && npx webpack --mode production
 
-install-binaries: build-cli
-	@echo "==> Binaries installed:"
-	@echo "    CLI: ~/.local/bin/napper"
-	@echo "    CLI: $(EXT_BIN)/napper"
+_test_fsharp:
+	$(_MKDIR) "$(_LOG_DIR)"
+	$(call _dotnet_test,src/Napper.Core.Tests,$(_FSHARP_COV),test-fsharp-core)
+	$(call _dotnet_test,src/DotHttp.Tests,$(_DOTHTTP_COV),test-dothttp)
+	$(call _dotnet_test,src/Napper.Lsp.Tests,$(_LSP_COV),test-lsp)
 
-clean-install-vsix: build-all
-	@VSIX_FILE=$$(ls -1 src/Napper.VsCode/*.vsix 2>/dev/null | head -1); \
-	if [ -z "$$VSIX_FILE" ]; then \
-	  echo "ERROR: No VSIX file found after build"; \
-	  exit 1; \
-	fi; \
-	echo "==> Installing VSIX: $$VSIX_FILE"; \
-	code --install-extension "src/Napper.VsCode/$$VSIX_FILE" --force
-	@echo ""
-	@echo "==> DONE — restart VS Code to load the new extension"
+_test_rust:
+	$(_MKDIR) "$(_LOG_DIR)" "$(_RUST_COV)"
+	cd src/Napper.Zed && cargo tarpaulin \
+	  --out html lcov xml \
+	  --output-dir "../../$(_RUST_COV)/report" \
+	  --skip-clean 2>&1 | tee "../../$(_LOG_DIR)/test-rust.log"
 
-# ============================================================
-# Test targets
-# ============================================================
-
-test-fsharp:
-	@echo "========================================="
-	@echo "  Napper.Core Tests + Coverage"
-	@echo "========================================="
-	mkdir -p "$(LOG_DIR)"
-	rm -rf "$(FSHARP_COVERAGE_DIR)"
-	mkdir -p "$(FSHARP_COVERAGE_DIR)"
-	@echo "==> Running Napper.Core tests with coverage..."
-	dotnet test src/Napper.Core.Tests --nologo \
-	  --settings src/Napper.Core.Tests/coverage.runsettings \
-	  --results-directory "$(FSHARP_COVERAGE_DIR)/raw" \
-	  --logger "console;verbosity=detailed" \
-	  -- RunConfiguration.FailFastEnabled=true 2>&1 | tee "$(LOG_DIR)/test-fsharp-core.log"
-	@echo "==> Generating Napper.Core coverage report..."
-	reportgenerator \
-	  -reports:"$(FSHARP_COVERAGE_DIR)/raw/*/coverage.cobertura.xml" \
-	  -targetdir:"$(FSHARP_COVERAGE_DIR)/report" \
-	  -reporttypes:"Html;TextSummary;Cobertura;lcov"
-	@echo ""
-	@echo "=== Napper.Core Coverage Summary ==="
-	@cat "$(FSHARP_COVERAGE_DIR)/report/Summary.txt"
-	@echo ""
-	@echo "========================================="
-	@echo "  DotHttp Tests + Coverage"
-	@echo "========================================="
-	rm -rf "$(DOTHTTP_COVERAGE_DIR)"
-	mkdir -p "$(DOTHTTP_COVERAGE_DIR)"
-	@echo "==> Running DotHttp tests with coverage..."
-	dotnet test src/DotHttp.Tests --nologo \
-	  --settings src/DotHttp.Tests/coverage.runsettings \
-	  --results-directory "$(DOTHTTP_COVERAGE_DIR)/raw" \
-	  --logger "console;verbosity=detailed" \
-	  -- RunConfiguration.FailFastEnabled=true 2>&1 | tee "$(LOG_DIR)/test-dothttp.log"
-	@echo "==> Generating DotHttp coverage report..."
-	reportgenerator \
-	  -reports:"$(DOTHTTP_COVERAGE_DIR)/raw/*/coverage.cobertura.xml" \
-	  -targetdir:"$(DOTHTTP_COVERAGE_DIR)/report" \
-	  -reporttypes:"Html;TextSummary;Cobertura;lcov"
-	@echo ""
-	@echo "=== DotHttp Coverage Summary ==="
-	@cat "$(DOTHTTP_COVERAGE_DIR)/report/Summary.txt"
-	@echo ""
-	@echo "========================================="
-	@echo "  Napper.Lsp Tests + Coverage"
-	@echo "========================================="
-	rm -rf "$(LSP_COVERAGE_DIR)"
-	mkdir -p "$(LSP_COVERAGE_DIR)"
-	@echo "==> Running Napper.Lsp tests with coverage..."
-	dotnet test src/Napper.Lsp.Tests --nologo \
-	  --settings src/Napper.Lsp.Tests/coverage.runsettings \
-	  --results-directory "$(LSP_COVERAGE_DIR)/raw" \
-	  --logger "console;verbosity=detailed" \
-	  -- RunConfiguration.FailFastEnabled=true 2>&1 | tee "$(LOG_DIR)/test-lsp.log"
-	@echo "==> Generating Napper.Lsp coverage report..."
-	reportgenerator \
-	  -reports:"$(LSP_COVERAGE_DIR)/raw/*/coverage.cobertura.xml" \
-	  -targetdir:"$(LSP_COVERAGE_DIR)/report" \
-	  -reporttypes:"Html;TextSummary;Cobertura;lcov"
-	@echo ""
-	@echo "=== Napper.Lsp Coverage Summary ==="
-	@cat "$(LSP_COVERAGE_DIR)/report/Summary.txt"
-
-test-rust:
-	@echo "========================================="
-	@echo "  Rust Tests + Coverage (Napper.Zed)"
-	@echo "========================================="
-	mkdir -p "$(LOG_DIR)"
-	rm -rf "$(RUST_COVERAGE_DIR)"
-	mkdir -p "$(RUST_COVERAGE_DIR)"
-	@echo "==> Running Rust checks..."
-	cargo fmt --manifest-path src/Napper.Zed/Cargo.toml -- --check 2>&1 | tee "$(LOG_DIR)/test-rust-fmt.log"
-	cargo clippy --manifest-path src/Napper.Zed/Cargo.toml 2>&1 | tee "$(LOG_DIR)/test-rust-clippy.log"
-	@echo "==> Running Rust tests with coverage..."
-	cd src/Napper.Zed && cargo tarpaulin --out html lcov xml --output-dir "../../$(RUST_COVERAGE_DIR)/report" --skip-clean 2>&1 | tee "../../$(LOG_DIR)/test-rust.log"
-	@echo ""
-	@echo "=== Rust Coverage Summary ==="
-	@LINE_RATE=$$(sed -n 's/.*line-rate="\([0-9.]*\)".*/\1/p' "$(RUST_COVERAGE_DIR)/report/cobertura.xml" 2>/dev/null | head -1); \
-	LINE_RATE=$${LINE_RATE:-0}; \
-	echo "  Line coverage: $$(echo "$$LINE_RATE * 100" | bc -l | xargs printf "%.1f")%"
-
-test-vsix: build-cli build-extension
-	@echo "========================================="
-	@echo "  TypeScript Tests + Coverage"
-	@echo "========================================="
-	mkdir -p "$(LOG_DIR)"
-	rm -rf "$(TS_COVERAGE_DIR)"
-	mkdir -p "$(TS_COVERAGE_DIR)"
+_test_vsix: _build_cli _build_extension
+	$(_MKDIR) "$(_LOG_DIR)" "$(_TS_COV)"
 	cd src/Napper.VsCode && npm run compile && npm run compile:tests
-	@echo "==> Running unit tests..."
-	cd src/Napper.VsCode && NODE_V8_COVERAGE="../../$(TS_COVERAGE_DIR)/tmp" \
-	  npx mocha out/test/unit/**/*.test.js --ui tdd --timeout 5000 2>&1 | tee "../../$(LOG_DIR)/test-vsix-unit.log"
-	@echo "==> Running e2e tests..."
-	cd src/Napper.VsCode && NODE_V8_COVERAGE="../../$(TS_COVERAGE_DIR)/tmp" \
-	  npx vscode-test 2>&1 | tee "../../$(LOG_DIR)/test-vsix-e2e.log"
-	@echo "==> Generating combined TypeScript coverage report..."
+	cd src/Napper.VsCode && NODE_V8_COVERAGE="../../$(_TS_COV)/tmp" \
+	  npx mocha out/test/unit/**/*.test.js --ui tdd --timeout 5000 \
+	  2>&1 | tee "../../$(_LOG_DIR)/test-vsix-unit.log"
+	cd src/Napper.VsCode && NODE_V8_COVERAGE="../../$(_TS_COV)/tmp" \
+	  npx vscode-test 2>&1 | tee "../../$(_LOG_DIR)/test-vsix-e2e.log"
 	cd src/Napper.VsCode && npx c8 report \
-	  --temp-directory "../../$(TS_COVERAGE_DIR)/tmp" \
-	  --report-dir "../../$(TS_COVERAGE_DIR)/report" \
-	  --reporter html --reporter text --reporter lcov 2>&1 | tee "../../$(LOG_DIR)/test-vsix-coverage.log"
+	  --temp-directory "../../$(_TS_COV)/tmp" \
+	  --report-dir "../../$(_TS_COV)/report" \
+	  --reporter html --reporter text --reporter lcov \
+	  2>&1 | tee "../../$(_LOG_DIR)/test-vsix-coverage.log"
 
-test: test-fsharp test-rust test-vsix
-	@echo ""
-	@echo "========================================="
-	@echo "  Coverage Reports"
-	@echo "========================================="
-	@echo "  Napper.Core:   $(FSHARP_COVERAGE_DIR)/report/index.html"
-	@echo "  DotHttp:    $(DOTHTTP_COVERAGE_DIR)/report/index.html"
-	@echo "  Rust:       $(RUST_COVERAGE_DIR)/report/index.html"
-	@echo "  TypeScript: $(TS_COVERAGE_DIR)/report/index.html"
-	@echo "========================================="
-
-# ============================================================
-# Format & Lint
-# ============================================================
-
-format:
-	@echo "==> F# (Fantomas)..."
-	dotnet fantomas src/
-	@echo "==> TypeScript (Prettier)..."
-	cd src/Napper.VsCode && npx prettier --write "src/**/*.ts"
-	@echo "==> Rust (cargo fmt)..."
-	cargo fmt --manifest-path src/Napper.Zed/Cargo.toml
-	@echo "==> All projects formatted"
-
-lint:
-	@echo "==> F# build (warnings as errors)..."
-	dotnet build --nologo -warnaserror
-	@echo "==> TypeScript (ESLint)..."
-	cd src/Napper.VsCode && npm run lint
-	@echo "==> Rust (clippy)..."
-	cargo clippy --manifest-path src/Napper.Zed/Cargo.toml
-	@echo "==> All projects linted"
-
-# ============================================================
-# Docs
-# ============================================================
-
-dump-cli-help:
-	@CLI_PATH=$$(command -v napper 2>/dev/null || true); \
-	if [ -z "$$CLI_PATH" ]; then \
-	  echo "napper not found on PATH — building first..."; \
-	  $(MAKE) build-cli; \
-	  CLI_PATH="$(HOME)/.local/bin/napper"; \
-	fi; \
-	echo "==> Capturing CLI help output from $$CLI_PATH..."; \
-	HELP_OUTPUT=$$($$CLI_PATH help 2>&1); \
-	mkdir -p docs; \
-	{ \
-	  echo '# Nap CLI Reference'; \
-	  echo ''; \
-	  echo '> Auto-generated from `nap help`. Run `make dump-cli-help` to regenerate.'; \
-	  echo ''; \
-	  echo '## Help Output'; \
-	  echo ''; \
-	  echo '```'; \
-	  echo "$$HELP_OUTPUT"; \
-	  echo '```'; \
-	  echo ''; \
-	  echo '## Commands'; \
-	  echo ''; \
-	  echo '### `nap run <file|folder>`'; \
-	  echo ''; \
-	  echo 'Run a `.nap` file, `.naplist` playlist, or an entire folder of requests.'; \
-	  echo ''; \
-	  echo '```sh'; \
-	  echo '# Single request'; \
-	  echo 'nap run ./users/get-user.nap'; \
-	  echo ''; \
-	  echo '# With variable overrides'; \
-	  echo 'nap run ./users/get-user.nap --var userId=99'; \
-	  echo ''; \
-	  echo '# Run all .nap files in a folder (sorted by filename)'; \
-	  echo 'nap run ./users/'; \
-	  echo ''; \
-	  echo '# Run a playlist'; \
-	  echo 'nap run ./smoke.naplist'; \
-	  echo ''; \
-	  echo '# With a named environment'; \
-	  echo 'nap run ./smoke.naplist --env staging'; \
-	  echo ''; \
-	  echo '# Output as JUnit XML (for CI)'; \
-	  echo 'nap run ./smoke.naplist --output junit'; \
-	  echo ''; \
-	  echo '# Output as JSON'; \
-	  echo 'nap run ./smoke.naplist --output json'; \
-	  echo '```'; \
-	  echo ''; \
-	  echo '### `nap check <file>`'; \
-	  echo ''; \
-	  echo 'Validate the syntax of a `.nap` or `.naplist` file without executing it.'; \
-	  echo ''; \
-	  echo '```sh'; \
-	  echo 'nap check ./users/get-user.nap'; \
-	  echo 'nap check ./smoke.naplist'; \
-	  echo '```'; \
-	  echo ''; \
-	  echo '### `nap generate openapi <spec> --output-dir <dir>`'; \
-	  echo ''; \
-	  echo 'Generate `.nap` files from an OpenAPI specification.'; \
-	  echo ''; \
-	  echo '```sh'; \
-	  echo 'nap generate openapi ./openapi.json --output-dir ./tests'; \
-	  echo 'nap generate openapi ./openapi.json --output-dir ./tests --output json'; \
-	  echo '```'; \
-	  echo ''; \
-	  echo '### `nap help`'; \
-	  echo ''; \
-	  echo 'Display the help message. Also available as `--help` or `-h`.'; \
-	  echo ''; \
-	  echo '## Options'; \
-	  echo ''; \
-	  echo '| Option              | Description                                       |'; \
-	  echo '|---------------------|---------------------------------------------------|'; \
-	  echo '| `--env <name>`      | Load a named environment file (`.napenv.<name>`)  |'; \
-	  echo '| `--var <key=value>` | Override a variable (repeatable)                  |'; \
-	  echo '| `--output <format>` | Output format: `pretty` (default), `junit`, `json`, `ndjson` |'; \
-	  echo '| `--output-dir <dir>`| Output directory for generate command             |'; \
-	  echo '| `--verbose`         | Enable debug-level logging                        |'; \
-	  echo ''; \
-	  echo '## Exit Codes'; \
-	  echo ''; \
-	  echo '| Code | Meaning                                          |'; \
-	  echo '|------|--------------------------------------------------|'; \
-	  echo '| 0    | All assertions passed                            |'; \
-	  echo '| 1    | One or more assertions failed                    |'; \
-	  echo '| 2    | Runtime error (network, script error, parse error) |'; \
-	} > docs/cli-reference.md; \
-	echo "==> Written to docs/cli-reference.md"
+_coverage_check:
+	@echo "==> Coverage check..."
+	$(call _cov_check,src/Napper.Core.Tests,$(_FSHARP_COV)/report/Summary.txt,Napper.Core)
+	$(call _cov_check,src/DotHttp.Tests,$(_DOTHTTP_COV)/report/Summary.txt,DotHttp)
+	$(call _cov_check,src/Napper.Lsp.Tests,$(_LSP_COV)/report/Summary.txt,Napper.Lsp)
+	@{ \
+	  t=$$(jq -r '.projects["src/Napper.Zed"].threshold // .default_threshold' coverage-thresholds.json); \
+	  if [ -f "$(_RUST_COV)/report/cobertura.xml" ]; then \
+	    lr=$$(sed -n 's/.*line-rate="\([0-9.]*\)".*/\1/p' "$(_RUST_COV)/report/cobertura.xml" | head -1); \
+	    c=$$(echo "$${lr:-0} * 100" | bc -l | xargs printf "%.1f"); \
+	    echo "  Rust: $${c}% (threshold $${t}%)"; \
+	    if [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ]; then \
+	      echo "  *** FAIL: Rust coverage $${c}% is below threshold $${t}% — ABORTING ***"; \
+	      exit 1; \
+	    fi; \
+	    new_t=$$(( $$(echo "scale=0; $${c}/1" | bc) - 1 )); \
+	    if [ $$(echo "$${new_t} > $${t}" | bc -l) -eq 1 ]; then \
+	      tmp=$$(mktemp); \
+	      jq --argjson nt "$${new_t}" '.projects["src/Napper.Zed"].threshold = $$nt' coverage-thresholds.json > "$${tmp}" && mv "$${tmp}" coverage-thresholds.json; \
+	      echo "  RATCHET: Rust threshold -> $${new_t}%"; \
+	    else \
+	      echo "  OK"; \
+	    fi; \
+	  else echo "  Rust: no data (skipping)"; fi; \
+	}
+	@{ \
+	  t=$$(jq -r '.projects["src/Napper.VsCode"].threshold // .default_threshold' coverage-thresholds.json); \
+	  if [ -f "$(_TS_COV)/report/index.html" ]; then \
+	    c=$$(cd src/Napper.VsCode && npx c8 report --reporter text 2>/dev/null | grep 'All files' | awk '{print $$4}' | tr -d '%' || echo "0"); \
+	    echo "  TypeScript: $${c}% (threshold $${t}%)"; \
+	    if [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ]; then \
+	      echo "  *** FAIL: TypeScript coverage $${c}% is below threshold $${t}% — ABORTING ***"; \
+	      exit 1; \
+	    fi; \
+	    new_t=$$(( $$(echo "scale=0; $${c}/1" | bc) - 1 )); \
+	    if [ $$(echo "$${new_t} > $${t}" | bc -l) -eq 1 ]; then \
+	      tmp=$$(mktemp); \
+	      jq --argjson nt "$${new_t}" '.projects["src/Napper.VsCode"].threshold = $$nt' coverage-thresholds.json > "$${tmp}" && mv "$${tmp}" coverage-thresholds.json; \
+	      echo "  RATCHET: TypeScript threshold -> $${new_t}%"; \
+	    else \
+	      echo "  OK"; \
+	    fi; \
+	  else echo "  TypeScript: no data (skipping)"; fi; \
+	}
+	@echo "==> Coverage OK"

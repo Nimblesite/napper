@@ -29,7 +29,7 @@ let formatPretty (result: NapResult) : string =
             else "33"
 
         appendLine
-            $"  \x1b[{statusColor}m{resp.StatusCode}\x1b[0m {result.Request.Method} {result.Request.Url}  ({resp.Duration.TotalMilliseconds:F0}ms)"
+            $"  \x1b[{statusColor}m{resp.StatusCode}\x1b[0m {result.Request.Method.Name} {result.Request.Url}  ({resp.Duration.TotalMilliseconds:F0}ms)"
 
         // Assertions
         for a in result.Assertions do
@@ -132,7 +132,9 @@ let formatJson (result: NapResult) : string =
     | None -> ()
 
     // Request info
-    writer.WriteString("requestMethod", string result.Request.Method)
+    // .Name, not `string` on the DU: the `string` operator on a union reflects
+    // (structured-print) and aborts under NativeAOT.
+    writer.WriteString("requestMethod", result.Request.Method.Name)
     writer.WriteString("requestUrl", result.Request.Url)
     writer.WriteStartObject("requestHeaders")
 

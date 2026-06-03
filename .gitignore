@@ -1,57 +1,108 @@
+# =============================================================================
 # OS
+# =============================================================================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# .NET build output
+# =============================================================================
+# IDE / Editor
+# =============================================================================
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# =============================================================================
+# Secrets / Local Overrides
+# =============================================================================
+.env
+.env.local
+.env.*.local
+*.local
+*.secret
+*.pem
+*.key
+!*.pub.key
+.napenv.local
+
+# =============================================================================
+# Temporary
+# =============================================================================
+tmp/
+temp/
+scratch/
+
+# =============================================================================
+# Coverage Artifacts
+# =============================================================================
+coverage/
+lcov.info
+*.profraw
+*.profdata
+htmlcov/
+.coverage
+coverage.xml
+coverage.out
+coverage-summary.json
+TestResults/
+mutants.out/
+
+# =============================================================================
+# F# / .NET
+# =============================================================================
 bin/
 obj/
 publish/
+.ionide/
 
-# Node / TypeScript build output
+# =============================================================================
+# TypeScript / Node
+# =============================================================================
 node_modules/
 dist/
 out/
+build/
+*.vsix
+*.tgz
+.npm/
+.cache/
+.vscode-test/
+.vscode-test-web/
+.nyc_output/
 
-# VSCode extension
-src/Napper.VsCode/node_modules/
-src/Napper.VsCode/dist/
-src/Napper.VsCode/out/
-src/Napper.VsCode/*.vsix
-src/Napper.VsCode/.vscode-test/
-
-# IDE settings
-.vscode/
-
-# Secrets
-.napenv.local
-
-# Test output
-coverage/
-TestResults/
-
-# Tools
-.too_many_cooks/
-.commandtree/
-.playwright-mcp/
-
-# Generated files
-website/_site/
-examples/httpbin/advanced-report.html
-
-# Cached test specs
-tests/Napper.Core.Tests/.spec-cache/
-
-examples/httpbin/all-methods-report.html
-
+# =============================================================================
+# Rust
+# =============================================================================
 src/Napper.Zed/target/
-
-src/Napper.Zed/extension.wasm
-
-src/Napper.Zed/grammars/nap.wasm
-
-src/Napper.Zed/grammars/napenv.wasm
-
 *.wasm
 
+# =============================================================================
+# Tool Caches
+# =============================================================================
+.commandtree/
+.deslop-cache/
+.ghissues/
+
+# =============================================================================
+# Generated Files
+# =============================================================================
+# Napper.Core ADTs generated from Types.td (typeDiagram). Run `make generate-types`.
+src/Napper.Core/Types.Generated.fs
+website/_site/
+examples/httpbin/advanced-report.html
+examples/httpbin/all-methods-report.html
+tests/Napper.Core.Tests/.spec-cache/
 scripts/logs/
 
-src/Napper.VsCode/.nyc_output/
+scripts/.too_many_cooks/

@@ -1,7 +1,7 @@
 ---
 layout: layouts/base.njk
-title: "Napper — CLI-First API Testing for VS Code"
-description: "Napper is a free, open-source API testing tool that runs from the command line and integrates natively with VS Code. A modern alternative to Postman and Bruno with F# and C# scripting, declarative assertions, and CI/CD integration."
+title: "Napper — CLI-First API Testing for VS Code, Zed & any editor"
+description: "Napper is a free, open-source API testing tool for anyone testing APIs. Run from the command line, script in JavaScript, Python, F#, or C#, and edit anywhere with a native VS Code & Zed extension and a portable language server. A modern alternative to Postman and Bruno with declarative assertions and CI/CD integration."
 permalink: /
 ---
 
@@ -11,13 +11,13 @@ permalink: /
     <img src="/assets/images/logo.png" alt="Napper logo — open-source CLI-first API testing tool for VS Code" class="hero-logo" width="80" height="80">
     <h1>API Testing,<br>Supercharged.</h1>
     <p class="hero-subtitle">
-      Napper is a free, open-source API testing tool that runs from the command line and integrates natively with VS Code.
+      Napper is a free, open-source API testing tool for anyone testing APIs. It runs from the command line and edits natively in VS Code, Zed, and any editor via a portable language server.
       Define HTTP requests as plain text <code>.nap</code> files, add declarative assertions, chain them into test suites, and run everything in CI/CD with JUnit output.
-      Migrate from <code>.http</code> files with a single command. As simple as curl for quick requests. As powerful as F# and C# for full test suites.
+      Migrate from <code>.http</code> files with a single command. As simple as curl for quick requests. As powerful as your own code &mdash; script in JavaScript, Python, F#, or C#.
     </p>
     <div class="hero-actions">
       <a href="/docs/installation/" class="btn btn-primary">Get Started</a>
-      <a href="https://github.com/MelbourneDeveloper/napper" class="btn btn-secondary">View on GitHub</a>
+      <a href="https://github.com/Nimblesite/napper" class="btn btn-secondary">View on GitHub</a>
     </div>
 
     {# ---- Code Demo ---- #}
@@ -78,16 +78,16 @@ permalink: /
         <div class="feature-icon" style="background: rgba(232,115,74,0.12); color: #E8734A;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
         </div>
-        <h3>VS Code Native</h3>
-        <p>Full extension with syntax highlighting, request explorer, environment switching, and Test Explorer integration. Never leave your editor.</p>
+        <h3>Editor-Native, LSP-Powered</h3>
+        <p>First-class extensions for VS Code and Zed, plus a portable language server that brings completions, diagnostics, and hover to any editor. Syntax highlighting, request explorer, environment switching, and Test Explorer integration. Never leave your editor.</p>
       </div>
 
       <div class="feature-card">
         <div class="feature-icon" style="background: rgba(27,73,101,0.12); color: #1B4965;">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
         </div>
-        <h3>F# and C# Scripting</h3>
-        <p>Full power of F# and C# for pre/post request hooks. Extract tokens, build dynamic payloads, orchestrate complex flows with the entire .NET ecosystem.</p>
+        <h3>Script in Any Language</h3>
+        <p>Write pre/post hooks and orchestration in JavaScript, Python, F#, or C# &mdash; whatever your team already runs. Extract tokens, build dynamic payloads, and orchestrate complex flows with real runtimes and full ecosystem access. No sandbox. <code>.fsx</code> and <code>.csx</code> are genuinely lovely, but never required.</p>
       </div>
 
       <div class="feature-card">
@@ -160,11 +160,11 @@ permalink: /
           <td><span class="cross">No CLI</span></td>
         </tr>
         <tr>
-          <td>VS Code integration</td>
-          <td><span class="check">Native</span></td>
+          <td>Editor integration</td>
+          <td><span class="check">VS Code, Zed &amp; LSP</span></td>
           <td><span class="cross">Separate app</span></td>
           <td><span class="cross">Separate app</span></td>
-          <td><span class="check">Built-in</span></td>
+          <td><span class="check">VS Code only</span></td>
         </tr>
         <tr>
           <td>Git-friendly files</td>
@@ -182,7 +182,7 @@ permalink: /
         </tr>
         <tr>
           <td>Full scripting language</td>
-          <td><span class="check">F# + C# (.fsx/.csx)</span></td>
+          <td><span class="check">JS, Python, F#, C#</span></td>
           <td><span class="cross">Sandboxed JS</span></td>
           <td><span class="cross">Sandboxed JS</span></td>
           <td><span class="cross">None</span></td>
@@ -323,7 +323,7 @@ permalink: /
   <div class="faq-list">
     <div class="faq-item">
       <h3>What is Napper?</h3>
-      <p>Napper is a free, open-source, CLI-first API testing tool that integrates natively with VS Code. It lets you define HTTP requests as plain text <code>.nap</code> files, add declarative assertions to validate responses, compose requests into test suites with <code>.naplist</code> files, and run everything from the terminal or your editor. It uses F# and C# for advanced scripting and outputs JUnit XML for CI/CD pipelines.</p>
+      <p>Napper is a free, open-source, CLI-first API testing tool for anyone testing APIs. It integrates natively with VS Code and Zed, and works in any editor through a portable language server. It lets you define HTTP requests as plain text <code>.nap</code> files, add declarative assertions to validate responses, compose requests into test suites with <code>.naplist</code> files, and run everything from the terminal or your editor. Script advanced flows in JavaScript, Python, F#, or C#, and output JUnit XML for CI/CD pipelines.</p>
     </div>
 
     <div class="faq-item">
@@ -333,12 +333,12 @@ permalink: /
 
     <div class="faq-item">
       <h3>How is Napper different from Postman?</h3>
-      <p>Postman is a GUI-first tool that requires an account, stores collections as JSON, and locks advanced features behind a paywall. Napper is CLI-first, stores everything as plain text files in your repository, requires no account, and is completely free. Napper also provides F# and C# scripting instead of sandboxed JavaScript, and integrates directly into VS Code with native Test Explorer support.</p>
+      <p>Postman is a GUI-first tool that requires an account, stores collections as JSON, and locks advanced features behind a paywall. Napper is CLI-first, stores everything as plain text files in your repository, requires no account, and is completely free. Napper also gives you real scripting in JavaScript, Python, F#, or C# &mdash; run by real runtimes, not a sandbox &mdash; and integrates directly into VS Code, Zed, and any editor via a portable language server with native Test Explorer support.</p>
     </div>
 
     <div class="faq-item">
       <h3>How is Napper different from Bruno?</h3>
-      <p>Bruno is an excellent open-source alternative to Postman, but it is GUI-first with a standalone desktop application. Napper puts the CLI first and lives inside VS Code. For scripting, Bruno offers sandboxed JavaScript while Napper gives you full F# and C# scripting with access to the entire .NET ecosystem. Both store requests as plain text files.</p>
+      <p>Bruno is an excellent open-source alternative to Postman, but it is GUI-first with a standalone desktop application. Napper puts the CLI first and lives inside your editor &mdash; VS Code, Zed, or any editor via its language server. For scripting, Bruno offers sandboxed JavaScript while Napper lets you script in JavaScript, Python, F#, or C# with your real runtime and full ecosystem access &mdash; no sandbox. Both store requests as plain text files.</p>
     </div>
 
     <div class="faq-item">
@@ -348,7 +348,7 @@ permalink: /
 
     <div class="faq-item">
       <h3>What scripting languages does Napper support?</h3>
-      <p>Napper supports both F# (<code>.fsx</code>) and C# (<code>.csx</code>) scripts for pre-request and post-request hooks. Unlike the sandboxed JavaScript in Postman and Bruno, scripts in Napper have full access to the .NET ecosystem. You can parse XML, call databases, generate cryptographic tokens, validate complex schemas, and use any NuGet package. Choose whichever language your team prefers.</p>
+      <p>Napper scripts in JavaScript (<code>.js</code>), Python (<code>.py</code>), F# (<code>.fsx</code>), and C# (<code>.csx</code>) for pre-request and post-request hooks and full orchestration. Every language sees the same <code>ctx</code> and <code>nap</code> objects. Unlike the sandboxed JavaScript in Postman and Bruno, Napper scripts run on real runtimes &mdash; Node.js, Python 3, or .NET &mdash; with full ecosystem access (npm, PyPI, NuGet). Parse XML, call databases, generate cryptographic tokens, validate complex schemas, use any package. Use whatever language you already test with &mdash; though <code>.fsx</code> and <code>.csx</code> are genuinely nice.</p>
     </div>
 
     <div class="faq-item">
@@ -393,7 +393,7 @@ permalink: /
       "name": "What is Napper?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Napper is a free, open-source, CLI-first API testing tool that integrates natively with VS Code. It lets you define HTTP requests as plain text .nap files, add declarative assertions to validate responses, compose requests into test suites with .naplist files, and run everything from the terminal or your editor. It uses F# and C# for advanced scripting and outputs JUnit XML for CI/CD pipelines."
+        "text": "Napper is a free, open-source, CLI-first API testing tool for anyone testing APIs. It integrates natively with VS Code and Zed, and works in any editor through a portable language server. It lets you define HTTP requests as plain text .nap files, add declarative assertions to validate responses, compose requests into test suites with .naplist files, and run everything from the terminal or your editor. Script advanced flows in JavaScript, Python, F#, or C#, and output JUnit XML for CI/CD pipelines."
       }
     },
     {
@@ -409,7 +409,7 @@ permalink: /
       "name": "How is Napper different from Postman?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Postman is a GUI-first tool that requires an account, stores collections as JSON, and locks advanced features behind a paywall. Napper is CLI-first, stores everything as plain text files in your repository, requires no account, and is completely free. Napper also provides F# and C# scripting instead of sandboxed JavaScript, and integrates directly into VS Code with native Test Explorer support."
+        "text": "Postman is a GUI-first tool that requires an account, stores collections as JSON, and locks advanced features behind a paywall. Napper is CLI-first, stores everything as plain text files in your repository, requires no account, and is completely free. Napper also gives you real scripting in JavaScript, Python, F#, or C# — run by real runtimes, not a sandbox — and integrates directly into VS Code, Zed, and any editor via a portable language server with native Test Explorer support."
       }
     },
     {
@@ -417,7 +417,7 @@ permalink: /
       "name": "How is Napper different from Bruno?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Bruno is an excellent open-source alternative to Postman, but it is GUI-first with a standalone desktop application. Napper puts the CLI first and lives inside VS Code. For scripting, Bruno offers sandboxed JavaScript while Napper gives you full F# and C# scripting with access to the entire .NET ecosystem."
+        "text": "Bruno is an excellent open-source alternative to Postman, but it is GUI-first with a standalone desktop application. Napper puts the CLI first and lives inside your editor — VS Code, Zed, or any editor via its language server. For scripting, Bruno offers sandboxed JavaScript while Napper lets you script in JavaScript, Python, F#, or C# with your real runtime and full ecosystem access — no sandbox."
       }
     },
     {
@@ -433,7 +433,7 @@ permalink: /
       "name": "What scripting languages does Napper support?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Napper supports both F# (.fsx) and C# (.csx) scripts for pre-request and post-request hooks. Unlike the sandboxed JavaScript in Postman and Bruno, scripts in Napper have full access to the .NET ecosystem."
+        "text": "Napper scripts in JavaScript (.js), Python (.py), F# (.fsx), and C# (.csx) for pre-request and post-request hooks and full orchestration. Every language sees the same ctx and nap objects. Unlike the sandboxed JavaScript in Postman and Bruno, Napper scripts run on real runtimes — Node.js, Python 3, or .NET — with full ecosystem access to npm, PyPI, and NuGet."
       }
     },
     {
@@ -468,7 +468,7 @@ permalink: /
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Napper",
-  "description": "CLI-first API testing tool for VS Code with F# and C# scripting, declarative assertions, and CI/CD integration.",
+  "description": "CLI-first API testing tool for anyone testing APIs. Native VS Code & Zed extensions and a portable language server, scripting in JavaScript, Python, F#, or C#, declarative assertions, and CI/CD integration.",
   "url": "https://napperapi.dev",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Windows, macOS, Linux",
@@ -478,22 +478,23 @@ permalink: /
     "priceCurrency": "USD"
   },
   "license": "https://opensource.org/licenses/MIT",
-  "downloadUrl": "https://github.com/MelbourneDeveloper/napper/releases",
+  "downloadUrl": "https://github.com/Nimblesite/napper/releases",
   "installUrl": "https://marketplace.visualstudio.com/items?itemName=nimblesite.napper",
   "author": {
     "@type": "Person",
     "name": "Christian Findlay"
   },
-  "programmingLanguage": ["F#", "C#"],
+  "programmingLanguage": ["JavaScript", "Python", "F#", "C#"],
   "featureList": [
     "CLI-first HTTP API testing",
-    "VS Code extension with syntax highlighting",
+    "Native VS Code and Zed extensions plus a portable language server for any editor",
     "Declarative assertions on status, body, headers, timing",
-    "F# and C# scripting for advanced request flows",
+    "Scripting in JavaScript, Python, F#, or C# for advanced request flows",
     "Composable test suites with .naplist playlists",
     "Environment variable management with .napenv files",
     "JUnit XML, JSON, NDJSON output for CI/CD",
     "Native VS Code Test Explorer integration",
+    "Self-contained native binaries — no .NET runtime required",
     "OpenAPI import from URL or file with optional AI enhancement",
     "Built-in .http file converter for Microsoft and JetBrains formats"
   ]
