@@ -4,16 +4,6 @@ module Napper.Core.CurlGenerator
 
 open Napper.Core
 
-let private methodString (m: HttpMethod) : string =
-    match m with
-    | GET -> "GET"
-    | POST -> "POST"
-    | PUT -> "PUT"
-    | PATCH -> "PATCH"
-    | DELETE -> "DELETE"
-    | HEAD -> "HEAD"
-    | OPTIONS -> "OPTIONS"
-
 let private escapeShellArg (s: string) : string = s.Replace("'", "'\\''")
 
 let private headerFlag (key: string) (value: string) : string =
@@ -25,7 +15,7 @@ let private bodyFlag (body: RequestBody) : string = $" -d '{escapeShellArg body.
 let toCurl (request: NapRequest) : string =
     let sb = System.Text.StringBuilder()
 
-    sb.Append($"curl -X {methodString request.Method} '{escapeShellArg request.Url}'")
+    sb.Append($"curl -X {request.Method.Name} '{escapeShellArg request.Url}'")
     |> ignore
 
     request.Headers |> Map.iter (fun k v -> sb.Append(headerFlag k v) |> ignore)

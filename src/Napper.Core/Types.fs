@@ -41,6 +41,18 @@ type HttpMethod =
         | HEAD -> System.Net.Http.HttpMethod.Head
         | OPTIONS -> System.Net.Http.HttpMethod.Options
 
+    /// The HTTP verb as an uppercase string. Single source of truth for
+    /// method-name rendering across the CLI, curl generation, and the LSP.
+    member this.Name =
+        match this with
+        | GET -> "GET"
+        | POST -> "POST"
+        | PUT -> "PUT"
+        | PATCH -> "PATCH"
+        | DELETE -> "DELETE"
+        | HEAD -> "HEAD"
+        | OPTIONS -> "OPTIONS"
+
 /// Script references (pre/post hooks)
 type ScriptRef =
     { Pre: string option

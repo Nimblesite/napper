@@ -152,10 +152,12 @@ build-zed:
 # Private helpers
 # =============================================================================
 
+# NativeAOT publish per [CLI-AOT-MIGRATION]: a single statically-linked native
+# binary per RID, zero runtime deps. The LSP (napper lsp) ships inside it.
 _build_cli:
 	dotnet publish src/Napper.Cli/Napper.Cli.fsproj \
-	  -r "$(_NAP_RID)" --self-contained \
-	  -p:PublishTrimmed=true -p:PublishSingleFile=true \
+	  -r "$(_NAP_RID)" \
+	  -p:PublishAot=true \
 	  -o "out/$(_NAP_RID)" --nologo
 	@$(_MKDIR) "$(_EXT_BIN)"
 	cp "out/$(_NAP_RID)/napper" "$(_EXT_BIN)/napper"

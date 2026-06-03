@@ -10,6 +10,18 @@
     <Description>CLI-first, test-oriented HTTP API testing tool</Description>
     <PackageTags>http;api;testing;cli;rest;fsharp;dotnet-tool</PackageTags>
     <NuGetAuditMode>direct</NuGetAuditMode>
+
+    <!-- Implements [CLI-AOT-MIGRATION]. NativeAOT is enabled on the publish
+         command line (-p:PublishAot=true), keeping plain build/test on the JIT. -->
+
+    <!-- IL2104 (trim) and IL3053 (AOT) are whole-assembly *rollup* warnings emitted
+         only by FSharp.Core and FParsec — third-party assemblies that ship without
+         full trim/AOT annotations and which we cannot modify. The FSharp.Core rollup
+         is present in every F# NativeAOT application. Our own F# code stays
+         warning-clean via TreatWarningsAsErrors, and the LSP/CLI are verified working
+         under AOT by the black-box e2e suite (which runs the real native binary), so
+         these two non-actionable codes are the only ones suppressed. -->
+    <NoWarn>$(NoWarn);IL2104;IL3053</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,10 +33,5 @@
     <ProjectReference Include="..\DotHttp\DotHttp.fsproj" />
     <ProjectReference Include="..\Napper.Lsp\Napper.Lsp.fsproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <TrimmerRootDescriptor Include="TrimmerRoots.xml" />
-  </ItemGroup>
-
 
 </Project>

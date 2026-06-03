@@ -2,16 +2,13 @@
 
   <PropertyGroup>
     <NuGetAuditMode>direct</NuGetAuditMode>
+    <!-- AOT-safe: no reflection-based serialization. Surfaces any regression at publish time. -->
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="Workspace.fs" />
-    <Compile Include="Client.fs" />
     <Compile Include="Server.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Ionide.LanguageServerProtocol" Version="0.7.0" />
   </ItemGroup>
 
   <ItemGroup>
