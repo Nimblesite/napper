@@ -97,6 +97,8 @@ src/Napper.Zed/target/
 # =============================================================================
 # Generated Files
 # =============================================================================
+# Napper.Core ADTs generated from Types.td (typeDiagram). Run `make generate-types`.
+src/Napper.Core/Types.Generated.fs
 website/_site/
 examples/httpbin/advanced-report.html
 examples/httpbin/all-methods-report.html

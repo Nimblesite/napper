@@ -49,68 +49,136 @@ let ``initialize handshake returns capabilities`` () : Task =
     }
 
 [<Fact>]
-let ``initialized notification accepted without error`` () : Task =
+let ``initialized handshake leaves the real server fully operational`` () : Task =
     task {
         use server = new LspServerProcess()
         server.Start()
 
-        let! _initResponse = server.SendRequest(MInitialize, 1, initializeParams ())
-        do! server.SendNotification(MInitialized, JsonObject())
-        do! Task.Delay(200)
+        let! initResponse = server.SendRequest(MInitialize, 1, initializeParams ())
+        Assert.Null(initResponse[FError])
+        Assert.NotNull(initResponse[FResult])
+        let caps = initResponse[FResult]["capabilities"]
+        Assert.NotNull(caps)
+        let sync = caps["textDocumentSync"]
+        Assert.Equal(1, sync.GetValue<int>())
 
+        do! server.SendNotification(MInitialized, JsonObject())
+
+        // A synchronous round-trip is far stronger proof of liveness than a sleep:
+        // open a doc and query it back through the real binary.
+        let uri = "file:///tmp/post-init.nap"
+        do! server.SendNotification(MDidOpen, didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n")
+        let! symResponse = server.SendRequest(MDocumentSymbol, 2, textDocParams uri)
+        Assert.Null(symResponse[FError])
+        let symbols = symResponse[FResult] :?> JsonArray
+        Assert.True(symbols.Count >= 1, "server must answer real requests after the initialized handshake")
         Assert.True(server.IsRunning, "Server died after initialized notification")
     }
 
 [<Fact>]
-let ``textDocument/didOpen tracks document`` () : Task =
+let ``textDocument/didOpen tracks document so symbols, lenses and requestInfo all see it`` () : Task =
     task {
         use server = new LspServerProcess()
         server.Start()
         let! _ = handshake server
 
-        let napContent = "[request]\nmethod = GET\nurl = https://example.com\n"
-        do! server.SendNotification(MDidOpen, didOpenParams "file:///tmp/test.nap" 1 napContent)
-        do! Task.Delay(200)
+        let uri = "file:///tmp/test.nap"
+        let content = "[meta]\nname = \"T\"\n\n[request]\nmethod = GET\nurl = https://example.com\n"
+        do! server.SendNotification(MDidOpen, didOpenParams uri 1 content)
 
+        // documentSymbol proves the opened content is actually tracked.
+        let! symResponse = server.SendRequest(MDocumentSymbol, 10, textDocParams uri)
+        Assert.Null(symResponse[FError])
+        let symbols = symResponse[FResult] :?> JsonArray
+        let names = symbols |> Seq.map (fun s -> s["name"].GetValue<string>()) |> Seq.toList
+        Assert.Contains("[meta]", names)
+        Assert.Contains("[request]", names)
+
+        // codeLens proves the [request] section produced a lens with the right detail.
+        let! lensResponse = server.SendRequest(MCodeLens, 11, textDocParams uri)
+        Assert.Null(lensResponse[FError])
+        let lenses = lensResponse[FResult] :?> JsonArray
+        Assert.True(lenses.Count >= 1, "expected a code lens on the [request] section")
+        let lensData = lenses[0]["data"]
+        Assert.NotNull(lensData)
+        Assert.Equal("GET https://example.com", lensData.GetValue<string>())
+
+        // requestInfo proves the parsed request round-trips through the real binary.
+        let! infoResponse = server.SendRequest(MExecuteCommand, 12, executeCommandParams CmdRequestInfo uri)
+        Assert.Null(infoResponse[FError])
+        let info = infoResponse[FResult]
+        let methodNode = info["method"]
+        let urlNode = info["url"]
+        Assert.Equal("GET", methodNode.GetValue<string>())
+        Assert.Equal("https://example.com", urlNode.GetValue<string>())
         Assert.True(server.IsRunning, "Server died after didOpen")
     }
 
 [<Fact>]
-let ``textDocument/didChange updates document`` () : Task =
+let ``textDocument/didChange replaces tracked content and ignores stale versions`` () : Task =
     task {
         use server = new LspServerProcess()
         server.Start()
         let! _ = handshake server
+        let uri = "file:///tmp/test.nap"
 
-        do!
-            server.SendNotification(
-                MDidOpen,
-                didOpenParams "file:///tmp/test.nap" 1 "[request]\nmethod = GET\nurl = https://example.com\n"
-            )
+        do! server.SendNotification(MDidOpen, didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n")
 
-        do!
-            server.SendNotification(
-                MDidChange,
-                didChangeParams "file:///tmp/test.nap" 2 "[request]\nmethod = POST\nurl = https://example.com/users\n"
-            )
+        // Before the change the tracked request is the GET.
+        let! before = server.SendRequest(MExecuteCommand, 20, executeCommandParams CmdRequestInfo uri)
+        let beforeInfo = before[FResult]
+        let beforeMethod = beforeInfo["method"]
+        let beforeUrl = beforeInfo["url"]
+        Assert.Equal("GET", beforeMethod.GetValue<string>())
+        Assert.Equal("https://example.com", beforeUrl.GetValue<string>())
 
-        do! Task.Delay(200)
+        // A newer version replaces the content.
+        do! server.SendNotification(MDidChange, didChangeParams uri 2 "[request]\nmethod = POST\nurl = https://example.com/users\n")
+        let! after = server.SendRequest(MExecuteCommand, 21, executeCommandParams CmdRequestInfo uri)
+        let afterInfo = after[FResult]
+        let afterMethod = afterInfo["method"]
+        let afterUrl = afterInfo["url"]
+        Assert.Equal("POST", afterMethod.GetValue<string>())
+        Assert.Equal("https://example.com/users", afterUrl.GetValue<string>())
 
+        // A stale (older version) change must be ignored — content stays at v2.
+        do! server.SendNotification(MDidChange, didChangeParams uri 1 "[request]\nmethod = PUT\nurl = https://example.com/stale\n")
+        let! stale = server.SendRequest(MExecuteCommand, 22, executeCommandParams CmdRequestInfo uri)
+        let staleInfo = stale[FResult]
+        let staleMethod = staleInfo["method"]
+        let staleUrl = staleInfo["url"]
+        Assert.Equal("POST", staleMethod.GetValue<string>())
+        Assert.Equal("https://example.com/users", staleUrl.GetValue<string>())
         Assert.True(server.IsRunning, "Server died after didChange")
     }
 
 [<Fact>]
-let ``textDocument/didClose removes document`` () : Task =
+let ``textDocument/didClose removes the document so later queries see nothing`` () : Task =
     task {
         use server = new LspServerProcess()
         server.Start()
         let! _ = handshake server
+        let uri = "file:///tmp/test.nap"
 
-        do! server.SendNotification(MDidOpen, didOpenParams "file:///tmp/test.nap" 1 "GET https://example.com\n")
+        do! server.SendNotification(MDidOpen, didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n")
 
-        do! server.SendNotification(MDidClose, didCloseParams "file:///tmp/test.nap")
-        do! Task.Delay(200)
+        // While open: symbols are present and requestInfo resolves.
+        let! openSyms = server.SendRequest(MDocumentSymbol, 30, textDocParams uri)
+        Assert.Null(openSyms[FError])
+        let openSymbols = openSyms[FResult] :?> JsonArray
+        Assert.True(openSymbols.Count >= 1, "the [request] section should be visible while open")
+        let! openInfo = server.SendRequest(MExecuteCommand, 31, executeCommandParams CmdRequestInfo uri)
+        Assert.NotNull(openInfo[FResult])
+        let openMethod = openInfo[FResult]["method"]
+        Assert.Equal("GET", openMethod.GetValue<string>())
 
+        // After close the document is gone: empty symbols and a null requestInfo.
+        do! server.SendNotification(MDidClose, didCloseParams uri)
+        let! closedSyms = server.SendRequest(MDocumentSymbol, 32, textDocParams uri)
+        Assert.Null(closedSyms[FError])
+        Assert.Equal(0, (closedSyms[FResult] :?> JsonArray).Count)
+        let! closedInfo = server.SendRequest(MExecuteCommand, 33, executeCommandParams CmdRequestInfo uri)
+        Assert.Null(closedInfo[FResult])
         Assert.True(server.IsRunning, "Server died after didClose")
     }
 

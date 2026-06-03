@@ -6,11 +6,19 @@
     <Description>CLI-first, test-oriented HTTP API testing tool</Description>
     <NuGetAuditMode>direct</NuGetAuditMode>
 
-    <!-- DEPLOYMENT: napper ships ONLY as a self-contained NativeAOT native binary
-         (GitHub Releases / Homebrew / Scoop) and bundled inside the VSIX. It is
-         deliberately NOT a `dotnet tool` / NuGet package: a dotnet tool would force
-         end users to install the .NET runtime. Do NOT re-add PackAsTool /
-         ToolCommandName / PackageId here. See [SWR-IDE-RESOLUTION], release.yml. -->
+    <!-- DEPLOYMENT: the PRIMARY artifact is a self-contained NativeAOT native binary
+         (GitHub Releases / Homebrew / Scoop / install script) that is also bundled
+         inside the per-platform VSIX — end users never need .NET. These props only
+         affect `dotnet pack`, which produces a SECONDARY, best-effort `dotnet tool`
+         NuGet package for .NET users who want it. `dotnet pack` and the AOT
+         `dotnet publish` are independent commands and do not interfere. The VSIX
+         resolver NEVER uses dotnet-tool as a startup source ([SWR-IDE-RESOLUTION]);
+         the NuGet publish job is non-blocking and never gates the release. -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>napper</ToolCommandName>
+    <PackageId>napper</PackageId>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+    <PackageTags>http;api;testing;cli;rest;fsharp;dotnet-tool</PackageTags>
 
     <!-- Implements [CLI-AOT-MIGRATION]. NativeAOT is enabled on the publish
          command line (-p:PublishAot=true), keeping plain build/test on the JIT. -->

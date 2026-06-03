@@ -10,6 +10,11 @@ open System
 open System.Text
 open System.Text.Json.Nodes
 
+// The in-process tests mutate one process-wide Workspace and share document URIs
+// across test classes, so the whole assembly must run tests serially.
+[<assembly: Xunit.CollectionBehavior(DisableTestParallelization = true)>]
+do ()
+
 // ─── JSON-RPC envelope / version ───
 [<Literal>]
 let JsonRpcVersion = "2.0"

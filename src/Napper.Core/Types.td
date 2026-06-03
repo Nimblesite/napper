@@ -10,6 +10,12 @@
 #
 # `Duration` is an opaque host type (maps to System.TimeSpan in F#); typeDiagram
 # renders undeclared types as inline text, same as UUID in the language reference.
+#
+# Implements: nap-file, nap-meta, nap-vars, nap-request, nap-headers, nap-body,
+#   nap-assert, nap-script, http-methods, env-interpolation, assert-status,
+#   assert-equals, assert-exists, assert-contains, assert-matches, assert-lt,
+#   assert-gt, naplist-file, naplist-steps, naplist-nap-step, naplist-folder-step,
+#   naplist-nested, naplist-script-step
 
 # Assertion operators used in [assert] blocks
 union AssertOp {

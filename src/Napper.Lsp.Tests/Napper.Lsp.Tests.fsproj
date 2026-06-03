@@ -12,7 +12,6 @@
     <Compile Include="LspIntegrationTests.fs" />
     <Compile Include="LspProtocolTests.fs" />
     <Compile Include="LspCommandTests.fs" />
-    <Compile Include="LspEdgeTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

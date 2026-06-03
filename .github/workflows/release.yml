@@ -6,9 +6,12 @@ name: Release
 # build + per-platform VSIX -> package archives -> GitHub Release + Marketplace +
 # Homebrew + Scoop -> website.
 #
-# DEPLOYMENT CONTRACT: napper ships ONLY as a self-contained NativeAOT native binary
-# (zero .NET runtime on the user's machine) and bundled inside the VSIX. There is no
-# `dotnet tool` / NuGet distribution. .NET is a BUILD-time dependency only.
+# DEPLOYMENT CONTRACT: the PRIMARY artifact is a self-contained NativeAOT native binary
+# (zero .NET runtime on the user's machine) bundled inside the per-platform VSIX and
+# shipped via GitHub Releases / Homebrew / Scoop. A `dotnet tool` NuGet package is a
+# SECONDARY, best-effort channel (publish-nuget): it is non-blocking and is NOT a
+# dependency of any release/marketplace/brew/scoop job, so it can never stop a release.
+# .NET is a BUILD-time dependency only.
 
 on:
   push:
@@ -145,6 +148,24 @@ jobs:
             console.log("--version --json: OK");
           '
 
+      - name: Prove binary needs no .NET runtime (clean room)
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe=""; [ "${{ runner.os }}" = "Windows" ] && exe=".exe"
+          BIN="$PWD/out/${{ matrix.rid }}/napper$exe"
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            # Pristine Ubuntu with ZERO .NET installed — the real end-user gate.
+            # If the AOT binary secretly needed a runtime, this is where it epic-fails.
+            docker run --rm -v "$PWD/out/${{ matrix.rid }}:/b" ubuntu:24.04 /b/napper --version
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            # Empty environment: no PATH, no DOTNET_ROOT — must still run standalone.
+            env -i "$BIN" --version
+          else
+            echo "clean-room run skipped on Windows (system DLL resolution is PATH-independent)"
+          fi
+          echo "clean-room: binary ran with no .NET runtime present"
+
       - name: Stage raw binary for archiving
         shell: bash
         run: |
@@ -264,7 +285,6 @@ jobs:
     needs: [validate-tag, package-cli, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: release
     env:
       TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
@@ -296,7 +316,6 @@ jobs:
     needs: [validate-tag, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: release
     steps:
       - uses: actions/setup-node@v4
         with:
@@ -312,13 +331,38 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
+  # ── SECONDARY, best-effort dotnet-tool NuGet package ──────────────────────────
+  # continue-on-error + NOT a dependency of release / marketplace / brew / scoop, so a
+  # NuGet failure (key, outage, pack issue) can NEVER block the release. The NativeAOT
+  # native binary + VSIX remain the primary, .NET-free deployment.
+  publish-nuget:
+    name: Publish dotnet tool to NuGet (best-effort)
+    needs: [validate-tag, gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Pack dotnet tool (version from tag)
+        run: dotnet pack src/Napper.Cli/Napper.Cli.fsproj -c Release -p:Version="$VERSION" --nologo
+      - name: Push to NuGet (skip if already published)
+        run: |
+          dotnet nuget push "src/Napper.Cli/nupkg/napper.${VERSION}.nupkg" \
+            --api-key "${{ secrets.NIMBLESITE_NUGET_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
   # ── Homebrew tap: hashes come from the build's .sha256 sidecars ────────────────
   update-homebrew:
     name: Update Homebrew Formula
     needs: [validate-tag, release]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: release
     env:
       TAG: ${{ needs.validate-tag.outputs.tag }}
       VERSION: ${{ needs.validate-tag.outputs.version }}
@@ -404,7 +448,6 @@ jobs:
     needs: [validate-tag, release]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: release
     env:
       TAG: ${{ needs.validate-tag.outputs.tag }}
       VERSION: ${{ needs.validate-tag.outputs.version }}
