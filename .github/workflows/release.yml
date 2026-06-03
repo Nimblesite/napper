@@ -1,14 +1,26 @@
 name: Release
 
+# Tag-triggered Shipwright release. Implements [SWR-REL-WORKFLOW], [SWR-REL-GITHUB].
+#
+# Pipeline: validate tag -> CI gate (on 0.0.0-dev source) -> per-platform NativeAOT
+# build + per-platform VSIX -> package archives -> GitHub Release + Marketplace +
+# Homebrew + Scoop -> website.
+#
+# DEPLOYMENT CONTRACT: napper ships ONLY as a self-contained NativeAOT native binary
+# (zero .NET runtime on the user's machine) and bundled inside the VSIX. There is no
+# `dotnet tool` / NuGet distribution. .NET is a BUILD-time dependency only.
+
 on:
   push:
     tags:
-      - "v*"
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
 
 permissions:
   contents: write
 
 jobs:
+  # ── Validate the tag and derive the version ──────────────── [SWR-REL-VERSION]
   validate-tag:
     name: Validate tag
     runs-on: ubuntu-latest
@@ -21,51 +33,63 @@ jobs:
         id: parse
         shell: bash
         run: |
+          set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Tag '$TAG' does not match required format vMAJOR.MINOR.PATCH (e.g. v0.11.0)"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag '$TAG' must match vMAJOR.MINOR.PATCH[-prerelease] (e.g. v0.11.0)"
             exit 1
           fi
-          VERSION="${TAG#v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Releasing $TAG (version $VERSION)"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG (version ${TAG#v})"
 
-  build-cli:
-    name: Build CLI ${{ matrix.rid }}
+  # ── CI gate: lint + test + build + manifest validation on SOURCE (0.0.0-dev) ──
+  # No publish step runs until this passes. Implements [SWR-REL-WORKFLOW] gate,
+  # [SWR-GATE-CI].
+  gate:
+    name: CI gate
     needs: validate-tag
-    # NativeAOT compiles to native machine code and CANNOT cross-compile, so each
-    # RID is built on a runner of its own OS/arch (per cli-aot-migration).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Restore
+        run: dotnet restore
+      - name: Lint + build (warnings as errors)
+        run: dotnet build --no-restore --nologo -warnaserror
+      - name: Validate deployment manifest
+        run: npx --yes @nimblesite/shipwright-validate-manifest src/Napper.VsCode/shipwright.json
+      - name: F# / DotHttp / LSP tests (includes version-contract + stamper)
+        run: |
+          set -euo pipefail
+          dotnet test src/Napper.Core.Tests --no-build --nologo
+          dotnet test src/DotHttp.Tests --no-build --nologo
+          dotnet test src/Napper.Lsp.Tests --no-build --nologo
+
+  # ── Per-platform NativeAOT binary + per-platform VSIX ────── [SWR-VSIX-CI-MATRIX]
+  # NativeAOT cannot cross-compile across OS/arch, so each leg builds on a runner
+  # whose OS+arch matches the target. The binary it produces needs no .NET runtime.
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: [validate-tag, gate]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - rid: osx-arm64
-            os: macos-14
-            archive: tar.gz
-            dtk-platform: darwin-arm64
-          - rid: osx-x64
-            os: macos-13
-            archive: tar.gz
-            dtk-platform: darwin-x64
-          - rid: linux-x64
-            os: ubuntu-latest
-            archive: tar.gz
-            dtk-platform: linux-x64
-          - rid: linux-arm64
-            os: ubuntu-24.04-arm
-            archive: tar.gz
-            dtk-platform: linux-arm64
-          - rid: win-x64
-            os: windows-latest
-            archive: zip
-            dtk-platform: win32-x64
-          - rid: win-arm64
-            os: windows-11-arm
-            archive: zip
-            dtk-platform: win32-arm64
+          - { platform: darwin-arm64, rid: osx-arm64,   os: macos-15,         archive: tar.gz, npm_config_arch: arm64 }
+          - { platform: darwin-x64,   rid: osx-x64,     os: macos-13,         archive: tar.gz, npm_config_arch: x64 }
+          - { platform: linux-x64,    rid: linux-x64,   os: ubuntu-latest,    archive: tar.gz, npm_config_arch: x64 }
+          - { platform: linux-arm64,  rid: linux-arm64, os: ubuntu-24.04-arm, archive: tar.gz, npm_config_arch: arm64 }
+          - { platform: win32-x64,    rid: win-x64,     os: windows-latest,   archive: zip,    npm_config_arch: x64 }
+          - { platform: win32-arm64,  rid: win-arm64,   os: windows-11-arm,   archive: zip,    npm_config_arch: arm }
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
       TAG: ${{ needs.validate-tag.outputs.tag }}
@@ -76,221 +100,75 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      # NativeAOT links with the platform C toolchain. macOS (Xcode CLT) and
-      # Windows (MSVC) runners ship it; Linux runners need clang + zlib headers.
-      - name: Install NativeAOT prerequisites (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
-
-      - name: Publish CLI (${{ matrix.rid }}) [NativeAOT]
-        shell: bash
-        run: |
-          dotnet publish src/Napper.Cli/Napper.Cli.fsproj \
-            -r ${{ matrix.rid }} \
-            -p:PublishAot=true \
-            -p:Version=$VERSION \
-            -p:AssemblyVersion=$VERSION \
-            -p:FileVersion=$VERSION \
-            -p:InformationalVersion=$VERSION \
-            -o out/${{ matrix.rid }} \
-            --nologo
-
-      - name: Verify binary version matches tag (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          chmod +x out/${{ matrix.rid }}/napper
-          ACTUAL=$(out/${{ matrix.rid }}/napper --version)
-          echo "Binary reports: $ACTUAL"
-          EXPECTED="napper $VERSION"
-          if [ "$ACTUAL" != "$EXPECTED" ]; then
-            echo "::error::Binary version '$ACTUAL' does not match expected 'napper $VERSION'"
-            exit 1
-          fi
-          # Verify --version --json output is valid JSON with correct fields
-          JSON=$(out/${{ matrix.rid }}/napper --version --json)
-          echo "JSON: $JSON"
-          echo "$JSON" | python3 -c "
-          import json,sys
-          d=json.load(sys.stdin)
-          assert d['name']=='napper', f'name mismatch: {d[\"name\"]}'
-          assert d['version']=='$VERSION', f'version mismatch: {d[\"version\"]}'
-          assert d['manifestVersion']==1, f'manifestVersion missing'
-          assert d['kind']=='cli', f'kind mismatch: {d[\"kind\"]}'
-          print('JSON version manifest: OK')
-          "
-
-      - name: Verify binary version matches tag (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          # NativeAOT now builds Windows on a Windows runner, so we can execute it.
-          BIN=out/${{ matrix.rid }}/napper.exe
-          test -s "$BIN"
-          ACTUAL=$("$BIN" --version)
-          echo "Binary reports: $ACTUAL"
-          EXPECTED="napper $VERSION"
-          if [ "$ACTUAL" != "$EXPECTED" ]; then
-            echo "::error::Binary version '$ACTUAL' does not match expected 'napper $VERSION'"
-            exit 1
-          fi
-
-      - name: Stage raw binary asset
-        shell: bash
-        run: |
-          mkdir -p assets
-          if [[ "${{ matrix.rid }}" == win-* ]]; then
-            cp out/${{ matrix.rid }}/napper.exe assets/napper-${{ matrix.rid }}.exe
-          else
-            cp out/${{ matrix.rid }}/napper assets/napper-${{ matrix.rid }}
-            chmod +x assets/napper-${{ matrix.rid }}
-          fi
-
-      - name: Stage archive asset
-        shell: bash
-        run: |
-          STAGE=$(mktemp -d)
-          if [[ "${{ matrix.rid }}" == win-* ]]; then
-            cp out/${{ matrix.rid }}/napper.exe "$STAGE/napper.exe"
-            (cd "$STAGE" && zip -q -9 "$GITHUB_WORKSPACE/assets/napper-$TAG-${{ matrix.rid }}.zip" napper.exe)
-          else
-            cp out/${{ matrix.rid }}/napper "$STAGE/napper"
-            chmod +x "$STAGE/napper"
-            tar -C "$STAGE" -czf "assets/napper-$TAG-${{ matrix.rid }}.tar.gz" napper
-          fi
-          ls -la assets/
-
-      - name: Upload release assets
-        uses: actions/upload-artifact@v4
-        with:
-          name: cli-${{ matrix.rid }}
-          path: assets/*
-          if-no-files-found: error
-
-      - name: Upload raw binary for VSIX bundling
-        uses: actions/upload-artifact@v4
-        with:
-          name: bin-${{ matrix.dtk-platform }}
-          path: |
-            out/${{ matrix.rid }}/napper
-            out/${{ matrix.rid }}/napper.exe
-          if-no-files-found: warn
-
-  build-vsix:
-    name: Build VSIX (${{ matrix.dtk-platform }})
-    needs: [validate-tag, build-cli]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - dtk-platform: darwin-arm64
-            rid: osx-arm64
-            os: macos-15
-            vsce-target: darwin-arm64
-            npm_config_arch: arm64
-          - dtk-platform: darwin-x64
-            rid: osx-x64
-            os: macos-13
-            vsce-target: darwin-x64
-            npm_config_arch: x64
-          - dtk-platform: linux-x64
-            rid: linux-x64
-            os: ubuntu-latest
-            vsce-target: linux-x64
-            npm_config_arch: x64
-          - dtk-platform: linux-arm64
-            rid: linux-arm64
-            os: ubuntu-latest
-            vsce-target: linux-arm64
-            npm_config_arch: arm64
-          - dtk-platform: win32-x64
-            rid: win-x64
-            os: windows-latest
-            vsce-target: win32-x64
-            npm_config_arch: x64
-          - dtk-platform: win32-arm64
-            rid: win-arm64
-            os: windows-latest
-            vsce-target: win32-arm64
-            npm_config_arch: arm
-    env:
-      VERSION: ${{ needs.validate-tag.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: src/Napper.VsCode/package-lock.json
 
-      - name: Download bundled binary
-        uses: actions/download-artifact@v4
+      - name: Install Linux NativeAOT prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Stamp version from tag
+        shell: bash
+        run: dotnet fsi scripts/stamp-version.fsx --tag "$TAG"
+
+      - name: Publish NativeAOT binary (${{ matrix.rid }})
+        shell: bash
+        run: |
+          dotnet publish src/Napper.Cli/Napper.Cli.fsproj \
+            -r ${{ matrix.rid }} \
+            -p:PublishAot=true \
+            -o out/${{ matrix.rid }} \
+            --nologo
+
+      - name: Verify binary version contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe=""; [ "${{ runner.os }}" = "Windows" ] && exe=".exe"
+          BIN="out/${{ matrix.rid }}/napper$exe"
+          ACTUAL="$("$BIN" --version | head -1 | tr -d '\r')"
+          echo "napper --version -> $ACTUAL"
+          if [ "$ACTUAL" != "napper ${VERSION}" ]; then
+            echo "::error::binary version '$ACTUAL' != 'napper ${VERSION}'"
+            exit 1
+          fi
+          "$BIN" --version --json | node -e '
+            const d = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const v = process.env.VERSION;
+            const want = { manifestVersion: 1, name: "napper", version: v, kind: "cli", language: "dotnet" };
+            for (const [k, val] of Object.entries(want)) {
+              if (d[k] !== val) { console.error(`--version --json ${k}=${d[k]} expected ${val}`); process.exit(1); }
+            }
+            console.log("--version --json: OK");
+          '
+
+      - name: Stage raw binary for archiving
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe=""; [ "${{ runner.os }}" = "Windows" ] && exe=".exe"
+          mkdir -p rawbin
+          cp "out/${{ matrix.rid }}/napper$exe" "rawbin/napper$exe"
+
+      - name: Upload raw binary
+        uses: actions/upload-artifact@v4
         with:
-          name: bin-${{ matrix.dtk-platform }}
-          path: bin-download/
+          name: rawbin-${{ matrix.rid }}
+          path: rawbin/*
+          if-no-files-found: error
 
-      - name: Stage bundled binary into extension
+      # ── Per-platform VSIX bundling the freshly-built native binary ──
+      - name: Stage binary into the extension
         shell: bash
         run: |
-          mkdir -p src/Napper.VsCode/bin/${{ matrix.dtk-platform }}
-          if [[ "${{ matrix.dtk-platform }}" == win32-* ]]; then
-            cp bin-download/napper.exe src/Napper.VsCode/bin/${{ matrix.dtk-platform }}/napper.exe
-          else
-            cp bin-download/napper src/Napper.VsCode/bin/${{ matrix.dtk-platform }}/napper
-            chmod +x src/Napper.VsCode/bin/${{ matrix.dtk-platform }}/napper
-          fi
-          echo "Bundled binary:"
-          ls -la src/Napper.VsCode/bin/${{ matrix.dtk-platform }}/
-
-      - name: Set extension version from tag
-        working-directory: src/Napper.VsCode
-        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
-
-      - name: Update shipwright.json version from tag
-        working-directory: src/Napper.VsCode
-        shell: bash
-        run: |
-          node -e "
-          const fs = require('fs');
-          const m = JSON.parse(fs.readFileSync('shipwright.json', 'utf8'));
-          m.product.version = process.env.VERSION;
-          m.components.forEach(c => { c.expectedVersion = process.env.VERSION; });
-          fs.writeFileSync('shipwright.json', JSON.stringify(m, null, 2) + '\n');
-          "
-          echo "shipwright.json updated to version $VERSION"
-          cat shipwright.json
-
-      - name: Verify shipwright.json version matches tag
-        shell: bash
-        run: |
-          node -e "
-          const fs = require('fs');
-          const m = JSON.parse(fs.readFileSync('src/Napper.VsCode/shipwright.json','utf8'));
-          const v = process.env.VERSION;
-          if (m.product.version !== v) { process.stderr.write('product.version mismatch: ' + m.product.version + ' vs ' + v + '\n'); process.exit(1); }
-          m.components.forEach(c => {
-            if (c.expectedVersion !== v) { process.stderr.write('expectedVersion mismatch: ' + c.expectedVersion + ' vs ' + v + '\n'); process.exit(1); }
-          });
-          console.log('shipwright.json version OK: ' + v);
-          "
-
-      - name: Verify bundled binary version
-        shell: bash
-        run: |
-          if [[ "${{ matrix.dtk-platform }}" != win32-* && "${{ matrix.dtk-platform }}" != "linux-arm64" ]]; then
-            BIN=src/Napper.VsCode/bin/${{ matrix.dtk-platform }}/napper
-            ACTUAL=$($BIN --version)
-            EXPECTED="napper $VERSION"
-            echo "Bundled binary reports: $ACTUAL"
-            if [ "$ACTUAL" != "$EXPECTED" ]; then
-              echo "::error::Bundled binary version '$ACTUAL' != expected '$EXPECTED'"
-              exit 1
-            fi
-            echo "Bundled binary version: OK"
-          fi
+          set -euo pipefail
+          exe=""; [ "${{ runner.os }}" = "Windows" ] && exe=".exe"
+          mkdir -p "src/Napper.VsCode/bin/${{ matrix.platform }}"
+          cp "out/${{ matrix.rid }}/napper$exe" "src/Napper.VsCode/bin/${{ matrix.platform }}/napper$exe"
+          chmod +x "src/Napper.VsCode/bin/${{ matrix.platform }}/napper$exe" || true
 
       - name: Install extension dependencies
         working-directory: src/Napper.VsCode
@@ -304,134 +182,143 @@ jobs:
 
       - name: Package per-platform VSIX
         working-directory: src/Napper.VsCode
-        run: npx @vscode/vsce package --no-dependencies --skip-license --target ${{ matrix.vsce-target }}
+        run: npx @vscode/vsce package --no-dependencies --skip-license --target ${{ matrix.platform }}
 
-      - name: Verify VSIX contains bundled binary and manifest
+      - name: Verify VSIX contents
         shell: bash
         run: |
-          VSIX=$(ls src/Napper.VsCode/*.vsix | head -1)
+          set -euo pipefail
+          exe=""; [ "${{ runner.os }}" = "Windows" ] && exe=".exe"
+          VSIX="$(ls src/Napper.VsCode/*.vsix | head -1)"
           echo "VSIX: $VSIX"
-          # VSIX is a ZIP — list contents
           unzip -l "$VSIX" > vsix-contents.txt
           cat vsix-contents.txt
-          # Must contain shipwright.json
-          grep -q "shipwright.json" vsix-contents.txt || { echo "::error::shipwright.json missing from VSIX"; exit 1; }
-          # Must contain the bundled binary — see [SWR-VSIX-VERIFY]
-          if [[ "${{ matrix.dtk-platform }}" == win32-* ]]; then
-            grep -q "bin/${{ matrix.dtk-platform }}/napper.exe" vsix-contents.txt || { echo "::error::bundled napper.exe missing from VSIX"; exit 1; }
-          else
-            grep -q "bin/${{ matrix.dtk-platform }}/napper" vsix-contents.txt || { echo "::error::bundled napper missing from VSIX"; exit 1; }
+          grep -q "shipwright.json" vsix-contents.txt \
+            || { echo "::error::shipwright.json missing from VSIX"; exit 1; }
+          grep -Fq "bin/${{ matrix.platform }}/napper$exe" vsix-contents.txt \
+            || { echo "::error::bin/${{ matrix.platform }}/napper$exe missing from VSIX"; exit 1; }
+          # No foreign-platform binaries may ship in a per-platform VSIX.
+          if grep -E "bin/(darwin|linux|win32)-[a-z0-9]+/" vsix-contents.txt \
+             | grep -vq "bin/${{ matrix.platform }}/"; then
+            echo "::error::VSIX contains a foreign-platform binary directory"; exit 1
           fi
           echo "VSIX content verification: OK"
 
-      - name: Stage VSIX into assets
-        shell: bash
-        run: |
-          mkdir -p assets
-          cp src/Napper.VsCode/*.vsix assets/
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
         with:
-          name: vsix-${{ matrix.dtk-platform }}
-          path: assets/*.vsix
+          name: vsix-${{ matrix.platform }}
+          path: src/Napper.VsCode/*.vsix
           if-no-files-found: error
 
-  publish-marketplace:
-    name: Publish to VS Code Marketplace
-    needs: [validate-tag, build-vsix]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Download all per-platform VSIXes
-        uses: actions/download-artifact@v4
-        with:
-          path: vsix-artifacts
-          pattern: vsix-*
-          merge-multiple: true
-
-      - name: Publish all platforms to VS Code Marketplace
-        run: npx @vscode/vsce publish --packagePath $(find vsix-artifacts -name '*.vsix' | tr '\n' ' ')
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-
-  publish-nuget:
-    name: Publish to NuGet
-    needs: validate-tag
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      VERSION: ${{ needs.validate-tag.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
-
-      - name: Pack dotnet tool
-        run: |
-          dotnet pack src/Napper.Cli/Napper.Cli.fsproj \
-            -c Release \
-            -p:Version=$VERSION \
-            --nologo
-
-      - name: Push to NuGet
-        run: |
-          dotnet nuget push src/Napper.Cli/nupkg/napper.${VERSION}.nupkg \
-            --api-key ${{ secrets.NIMBLESITE_NUGET_KEY }} \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
-
-  release:
-    name: Create GitHub Release
-    needs: [validate-tag, build-cli, build-vsix, publish-nuget, publish-marketplace]
+  # ── Package CLI assets uniformly on Linux ───────────────── [SWR-REL-GITHUB]
+  # Produces, per platform: the raw binary, an archive (.tar.gz / .zip), a per-archive
+  # .sha256 sidecar, and a combined checksums-sha256.txt.
+  package-cli:
+    name: Package CLI assets
+    needs: [validate-tag, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
-      - name: Download CLI release assets
+      - uses: actions/download-artifact@v4
+        with:
+          path: rawbins
+          pattern: rawbin-*
+      - name: Build archives, raw assets, and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          for dir in rawbins/rawbin-*; do
+            rid="${dir#rawbins/rawbin-}"
+            if [[ "$rid" == win-* ]]; then
+              cp "$dir/napper.exe" "assets/napper-$rid.exe"
+              stage="$(mktemp -d)"; cp "$dir/napper.exe" "$stage/napper.exe"
+              (cd "$stage" && zip -q -9 "$GITHUB_WORKSPACE/assets/napper-$TAG-$rid.zip" napper.exe)
+            else
+              cp "$dir/napper" "assets/napper-$rid"; chmod +x "assets/napper-$rid"
+              stage="$(mktemp -d)"; cp "$dir/napper" "$stage/napper"; chmod +x "$stage/napper"
+              tar -C "$stage" -czf "assets/napper-$TAG-$rid.tar.gz" napper
+            fi
+          done
+          # Per-archive .sha256 sidecars + a combined manifest.
+          cd assets
+          for f in napper-"$TAG"-*.tar.gz napper-"$TAG"-*.zip; do
+            [ -e "$f" ] || continue
+            sha256sum "$f" > "$f.sha256"
+          done
+          sha256sum napper-* > checksums-sha256.txt
+          ls -la
+          echo "── checksums-sha256.txt ──"; cat checksums-sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-assets
+          path: assets/*
+          if-no-files-found: error
+
+  # ── GitHub Release with all CLI assets + per-platform VSIXs ──── [SWR-REL-GITHUB]
+  release:
+    name: Create GitHub Release
+    needs: [validate-tag, package-cli, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    env:
+      TAG: ${{ needs.validate-tag.outputs.tag }}
+    steps:
+      - name: Download CLI assets
         uses: actions/download-artifact@v4
         with:
           path: assets
-          pattern: cli-*
-          merge-multiple: true
-
+          name: cli-assets
       - name: Download per-platform VSIXs
         uses: actions/download-artifact@v4
         with:
           path: assets
           pattern: vsix-*
           merge-multiple: true
-
-      - name: Generate SHA256 checksums
-        working-directory: assets
-        shell: bash
-        run: |
-          ls -la
-          sha256sum * > ../checksums-sha256.txt
-          cat ../checksums-sha256.txt
-
+      - name: List release assets
+        run: ls -la assets
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
-          files: |
-            assets/*
-            checksums-sha256.txt
+          files: assets/*
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(env.TAG, '-') }}
 
+  # ── Publish per-platform VSIXs to the VS Code Marketplace ─────── [SWR-VSIX-PUBLISH]
+  publish-marketplace:
+    name: Publish to VS Code Marketplace
+    needs: [validate-tag, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download all per-platform VSIXs
+        uses: actions/download-artifact@v4
+        with:
+          path: vsix-artifacts
+          pattern: vsix-*
+          merge-multiple: true
+      - name: Publish all platforms in one atomic call
+        run: npx @vscode/vsce publish --packagePath $(find vsix-artifacts -name '*.vsix' | tr '\n' ' ')
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+  # ── Homebrew tap: hashes come from the build's .sha256 sidecars ────────────────
   update-homebrew:
     name: Update Homebrew Formula
     needs: [validate-tag, release]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: release
     env:
       TAG: ${{ needs.validate-tag.outputs.tag }}
       VERSION: ${{ needs.validate-tag.outputs.version }}
@@ -441,23 +328,22 @@ jobs:
         with:
           repository: Nimblesite/homebrew-tap
           token: ${{ secrets.BREW_SCOOP_PAT }}
-
-      - name: Download release archives and compute SHA256s
+      - name: Read SHA256s from release sidecars
         shell: bash
         run: |
+          set -euo pipefail
           BASE="https://github.com/Nimblesite/napper/releases/download/${TAG}"
-          curl -fsSL -o macos-arm64.tar.gz "${BASE}/napper-${TAG}-osx-arm64.tar.gz"
-          curl -fsSL -o macos-x64.tar.gz   "${BASE}/napper-${TAG}-osx-x64.tar.gz"
-          curl -fsSL -o linux-x64.tar.gz   "${BASE}/napper-${TAG}-linux-x64.tar.gz"
+          sidecar() { curl -fsSL "$BASE/napper-${TAG}-$1.tar.gz.sha256" | cut -d ' ' -f 1; }
           {
-            echo "SHA256_MACOS_ARM64=$(sha256sum macos-arm64.tar.gz | cut -d ' ' -f 1)"
-            echo "SHA256_MACOS_X64=$(sha256sum macos-x64.tar.gz | cut -d ' ' -f 1)"
-            echo "SHA256_LINUX_X64=$(sha256sum linux-x64.tar.gz | cut -d ' ' -f 1)"
+            echo "SHA256_MACOS_ARM64=$(sidecar osx-arm64)"
+            echo "SHA256_MACOS_X64=$(sidecar osx-x64)"
+            echo "SHA256_LINUX_X64=$(sidecar linux-x64)"
+            echo "SHA256_LINUX_ARM64=$(sidecar linux-arm64)"
           } >> "$GITHUB_ENV"
-
       - name: Write formula
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p Formula
           cat > Formula/napper.rb <<FORMULA
           # typed: false
@@ -481,6 +367,10 @@ jobs:
             end
 
             on_linux do
+              on_arm do
+                url "https://github.com/Nimblesite/napper/releases/download/${TAG}/napper-${TAG}-linux-arm64.tar.gz"
+                sha256 "${SHA256_LINUX_ARM64}"
+              end
               on_intel do
                 url "https://github.com/Nimblesite/napper/releases/download/${TAG}/napper-${TAG}-linux-x64.tar.gz"
                 sha256 "${SHA256_LINUX_X64}"
@@ -497,25 +387,24 @@ jobs:
           end
           FORMULA
           cat Formula/napper.rb
-
       - name: Commit and push
         shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/napper.rb
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
+          git diff --cached --quiet && { echo "No changes"; exit 0; }
           git commit -m "Update napper to ${TAG}"
           git push
 
+  # ── Scoop bucket: hash from the build's .sha256 sidecar, JSON via a real serializer ──
   update-scoop:
     name: Update Scoop Manifest
     needs: [validate-tag, release]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: release
     env:
       TAG: ${{ needs.validate-tag.outputs.tag }}
       VERSION: ${{ needs.validate-tag.outputs.version }}
@@ -525,65 +414,55 @@ jobs:
         with:
           repository: Nimblesite/scoop-bucket
           token: ${{ secrets.BREW_SCOOP_PAT }}
-
-      - name: Download release asset and compute SHA256
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Read SHA256 from release sidecar
         shell: bash
         run: |
-          ASSET_URL="https://github.com/Nimblesite/napper/releases/download/${TAG}/napper-${TAG}-win-x64.zip"
-          curl -fsSL -o napper.zip "$ASSET_URL"
-          {
-            echo "SHA256=$(sha256sum napper.zip | cut -d ' ' -f 1)"
-            echo "ASSET_URL=$ASSET_URL"
-          } >> "$GITHUB_ENV"
-
+          set -euo pipefail
+          BASE="https://github.com/Nimblesite/napper/releases/download/${TAG}"
+          echo "SHA256=$(curl -fsSL "$BASE/napper-${TAG}-win-x64.zip.sha256" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+          echo "ASSET_URL=$BASE/napper-${TAG}-win-x64.zip" >> "$GITHUB_ENV"
       - name: Write manifest
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p bucket
-          jq -n \
-            --arg version "$VERSION" \
-            --arg url "$ASSET_URL" \
-            --arg hash "$SHA256" \
-            '{
-              version: $version,
-              description: "CLI-first, test-oriented HTTP API testing tool. Send requests, run assertions, manage environments.",
-              homepage: "https://napperapi.dev",
-              license: "MIT",
+          node - <<'NODE'
+          const { mkdirSync, writeFileSync } = require("node:fs");
+          const manifest = {
+            version: process.env.VERSION,
+            description: "CLI-first, test-oriented HTTP API testing tool. Send requests, run assertions, manage environments.",
+            homepage: "https://napperapi.dev",
+            license: "MIT",
+            architecture: { "64bit": { url: process.env.ASSET_URL, hash: process.env.SHA256, bin: "napper.exe" } },
+            checkver: { github: "https://github.com/Nimblesite/napper" },
+            autoupdate: {
               architecture: {
-                "64bit": {
-                  url: $url,
-                  hash: $hash,
-                  bin: "napper.exe"
-                }
-              },
-              checkver: {
-                github: "https://github.com/Nimblesite/napper"
-              },
-              autoupdate: {
-                architecture: {
-                  "64bit": {
-                    url: "https://github.com/Nimblesite/napper/releases/download/v$version/napper-v$version-win-x64.zip"
-                  }
-                }
+                "64bit": { url: "https://github.com/Nimblesite/napper/releases/download/v$version/napper-v$version-win-x64.zip" }
               }
-            }' > bucket/napper.json
-
+            }
+          };
+          mkdirSync("bucket", { recursive: true });
+          writeFileSync("bucket/napper.json", `${JSON.stringify(manifest, null, 2)}\n`);
+          NODE
+          cat bucket/napper.json
       - name: Commit and push
         shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add bucket/napper.json
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-            exit 0
-          fi
+          git diff --cached --quiet && { echo "No changes"; exit 0; }
           git commit -m "Update napper to ${TAG}"
           git push
 
+  # ── Refresh the website after the release assets exist ──
   deploy-website:
     name: Deploy Website
-    needs: [validate-tag, update-homebrew, update-scoop]
+    needs: [update-homebrew, update-scoop]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -592,7 +471,4 @@ jobs:
       - name: Trigger Pages deploy
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh workflow run deploy-pages.yml \
-            --repo ${{ github.repository }} \
-            --ref main
+        run: gh workflow run deploy-pages.yml --repo ${{ github.repository }} --ref main

@@ -300,15 +300,21 @@ No other dependencies. The LSP is lightweight by design.
 - [x] Wire Zed `language_server_command` to launch `napper lsp` (finds napper on PATH)
 - [x] Delete `parseMethodAndUrl` from `curlCopy.ts` — replaced by `lspClient.copyCurl`
 - [x] Delete `detectEnvironments` from `environmentAdapter.ts` — replaced by `lspClient.listEnvironments`
+- [x] Delete the fully-dead pre-LSP `environmentSwitcher.ts` (no imports, no tests; superseded by `environmentAdapter.ts` → `lspClient.listEnvironments`)
+- [ ] Route VSCode `codeLensProvider` section detection through `textDocument/documentSymbol` (per LSP-SPEC cutover table). The active editor doc is already synced to the LSP, so this is unblocked; needs the VSIX e2e suite to land safely.
+- [ ] Route VSCode `explorerProvider.extractHttpMethod` / `parsePlaylistStepPaths` through the LSP. Blocked: the explorer queries files that are not open in the editor, so this first needs the LSP `requestInfo`/document-symbol handlers (or a new `naplistSteps` command) to read unopened files from disk.
 - [ ] Verify existing VSIX features unchanged
 - [ ] Run ALL existing VSIX e2e tests — must pass
 - [ ] Run ALL existing F# tests — must pass
 
 ### Phase 3.5 — NativeAOT Transport (Implements [cli-aot-migration])
 - [x] Replace `Ionide.LanguageServerProtocol` + `StreamJsonRpc` + `Newtonsoft.Json` with a hand-rolled, reflection-free JSON-RPC transport in `Server.fs` (System.Text.Json DOM only). Newtonsoft's F#-union reflection crashes under NativeAOT (`FSharpUtils.GetMethodWithNonPublicFallback` NRE), so the reflection-based stack cannot ship in the AOT binary.
-- [x] Delete `Client.fs` (Ionide `LspClient`); mark `Napper.Lsp` `IsAotCompatible`.
-- [x] CLI publishes via `-p:PublishAot=true`; `napper lsp` runs inside the single native binary with zero .NET runtime dependency.
+- [x] Delete `Client.fs` (Ionide `LspClient`); split wire constants into `Protocol.fs`; mark `Napper.Lsp` `IsAotCompatible`.
+- [x] Harden the transport so a malformed frame never kills the session: JSON-object-only dispatch, null/type-safe DOM accessors, a 3-state frame reader (EOF vs skip vs body) with a body-size cap and truncation guard.
+- [x] CLI publishes via `-p:PublishAot=true`; `napper lsp` runs inside the single native binary with **zero .NET runtime dependency** (verified: `otool -L` shows only system libs; runs under `env -i` with no `dotnet` on PATH).
 - [x] All 14 LSP e2e tests pass against the **native AOT binary** (not just the JIT build).
+- [x] **ALL distribution is AOT** — `release.yml` builds every RID with `-p:PublishAot=true` on platform-native runners (NativeAOT cannot cross-compile); `make _build_cli` is AOT; `ci.yml` runs an `aot-smoke` job that publishes the native binary and exercises `napper --version` + an `napper lsp` initialize on every PR.
+- [x] Suppress only the unfixable third-party rollups `IL2104`/`IL3053` (FSharp.Core, FParsec) in `Napper.Cli.fsproj`; all first-party code stays warnings-as-errors.
 
 ### Phase 4 — Post-Cutover: New LSP Features
 - [ ] Diagnostics (parse errors, unknown variables, missing blocks)

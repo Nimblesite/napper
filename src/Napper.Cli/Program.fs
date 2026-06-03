@@ -277,9 +277,11 @@ let private writeGenerated (outDir: string) (result: OpenApiGenerator.Generation
 /// Display generation results
 let private displayGenerated (output: string) (generated: OpenApiGenerator.GenerationResult) (outDir: string) : unit =
     match output with
-    | "json" -> printfn "{\"files\":%d,\"playlist\":\"%s\"}" generated.NapFiles.Length generated.Playlist.FileName
+    | "json" ->
+        // %s only: F# printf's %d/%f path is reflection-based and aborts under NativeAOT.
+        printfn "{\"files\":%s,\"playlist\":\"%s\"}" (string generated.NapFiles.Length) generated.Playlist.FileName
     | _ ->
-        printfn "Generated %d .nap files from OpenAPI spec" generated.NapFiles.Length
+        printfn "Generated %s .nap files from OpenAPI spec" (string generated.NapFiles.Length)
         printfn "  Playlist: %s" generated.Playlist.FileName
         printfn "  Environment: %s" generated.Environment.FileName
         printfn "  Output: %s" outDir
@@ -477,13 +479,13 @@ let convertHttp (args: CliArgs) : int =
                     eprintfn "Warning: %s%s" prefix w.Message
 
                 match args.Output with
-                | "json" -> printfn "{\"files\":%d,\"warnings\":%d}" totalFiles allWarnings.Length
+                | "json" -> printfn "{\"files\":%s,\"warnings\":%s}" (string totalFiles) (string allWarnings.Length)
                 | _ ->
-                    printfn "Converted %d requests to .nap files" totalFiles
+                    printfn "Converted %s requests to .nap files" (string totalFiles)
                     printfn "  Output: %s" outDir
 
                     if not (List.isEmpty allWarnings) then
-                        printfn "  Warnings: %d" allWarnings.Length
+                        printfn "  Warnings: %s" (string allWarnings.Length)
 
                 0
 

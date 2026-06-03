@@ -86,6 +86,9 @@ let CmdCopyCurl = "napper.copyCurl"
 [<Literal>]
 let CmdListEnvironments = "napper.listEnvironments"
 
+[<Literal>]
+let CmdNaplistSteps = "napper.naplistSteps"
+
 // ─── Param fields ───
 [<Literal>]
 let FTextDocument = "textDocument"

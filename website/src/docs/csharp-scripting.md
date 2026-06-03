@@ -122,8 +122,10 @@ Both F# and C# scripts have full access to the .NET ecosystem. Choose based on y
 | Immutability | Default | Opt-in |
 | Ecosystem familiarity | Smaller community | Most .NET developers |
 
-You can mix F# and C# scripts in the same project. A `.naplist` can reference both `.fsx` and `.csx` files as steps.
+You can mix languages in the same project. A `.naplist` can reference `.fsx`, `.csx`, `.js`, and `.py` files as steps — every language sees the same `ctx` and `nap` surface.
 
 ## Requirements
 
-C# scripts require the **.NET 10 SDK** installed on the machine. The Napper CLI binary itself is self-contained, but `.csx` scripts are executed via the .NET scripting runtime.
+C# scripts require the **.NET 10 SDK** installed on the machine. The Napper CLI binary itself is self-contained, but `.csx` scripts are executed via the .NET scripting runtime. You only need the .NET SDK if you actually write `.fsx`/`.csx` hooks.
+
+Prefer a different language? Napper scripts in [JavaScript](/docs/javascript-scripting/), [Python](/docs/python-scripting/), and [F#](/docs/fsharp-scripting/) too. See the [Scripting Overview](/docs/scripting/).

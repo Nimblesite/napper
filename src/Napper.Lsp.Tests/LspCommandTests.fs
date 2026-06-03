@@ -159,12 +159,16 @@ let ``in-process didChange honors version ordering, ignores stale and empty chan
     Assert.Equal(0, (resultArray responses 136).Count)
 
 [<Fact>]
-let ``in-process didOpen without a version still tracks the document`` () =
+let ``in-process didOpen without a version is tracked, queryable and superseded by a later version`` () =
+    // A didOpen with no version field defaults the version to 0; the document
+    // must still be fully tracked, queryable, and superseded by a real version.
+    let uri = "file:///tmp/no-version.nap"
+
     let noVersionOpen =
         let td = JsonObject()
-        td[FUri] <- str NapUri
+        td[FUri] <- str uri
         td[FLanguageId] <- str LangNap
-        td[FText] <- str AllNapSections // no version → defaults to 0
+        td[FText] <- str ValidGet // no version → defaults to 0
         let p = JsonObject()
         p[FTextDocument] <- td
         p :> JsonNode
@@ -172,6 +176,93 @@ let ``in-process didOpen without a version still tracks the document`` () =
     let responses =
         drive
             [ buildNotification MDidOpen (Some noVersionOpen)
-              buildRequest MDocumentSymbol 140 (Some(textDocParams NapUri)) ]
+              buildRequest MDocumentSymbol 140 (Some(textDocParams uri))
+              buildRequest MExecuteCommand 141 (Some(executeCommandParams CmdRequestInfo uri))
+              buildNotification MDidChange (Some(didChangeParams uri 5 ValidPostWithHeader))
+              buildRequest MExecuteCommand 142 (Some(executeCommandParams CmdRequestInfo uri))
+              buildRequest MDocumentSymbol 143 (Some(textDocParams uri)) ]
 
-    Assert.Equal(7, (resultArray responses 140).Count)
+    // Tracked despite the missing version: the [request] section is visible.
+    let names0 = symbolNameKinds (resultOf responses 140) |> List.map fst
+    Assert.Equal(1, (resultArray responses 140).Count)
+    Assert.Contains("[request]", names0)
+
+    // The v0 content is the GET.
+    let v0 = resultOf responses 141
+    Assert.Equal("GET", v0 |> field "method" |> asStr)
+    Assert.Equal("https://example.com", v0 |> field "url" |> asStr)
+
+    // A real (newer) version supersedes the v0 document and its headers appear.
+    let v5 = resultOf responses 142
+    Assert.Equal("POST", v5 |> field "method" |> asStr)
+    Assert.Equal("https://api.example.com/users", v5 |> field "url" |> asStr)
+    Assert.Equal("application/json", v5 |> field "headers" |> field "Accept" |> asStr)
+
+    let names5 = symbolNameKinds (resultOf responses 143) |> List.map fst
+    Assert.Equal(2, (resultArray responses 143).Count)
+    Assert.Contains("[request]", names5)
+    Assert.Contains("[request.headers]", names5)
+
+[<Fact>]
+let ``in-process naplistSteps returns step paths in order and empty for stepless or unopened docs`` () =
+    let steplessUri = "file:///tmp/stepless.naplist"
+
+    let responses =
+        drive
+            [ buildNotification MDidOpen (Some(didOpenParams NaplistUri 1 AllNaplistSections))
+              buildRequest MExecuteCommand 150 (Some(executeCommandParams CmdNaplistSteps NaplistUri))
+              buildNotification MDidOpen (Some(didOpenParams steplessUri 1 "[meta]\nname = \"none\"\n"))
+              buildRequest MExecuteCommand 151 (Some(executeCommandParams CmdNaplistSteps steplessUri))
+              buildRequest MExecuteCommand 152 (Some(executeCommandParams CmdNaplistSteps UnopenedUri)) ]
+
+    // The opened naplist yields its two step paths, in declaration order.
+    let steps = resultArray responses 150 |> Seq.map asStr |> Seq.toList
+    Assert.Equal<string list>([ "a.nap"; "b.nap" ], steps)
+    // A document with no [steps] section yields an empty array.
+    Assert.Equal(0, (resultArray responses 151).Count)
+    // An unopened, non-existent document yields an empty array (no crash).
+    Assert.Equal(0, (resultArray responses 152).Count)
+
+[<Fact>]
+let ``in-process queries read .nap and .naplist from disk when never opened in the editor`` () =
+    // docText falls back to reading the file from disk for documents the IDE has
+    // not opened, so the explorer can query files it never sent didOpen for.
+    let dir = Path.Combine(Path.GetTempPath(), $"napper-lsp-disk-{Guid.NewGuid()}")
+    Directory.CreateDirectory(dir) |> ignore
+    let napPath = Path.Combine(dir, "ondisk.nap")
+    let listPath = Path.Combine(dir, "ondisk.naplist")
+    File.WriteAllText(napPath, ValidPostWithHeader)
+    File.WriteAllText(listPath, AllNaplistSections)
+    let napUri = $"file://{napPath}"
+    let listUri = $"file://{listPath}"
+
+    try
+        let responses =
+            drive
+                [ buildRequest MDocumentSymbol 160 (Some(textDocParams napUri)) // never opened → disk
+                  buildRequest MExecuteCommand 161 (Some(executeCommandParams CmdRequestInfo napUri))
+                  buildRequest MExecuteCommand 162 (Some(executeCommandParams CmdCopyCurl napUri))
+                  buildRequest MExecuteCommand 163 (Some(executeCommandParams CmdNaplistSteps listUri)) ]
+
+        // Symbols come straight from the on-disk file.
+        let napNames = symbolNameKinds (resultOf responses 160) |> List.map fst
+        Assert.Equal(2, (resultArray responses 160).Count)
+        Assert.Contains("[request]", napNames)
+        Assert.Contains("[request.headers]", napNames)
+
+        // requestInfo parsed the on-disk file.
+        let info = resultOf responses 161
+        Assert.Equal("POST", info |> field "method" |> asStr)
+        Assert.Equal("https://api.example.com/users", info |> field "url" |> asStr)
+        Assert.Equal("application/json", info |> field "headers" |> field "Accept" |> asStr)
+
+        // copyCurl works off the same on-disk read.
+        let curl = resultOf responses 162 |> asStr
+        Assert.Contains("curl", curl)
+        Assert.Contains("POST", curl)
+
+        // naplist steps read from disk, in order.
+        let steps = resultArray responses 163 |> Seq.map asStr |> Seq.toList
+        Assert.Equal<string list>([ "a.nap"; "b.nap" ], steps)
+    finally
+        Directory.Delete(dir, true)

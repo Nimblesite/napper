@@ -3,7 +3,7 @@
   "product": {
     "id": "napper",
     "displayName": "Napper",
-    "version": "0.11.0"
+    "version": "0.0.0-dev"
   },
   "components": [
     {
@@ -11,21 +11,17 @@
       "kind": "cli",
       "language": "dotnet",
       "binaryName": "napper",
-      "expectedVersion": "0.11.0",
+      "expectedVersion": "0.0.0-dev",
       "platforms": ["darwin-arm64", "darwin-x64", "linux-x64", "linux-arm64", "win32-x64", "win32-arm64"],
       "bundled": {
         "bundlePath": "bin/${platform}/${binaryName}${exe}",
         "perPlatformArtifact": true
       },
-      "sources": ["user-setting", "env", "bundled", "path", "dotnet-tool"],
+      "sources": ["user-setting", "env", "bundled"],
       "userSetting": "napper.cliPath",
       "env": {
         "pathVar": "NAPPER_PATH",
         "dirVar": "NAPPER_BINARY_DIR"
-      },
-      "dotnetTool": {
-        "package": "napper",
-        "command": "napper"
       },
       "verifyStartup": true,
       "versionCheckStrategy": "version-flag",

@@ -3,7 +3,7 @@
 # =============================================================================
 # agent-pmo:74cf183
 
-.PHONY: build test lint fmt clean ci setup package-vsix test-fsharp build-zed
+.PHONY: build test lint fmt clean ci setup package-vsix test-fsharp build-zed stamp
 
 # --- Cross-platform support ---
 ifeq ($(OS),Windows_NT)
@@ -129,6 +129,14 @@ setup:
 	rustup component add clippy rustfmt 2>/dev/null || true
 	dotnet tool install --global dotnet-reportgenerator-globaltool 2>/dev/null || true
 
+# stamp: write a release version into every source version carrier
+# (Directory.Build.props, the extension package.json, and shipwright.json) using
+# structured parsers. Implements [SWR-VERSION-BUILD-STAMPING]. Source stays at
+# 0.0.0-dev; only the release/runner working tree is stamped — never committed.
+#   make stamp VERSION=1.2.3      (or)      make stamp TAG=v1.2.3
+stamp:
+	dotnet fsi scripts/stamp-version.fsx $(if $(TAG),--tag $(TAG),--version $(VERSION))
+
 # =============================================================================
 # Repo-Specific Targets
 #
@@ -179,9 +187,13 @@ _build_cli:
 	@$(_MKDIR) "$(_EXT_BIN)"
 	cp "out/$(_NAP_RID)/napper" "$(_EXT_BIN)/napper"
 	chmod +x "$(_EXT_BIN)/napper"
-	@EXPECTED=$$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' Directory.Build.props); \
-	ACTUAL=$$("out/$(_NAP_RID)/napper" --version | awk '{print $$2}'); \
-	[ "$$ACTUAL" = "$$EXPECTED" ] || { echo "ERROR: version mismatch ($$EXPECTED vs $$ACTUAL)"; exit 1; }
+	@# Verify the AOT binary honors the version contract [SWR-VERSION-CLI-OUTPUT].
+	@# Glob-match the plain text output — never regex/sed over the props XML.
+	@ACTUAL=$$("out/$(_NAP_RID)/napper" --version); \
+	case "$$ACTUAL" in \
+	  "napper "?*) echo "  napper --version: $$ACTUAL" ;; \
+	  *) echo "ERROR: bad --version output: '$$ACTUAL' (expected 'napper <semver>')"; exit 1 ;; \
+	esac
 
 _build_extension:
 	cd src/Napper.VsCode && npm ci && npx webpack --mode production

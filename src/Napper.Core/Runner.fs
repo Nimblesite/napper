@@ -94,7 +94,8 @@ let private resolveTarget (response: NapResponse) (target: string) : string opti
     if target = "status" then
         Some(string response.StatusCode)
     elif target = "duration" then
-        Some(sprintf "%.0fms" response.Duration.TotalMilliseconds)
+        // .ToString, not sprintf %f: F#'s %f path is reflection-based and aborts under NativeAOT.
+        Some(response.Duration.TotalMilliseconds.ToString("F0") + "ms")
     elif target.StartsWith "headers." then
         let headerName = target.Substring(8)
 

@@ -31,8 +31,10 @@ module private Json =
             | v -> Some v
         | _ -> None
 
-    /// Read a string field, or "" when absent / null / not a string.
-    let strField (node: JsonNode) (key: string) : string =
+    /// Lenient string read: "" when absent / null / not a string. Used for the
+    /// JSON-RPC envelope (`method`) and command args, which are read OUTSIDE the
+    /// per-message guard — they must never throw and crash the loop.
+    let tryStr (node: JsonNode) (key: string) : string =
         match item node key with
         | Some(:? JsonValue as v) ->
             match v.TryGetValue<string>() with
@@ -40,14 +42,19 @@ module private Json =
             | _ -> ""
         | _ -> ""
 
-    /// Read an int field, or `fallback` when absent / null / not a number.
+    /// Strict string read: "" when absent, but THROWS on a present-but-wrong-type
+    /// value. Used inside handlers so a malformed request field becomes a clean
+    /// JSON-RPC -32603 (caught per-message), never a silent wrong result.
+    let strField (node: JsonNode) (key: string) : string =
+        match item node key with
+        | Some v -> v.GetValue<string>()
+        | None -> ""
+
+    /// Strict int read: `fallback` when absent, THROWS on present-but-wrong-type.
     let intField (node: JsonNode) (key: string) (fallback: int) : int =
         match item node key with
-        | Some(:? JsonValue as v) ->
-            match v.TryGetValue<int>() with
-            | true, i -> i
-            | _ -> fallback
-        | _ -> fallback
+        | Some v -> v.GetValue<int>()
+        | None -> fallback
 
     /// Build a successful JSON-RPC response. `result` may be null (→ "result":null).
     let ok (id: JsonNode) (result: JsonNode) : JsonNode =
@@ -153,7 +160,8 @@ module private Handlers =
         if uri.StartsWith FileScheme then Uri(uri).LocalPath else uri
 
     /// The text of a tracked document, falling back to reading from disk so the
-    /// LSP works on files the IDE has not opened (e.g. the explorer tree).
+    /// LSP serves files the IDE never opened (e.g. the explorer tree). A bad URI
+    /// throws here (in uriToFilePath, outside the IO guard) → JSON-RPC -32603.
     let private docText (uri: string) : string option =
         match Workspace.tryGetDocument uri with
         | Some doc -> Some doc.Text
@@ -175,17 +183,21 @@ module private Handlers =
             | Result.Ok napFile -> Some napFile.Request
             | Result.Error _ -> None)
 
+    /// Section name → LSP SymbolKind. KindKey is the fallback for any section a
+    /// future scanner might surface that is not in this table.
+    let private sectionKinds =
+        Map
+            [ SecMeta, KindNamespace
+              SecVars, KindVariable
+              SecRequest, KindFunction
+              SecRequestHeaders, KindStruct
+              SecRequestBody, KindStruct
+              SecAssert, KindFunction
+              SecScript, KindFunction
+              SecSteps, KindArray ]
+
     let private symbolKind (name: string) : int =
-        match name with
-        | SecMeta -> KindNamespace
-        | SecRequest -> KindFunction
-        | SecRequestHeaders -> KindStruct
-        | SecRequestBody -> KindStruct
-        | SecAssert -> KindFunction
-        | SecScript -> KindFunction
-        | SecVars -> KindVariable
-        | SecSteps -> KindArray
-        | _ -> KindKey
+        sectionKinds |> Map.tryFind name |> Option.defaultValue KindKey
 
     let private position (line: int) : JsonNode =
         let o = JsonObject()
@@ -268,8 +280,8 @@ module private Handlers =
         | None -> null
         | Some req -> jstr (CurlGenerator.toCurl req)
 
-    /// Step file paths declared in a .naplist's [steps] section (reads from disk
-    /// when the file is not open) — lets the IDE drop its own .naplist parsing.
+    /// Step file paths declared in a .naplist's [steps] section (read from the
+    /// tracked doc or disk) — lets the IDE drop its own .naplist parsing.
     let private naplistSteps (uri: string) : JsonNode =
         let arr = JsonArray()
 
@@ -396,7 +408,7 @@ module LspRunner =
 
     /// Process one message; returns false when the server should stop (exit).
     let private processMessage (output: Stream) (msg: JsonObject) : bool =
-        let methodName = Json.strField msg FMethod
+        let methodName = Json.tryStr msg FMethod
 
         if methodName = MExit then
             false

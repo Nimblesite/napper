@@ -12,7 +12,7 @@ eleventyNavigation:
 
 ![Screenshot: Napper VS Code extension installed and active in the VS Code Activity Bar, showing the Napper panel icon](installation-vscode-activity-bar.png)
 
-Napper has two components: the **CLI binary** and the **VS Code extension**. The CLI is standalone with no runtime dependencies. The extension shells out to the CLI, so you need both for full VS Code integration.
+Napper has two parts: the **CLI binary** and an **editor integration**. The CLI is a self-contained native binary (not a .NET DLL) with no runtime dependencies — it ships the [language server](/docs/) inside it too. The editor integration shells out to the CLI, so you need both for the full experience. There are native extensions for **VS Code** and **Zed**, and any LSP-capable editor can connect to the bundled language server.
 
 ---
 

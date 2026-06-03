@@ -1,20 +1,20 @@
 ---
 layout: layouts/blog.njk
-title: "Introducing Napper: CLI-First API Testing for VS Code with C# and F# Scripting"
+title: "Introducing Napper: CLI-First API Testing, Scripted in Your Language"
 date: 2026-02-27
 author: Christian Findlay
 tags: posts
 category: announcements
-excerpt: "Meet Napper — a free, open-source API testing tool that puts the CLI first, stores everything as plain text, and gives you the full power of C# and F# scripting with the entire .NET ecosystem."
-description: "Introducing Napper, a free, open-source, CLI-first API testing tool for VS Code. A modern alternative to Postman, Bruno, and .http files with C# and F# scripting, declarative assertions, composable test suites, built-in .http file conversion, and CI/CD integration via JUnit XML."
-keywords: "API testing, VS Code extension, C# scripting, F# scripting, CLI API testing, Postman alternative, Bruno alternative, HTTP testing, REST API testing, .NET API testing, CI/CD testing, JUnit XML, open source API testing tool, http file converter, convert http to nap"
+excerpt: "Meet Napper — a free, open-source API testing tool for anyone testing APIs. The CLI is the product, everything is plain text, and you script in the language you already use: JavaScript, Python, F#, or C#."
+description: "Introducing Napper, a free, open-source, CLI-first API testing tool for VS Code, Zed, and any editor. A modern alternative to Postman, Bruno, and .http files with scripting in JavaScript, Python, F#, or C#, declarative assertions, composable test suites, built-in .http file conversion, and CI/CD integration via JUnit XML."
+keywords: "API testing, VS Code extension, Zed extension, language server, JavaScript scripting, Python scripting, F# scripting, C# scripting, CLI API testing, Postman alternative, Bruno alternative, HTTP testing, REST API testing, CI/CD testing, JUnit XML, open source API testing tool, http file converter, convert http to nap"
 ---
 
-# Introducing Napper: CLI-First API Testing for VS Code with C# and F# Scripting
+# Introducing Napper: CLI-First API Testing, Scripted in Your Language
 
 API testing tools have a problem. They're either too simple ([.http files](/docs/vs-http-files/) with no assertions and no CLI) or too heavy ([Postman](/docs/vs-postman/) with its mandatory accounts, cloud sync, and paid tiers). [Bruno](/docs/vs-bruno/) moved the needle with git-friendly collections, but it's still a GUI-first tool with sandboxed JavaScript.
 
-**[Napper](https://github.com/Nimblesite/napper)** takes a different approach. It's a free, open-source API testing tool where the CLI is the primary interface, everything is stored as plain text, and you get full C# and F# scripting with access to the entire [.NET](https://dotnet.microsoft.com/) ecosystem.
+**[Napper](https://github.com/Nimblesite/napper)** takes a different approach. It's a free, open-source API testing tool for *anyone* testing APIs: the CLI is the primary interface, everything is stored as plain text, and you script in the language you already use — **JavaScript, Python, F#, or C#** — on a real runtime, with no sandbox. Napper ships as a self-contained native binary (not a .NET DLL) and edits natively in [VS Code](https://code.visualstudio.com/), [Zed](https://zed.dev/), and any editor via a portable language server.
 
 ## The CLI is the product
 
@@ -71,9 +71,32 @@ duration < 2s
 
 That's a complete HTTP request with headers, a JSON body, and [declarative assertions](/docs/assertions/) — all in one readable file. No scripting needed for the common cases.
 
-## C# scripting — the full power of .NET, no sandbox
+## Scripting in your language — real runtimes, no sandbox
 
-This is where Napper breaks away from every other API testing tool. [Postman](/docs/vs-postman/) and [Bruno](/docs/vs-bruno/) give you a sandboxed JavaScript environment with limited APIs. Napper gives you **full [C# scripting](/docs/csharp-scripting/)** with `.csx` files and access to the entire .NET ecosystem.
+This is where Napper breaks away from every other API testing tool. [Postman](/docs/vs-postman/) and [Bruno](/docs/vs-bruno/) give you a sandboxed JavaScript environment with limited APIs. Napper lets you script in **JavaScript, Python, F#, or C#** — whichever your team already runs — on the real runtime, with full access to npm, PyPI, and NuGet. Every language sees the same `ctx` (request/response context) and `nap` (orchestration runner) surface, so the examples below translate one-to-one.
+
+Here's the same post-request hook — extract a user id, chain it forward, validate — in [JavaScript](/docs/javascript-scripting/) and [Python](/docs/python-scripting/):
+
+```js
+// validate-response.js
+import { ctx } from "napper"; // bundled — no npm install
+const body = ctx.response.json;
+ctx.set("userId", String(body.id));
+if (body.id <= 0) ctx.fail("User ID must be positive");
+ctx.log(`Created user ${body.id}`);
+```
+
+```python
+# validate_response.py
+from napper import ctx  # bundled — no pip install
+body = ctx.response.json
+ctx.set("userId", str(body["id"]))
+if body["id"] <= 0:
+    ctx.fail("User ID must be positive")
+ctx.log(f"Created user {body['id']}")
+```
+
+Prefer .NET? The same hook in [C#](/docs/csharp-scripting/) (`.csx`) and [F#](/docs/fsharp-scripting/) (`.fsx`) is just as clean — and genuinely lovely.
 
 ### Pre-request and post-request hooks in C#
 
@@ -176,7 +199,7 @@ if userId <= 0 then
 ctx.Log $"Created user {userId}"
 ```
 
-You can mix C# and F# scripts in the same project. A single `.naplist` can reference both `.csx` and `.fsx` files as steps. Choose whichever .NET language your team prefers — or use both.
+You can mix languages in the same project. A single `.naplist` can reference `.js`, `.py`, `.csx`, and `.fsx` files as steps. Choose whichever language your team already tests with — or use several. See the [Scripting Overview](/docs/scripting/) for the full picture.
 
 ## Declarative assertions — no scripting needed for the common cases
 
@@ -192,11 +215,11 @@ headers.Content-Type contains "application/json"
 duration < 500ms
 ```
 
-All assertions are evaluated and reported individually. When the declarative syntax isn't enough, drop into [C#](/docs/csharp-scripting/) or [F#](/docs/fsharp-scripting/) for complex validation logic.
+All assertions are evaluated and reported individually. When the declarative syntax isn't enough, drop into [JavaScript](/docs/javascript-scripting/), [Python](/docs/python-scripting/), [C#](/docs/csharp-scripting/), or [F#](/docs/fsharp-scripting/) for complex validation logic.
 
 ## Composable test suites with .naplist files
 
-Chain requests into ordered test suites with [.naplist files](/docs/naplist-files/). Nest playlists inside other playlists, reference entire folders, and mix `.nap` requests with `.csx` and `.fsx` scripts:
+Chain requests into ordered test suites with [.naplist files](/docs/naplist-files/). Nest playlists inside other playlists, reference entire folders, and mix `.nap` requests with `.js`, `.py`, `.csx`, and `.fsx` scripts:
 
 ```
 [meta]
@@ -259,13 +282,13 @@ napper convert http ./api-tests/ --output-dir ./nap-tests/
 
 The converter supports both **Microsoft** (VS Code REST Client) and **JetBrains** (IntelliJ, Rider, WebStorm) `.http` dialects. It maps variables to `.napenv` files, preserves request names, converts JetBrains `http-client.env.json` environments, and warns about unsupported features like WebSocket or gRPC requests.
 
-Migration is non-destructive — your original `.http` files are untouched. Use `--dry-run` to preview what will be generated before writing any files. Once converted, you get all the benefits of Napper: declarative assertions, composable test suites, F# and C# scripting, and CI/CD integration.
+Migration is non-destructive — your original `.http` files are untouched. Use `--dry-run` to preview what will be generated before writing any files. Once converted, you get all the benefits of Napper: declarative assertions, composable test suites, scripting in JavaScript, Python, F#, or C#, and CI/CD integration.
 
 See [Napper vs .http files](/docs/vs-http-files/) for a full comparison.
 
-## VS Code extension — native editor integration
+## Editor-native, LSP-powered
 
-The [Napper VS Code extension](https://marketplace.visualstudio.com/items?itemName=nimblesite.napper) brings the full experience into your editor:
+Napper meets you in your editor. There are first-class extensions for [VS Code](https://marketplace.visualstudio.com/items?itemName=nimblesite.napper) and [Zed](https://zed.dev/), plus a portable **language server** that brings completions, diagnostics, and hover to any editor that speaks LSP. The [Napper VS Code extension](https://marketplace.visualstudio.com/items?itemName=nimblesite.napper) brings the full experience into your editor:
 
 - **Syntax highlighting** for `.nap`, `.naplist`, and `.napenv` files
 - **Request explorer** in the sidebar with a tree view of all requests and playlists
@@ -286,10 +309,10 @@ code --install-extension nimblesite.napper
 | Feature | Napper | [Postman](/docs/vs-postman/) | [Bruno](/docs/vs-bruno/) | [.http files](/docs/vs-http-files/) |
 |---------|--------|---------|-------|-------------|
 | CLI-first design | Yes | No | GUI-first | No CLI |
-| VS Code integration | Native | Separate app | Separate app | REST Client |
+| Editor integration | VS Code, Zed & LSP | Separate app | Separate app | REST Client |
 | Git-friendly files | Plain text | JSON blobs | Yes | Yes |
 | Assertions | Declarative + scripts | JS scripts | JS scripts | None |
-| Scripting language | **C# + F# (.NET)** | Sandboxed JS | Sandboxed JS | None |
+| Scripting language | **JS, Python, F#, C#** | Sandboxed JS | Sandboxed JS | None |
 | CI/CD output | JUnit, JSON, NDJSON | Via Newman | Via CLI | None |
 | Test Explorer | Native | No | No | No |
 | OpenAPI import | URL + file + AI | Import only | Import only | No |
@@ -304,7 +327,7 @@ code --install-extension nimblesite.napper
 3. [Migrate existing .http files](/docs/vs-http-files/) with `napper convert http`
 4. Add [assertions](/docs/assertions/) to validate responses
 5. Set up [environments](/docs/environments/) for different targets
-6. Write [C# scripts](/docs/csharp-scripting/) or [F# scripts](/docs/fsharp-scripting/) for advanced flows
+6. Write scripts in [JavaScript](/docs/javascript-scripting/), [Python](/docs/python-scripting/), [C#](/docs/csharp-scripting/), or [F#](/docs/fsharp-scripting/) for advanced flows
 7. Run everything in [CI/CD](/docs/ci-integration/) with JUnit XML output
 
 Napper is free, open source, and [MIT licensed](https://github.com/Nimblesite/napper/blob/main/LICENSE). Browse the source code and examples on [GitHub](https://github.com/Nimblesite/napper).

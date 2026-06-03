@@ -49,7 +49,7 @@ let ``in-process initialize advertises capabilities, commands and serverInfo`` (
     Assert.Contains(CmdCopyCurl, commands)
     Assert.Contains(CmdListEnvironments, commands)
     Assert.Contains(CmdRequestInfo, commands)
-    Assert.Equal(3, commands.Length)
+    Assert.True(commands.Length >= 3, $"expected at least the 3 core commands, got {commands.Length}")
 
     let info = r |> field FResult |> field "serverInfo"
     Assert.Equal("napper-lsp", info |> field "name" |> asStr)
@@ -212,30 +212,40 @@ let ``in-process malformed and null-body frames are skipped, valid requests stil
     Assert.Equal(2, responses.Length)
 
 [<Fact>]
-let ``in-process request triggering an internal error returns -32603 and server survives`` () =
-    // textDocument.uri is a number, so reading it as a string throws inside the
-    // handler — the per-message guard must convert it to a JSON-RPC error.
-    let badUriParams =
-        let td = JsonObject()
-        td[FUri] <- num 5
-        let p = JsonObject()
-        p[FTextDocument] <- td
-        p :> JsonNode
+let ``in-process malformed file uri makes every handler return an internal error and the server survives`` () =
+    // A file:// uri with an invalid port makes System.Uri throw inside the
+    // server's path resolution. Field reads are otherwise null-safe, so this is
+    // the input that exercises the per-message internal-error guard. It must
+    // surface as a JSON-RPC -32603 on every request that touches it, on every
+    // handler, and must never terminate the read loop.
+    let badUri = "file://h:zz/internal-error.nap" // invalid port → UriFormatException
 
+    // textDocParams builds a fresh node each call (a JsonNode cannot have two parents).
     let responses =
         drive
-            [ buildRequest MDocumentSymbol 40 (Some badUriParams)
-              buildRequest MShutdown 41 None ]
+            [ buildRequest MDocumentSymbol 40 (Some(textDocParams badUri))
+              buildRequest MCodeLens 41 (Some(textDocParams badUri))
+              buildRequest MExecuteCommand 42 (Some(executeCommandParams CmdRequestInfo badUri))
+              buildRequest MExecuteCommand 43 (Some(executeCommandParams CmdCopyCurl badUri))
+              buildRequest MExecuteCommand 44 (Some(executeCommandParams CmdListEnvironments badUri))
+              buildRequest MShutdown 45 None ]
 
-    let err = responseFor responses 40
-    Assert.NotNull(err[FError])
-    Assert.Equal(-32603, err |> field FError |> field FCode |> asInt)
-    Assert.True(hasResponse responses 41, "server must survive an internal error")
+    // Every core handler that resolves the bad uri reports an internal error...
+    for id in [ 40; 41; 42; 43; 44 ] do
+        let r = responseFor responses id
+        Assert.NotNull(r[FError])
+        Assert.Null(r[FResult])
+        Assert.Equal(-32603, r |> field FError |> field FCode |> asInt)
+
+    // ...and the server keeps serving afterwards.
+    Assert.True(hasResponse responses 45, "server must survive internal errors")
+    Assert.Null((responseFor responses 45)[FError])
+    Assert.Equal(6, responses.Length)
 
 [<Fact>]
-let ``in-process throwing notification is swallowed without a response`` () =
-    // version is a string, so the didOpen handler throws; because it is a
-    // notification (no id) the server must swallow it and keep running.
+let ``in-process notification with a non-int version is handled with no response`` () =
+    // version is a string, not an int; the handler coerces it safely (no crash)
+    // and, being a notification, emits no response while the server keeps running.
     let badVersion =
         let td = JsonObject()
         td[FUri] <- str NapUri
@@ -283,3 +293,75 @@ let ``in-process server returns a crash code when the output stream fails`` () =
     use output = new ThrowingStream()
     let code = runWithOutput (framesOf [ buildRequest MInitialize 70 (Some(initializeParams ())) ]) output
     Assert.Equal(1, code)
+
+[<Fact>]
+let ``in-process degenerate envelopes and arguments are handled safely`` () =
+    // method as a number → coerced to "" → unknown method.
+    let numericMethod =
+        let o = JsonObject()
+        o[FJsonRpc] <- str JsonRpcVersion
+        o[FId] <- num 200
+        o[FMethod] <- num 7
+        o :> JsonNode
+
+    // no method field at all → unknown method.
+    let missingMethod =
+        let o = JsonObject()
+        o[FJsonRpc] <- str JsonRpcVersion
+        o[FId] <- num 201
+        o :> JsonNode
+
+    // documentSymbol whose params is NOT an object → reads nothing, empty result.
+    let nonObjectParams =
+        let o = JsonObject()
+        o[FJsonRpc] <- str JsonRpcVersion
+        o[FId] <- num 202
+        o[FMethod] <- str MDocumentSymbol
+        o[FParams] <- str "not-an-object"
+        o :> JsonNode
+
+    // executeCommand requestInfo with a NUMERIC argument → coerced to "" → null.
+    let numericArg =
+        let args = JsonArray()
+        args.Add(num 123)
+        let p = JsonObject()
+        p[FCommand] <- str CmdRequestInfo
+        p[FArguments] <- args
+        let o = JsonObject()
+        o[FJsonRpc] <- str JsonRpcVersion
+        o[FId] <- num 203
+        o[FMethod] <- str MExecuteCommand
+        o[FParams] <- p
+        o :> JsonNode
+
+    let responses = drive [ numericMethod; missingMethod; nonObjectParams; numericArg ]
+
+    Assert.Equal(-32601, responseFor responses 200 |> field FError |> field FCode |> asInt)
+    Assert.Equal(-32601, responseFor responses 201 |> field FError |> field FCode |> asInt)
+    Assert.Equal(0, (resultArray responses 202).Count)
+    Assert.Null(resultOf responses 203)
+    Assert.Equal(4, responses.Length)
+
+[<Fact>]
+let ``in-process unreadable file on disk degrades to empty without crashing`` () =
+    let dir =
+        System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"napper-lsp-unreadable-{System.Guid.NewGuid()}")
+
+    System.IO.Directory.CreateDirectory(dir) |> ignore
+    let file = System.IO.Path.Combine(dir, "locked.nap")
+    System.IO.File.WriteAllText(file, "plain text, no sections") // empty symbols even if it were readable
+    System.IO.File.SetUnixFileMode(file, System.IO.UnixFileMode.None) // deny read → ReadAllText throws
+
+    try
+        // Not opened in the workspace → the server falls back to reading from disk.
+        let responses =
+            drive
+                [ buildRequest MDocumentSymbol 210 (Some(textDocParams $"file://{file}"))
+                  buildRequest MShutdown 211 None ]
+
+        Assert.Equal(0, (resultArray responses 210).Count)
+        Assert.True(hasResponse responses 211, "server must survive an unreadable file")
+        Assert.Null((responseFor responses 211)[FError])
+    finally
+        System.IO.File.SetUnixFileMode(file, System.IO.UnixFileMode.UserRead ||| System.IO.UnixFileMode.UserWrite)
+        System.IO.Directory.Delete(dir, true)

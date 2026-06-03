@@ -12,7 +12,7 @@
       "include": "[DotHttp]*"
     },
     "src/Napper.Lsp.Tests": {
-      "threshold": 0,
+      "threshold": 99,
       "include": "[Napper.Lsp]*"
     },
     "src/Napper.VsCode": {

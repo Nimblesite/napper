@@ -24,12 +24,13 @@ esac
 
 OUT_DIR="${REPO_ROOT}/out/${RID}"
 
-echo "==> Building CLI for ${RID}..."
+# NativeAOT per [CLI-AOT-MIGRATION]: a single statically-linked native binary with
+# zero .NET runtime dependency — the same artifact that ships in releases and the VSIX,
+# so tests exercise the REAL deployed CLI. (Linux needs `clang` + `zlib1g-dev`.)
+echo "==> Building CLI (NativeAOT) for ${RID}..."
 dotnet publish "${REPO_ROOT}/src/Napper.Cli/Napper.Cli.fsproj" \
   -r "${RID}" \
-  --self-contained \
-  -p:PublishTrimmed=true \
-  -p:PublishSingleFile=true \
+  -p:PublishAot=true \
   -o "${OUT_DIR}" \
   --nologo
 

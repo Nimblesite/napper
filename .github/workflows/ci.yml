@@ -54,6 +54,9 @@ jobs:
         working-directory: src/Napper.VsCode
         run: npm ci
 
+      - name: Validate Shipwright manifest
+        run: npx --yes @nimblesite/shipwright-validate-manifest src/Napper.VsCode/shipwright.json
+
       - name: Restore dotnet tools
         run: dotnet tool restore
 
@@ -249,6 +252,40 @@ jobs:
           name: vsix
           path: src/Napper.VsCode/*.vsix
           retention-days: 7
+
+  aot-smoke:
+    name: NativeAOT smoke (linux-x64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # Guards the [cli-aot-migration] contract on every PR: the LSP and CLI must
+      # publish AND RUN under NativeAOT. A reflection regression compiles fine but
+      # crashes at runtime, so we exercise the real native binary here.
+      - name: Install NativeAOT prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish CLI (NativeAOT)
+        run: dotnet publish src/Napper.Cli/Napper.Cli.fsproj -r linux-x64 -p:PublishAot=true -o out/aot --nologo
+
+      - name: Smoke test the native binary (CLI + LSP)
+        run: |
+          set -euo pipefail
+          chmod +x out/aot/napper
+          # CLI works with zero .NET runtime present.
+          out/aot/napper --version
+          # The LSP answers an initialize handshake over stdio (no reflection crash).
+          BODY='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{},"rootUri":""}}'
+          LEN=$(printf '%s' "$BODY" | wc -c)
+          OUT=$( { printf 'Content-Length: %s\r\n\r\n%s' "$LEN" "$BODY"; printf 'Content-Length: 44\r\n\r\n{"jsonrpc":"2.0","method":"exit","params":{}}'; } | out/aot/napper lsp )
+          echo "$OUT"
+          echo "$OUT" | grep -q '"name":"napper-lsp"' || { echo "::error::LSP initialize did not return capabilities under AOT"; exit 1; }
 
   build-website:
     name: Website Build
