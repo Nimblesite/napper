@@ -1,8 +1,9 @@
 # =============================================================================
 # Standard Makefile — Napper
 # =============================================================================
+# agent-pmo:74cf183
 
-.PHONY: package-vsix test test-fsharp lint fmt clean ci setup build-zed
+.PHONY: build test lint fmt clean ci setup package-vsix test-fsharp build-zed
 
 # --- Cross-platform support ---
 ifeq ($(OS),Windows_NT)
@@ -92,23 +93,15 @@ endef
 
 # =============================================================================
 # Standard Targets
+#
+# The 7 portfolio-wide targets. See REPO-STANDARDS-SPEC [MAKE-TARGETS].
+# Repo-specific targets live in their own section below.
 # =============================================================================
 
-package-vsix: clean _build_cli _build_extension
-	cd src/Napper.VsCode && npx @vscode/vsce package --no-dependencies --skip-license --target $(_DTK_PLATFORM)
-	@VSIX=$$(ls src/Napper.VsCode/*.vsix 2>/dev/null | head -1); \
-	  [ -n "$$VSIX" ] || { echo "ERROR: no VSIX file found"; exit 1; }; \
-	  echo "==> Verifying VSIX contents: $$VSIX"; \
-	  unzip -l "$$VSIX" > /tmp/vsix-contents.txt; \
-	  grep -q "shipwright.json" /tmp/vsix-contents.txt || { echo "ERROR: shipwright.json missing from VSIX"; exit 1; }; \
-	  grep -q "bin/$(_DTK_PLATFORM)/napper" /tmp/vsix-contents.txt || { echo "ERROR: bin/$(_DTK_PLATFORM)/napper missing from VSIX"; exit 1; }; \
-	  echo "  shipwright.json: OK"; \
-	  echo "  bin/$(_DTK_PLATFORM)/napper: OK"; \
-	  echo "==> VSIX packaged and verified"
+# build: compile/assemble all shippable artifacts (CLI native binary + extension bundle).
+build: _build_cli _build_extension
 
 test: _test_fsharp _test_rust _test_vsix _coverage_check
-
-test-fsharp: _test_fsharp
 
 lint:
 	dotnet build --nologo -warnaserror
@@ -127,7 +120,7 @@ clean:
 	$(_RM) src/Napper.VsCode/bin/ src/Napper.VsCode/dist/ src/Napper.VsCode/out/
 	$(_RM) src/Napper.VsCode/*.vsix
 
-ci: lint test package-vsix
+ci: lint test build
 
 setup:
 	dotnet tool restore && dotnet restore
@@ -136,6 +129,30 @@ setup:
 	rustup component add clippy rustfmt 2>/dev/null || true
 	dotnet tool install --global dotnet-reportgenerator-globaltool 2>/dev/null || true
 
+# =============================================================================
+# Repo-Specific Targets
+#
+# Specific to this repo; NOT part of the standard 7. Preserved during
+# remediation per REPO-STANDARDS-SPEC [MAKE-TARGETS].
+# =============================================================================
+
+# package-vsix: build then package the platform VSIX and verify its contents.
+package-vsix: clean build
+	cd src/Napper.VsCode && npx @vscode/vsce package --no-dependencies --skip-license --target $(_DTK_PLATFORM)
+	@VSIX=$$(ls src/Napper.VsCode/*.vsix 2>/dev/null | head -1); \
+	  [ -n "$$VSIX" ] || { echo "ERROR: no VSIX file found"; exit 1; }; \
+	  echo "==> Verifying VSIX contents: $$VSIX"; \
+	  unzip -l "$$VSIX" > /tmp/vsix-contents.txt; \
+	  grep -q "shipwright.json" /tmp/vsix-contents.txt || { echo "ERROR: shipwright.json missing from VSIX"; exit 1; }; \
+	  grep -q "bin/$(_DTK_PLATFORM)/napper" /tmp/vsix-contents.txt || { echo "ERROR: bin/$(_DTK_PLATFORM)/napper missing from VSIX"; exit 1; }; \
+	  echo "  shipwright.json: OK"; \
+	  echo "  bin/$(_DTK_PLATFORM)/napper: OK"; \
+	  echo "==> VSIX packaged and verified"
+
+# test-fsharp: F#-only test subset (consumed by CI's F# coverage step).
+test-fsharp: _test_fsharp
+
+# build-zed: build the Zed extension wasm (requires the tree-sitter CLI).
 build-zed:
 	@command -v cargo &>/dev/null || { echo "ERROR: cargo not found"; exit 1; }
 	@command -v tree-sitter &>/dev/null || { echo "ERROR: tree-sitter not found"; exit 1; }

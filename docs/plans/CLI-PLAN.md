@@ -122,7 +122,7 @@ nap/
 ### Phase 4 — Polish & Distribution
 - [ ] `dotnet tool install` — set `PackAsTool` in fsproj, publish to nuget.org (PRIMARY)
 - [ ] VSIX auto-installs CLI via `dotnet tool install -g napper --version X.X.X`
-- [ ] Standalone native binary (NativeAOT or single-file publish) — secondary
+- [x] Standalone native binary via **NativeAOT** (`-p:PublishAot=true`) per [`cli-aot-migration`](../specs/CLI-SPEC.md#cli-aot-migration) — single statically-linked binary per RID, zero .NET runtime dependency. The `napper lsp` language server ships inside it (AOT-safe System.Text.Json transport, no reflection).
 - [ ] Homebrew formula
 - [ ] Winget / Chocolatey / Scoop packages
 - [ ] `nap new` scaffolding commands

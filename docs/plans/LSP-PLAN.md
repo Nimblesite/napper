@@ -304,6 +304,12 @@ No other dependencies. The LSP is lightweight by design.
 - [ ] Run ALL existing VSIX e2e tests — must pass
 - [ ] Run ALL existing F# tests — must pass
 
+### Phase 3.5 — NativeAOT Transport (Implements [cli-aot-migration])
+- [x] Replace `Ionide.LanguageServerProtocol` + `StreamJsonRpc` + `Newtonsoft.Json` with a hand-rolled, reflection-free JSON-RPC transport in `Server.fs` (System.Text.Json DOM only). Newtonsoft's F#-union reflection crashes under NativeAOT (`FSharpUtils.GetMethodWithNonPublicFallback` NRE), so the reflection-based stack cannot ship in the AOT binary.
+- [x] Delete `Client.fs` (Ionide `LspClient`); mark `Napper.Lsp` `IsAotCompatible`.
+- [x] CLI publishes via `-p:PublishAot=true`; `napper lsp` runs inside the single native binary with zero .NET runtime dependency.
+- [x] All 14 LSP e2e tests pass against the **native AOT binary** (not just the JIT build).
+
 ### Phase 4 — Post-Cutover: New LSP Features
 - [ ] Diagnostics (parse errors, unknown variables, missing blocks)
 - [ ] Completions (methods, headers, variables, status codes, operators)
