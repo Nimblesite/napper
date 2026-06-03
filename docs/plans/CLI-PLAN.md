@@ -77,9 +77,10 @@ nap/
 
 ### Phase 4 — Polish & Distribution
 
-- **Standalone NativeAOT native binary (PRIMARY and only channel)** — `-p:PublishAot=true`, a single statically-linked binary per RID with zero .NET runtime dependency ([`cli-aot-migration`](../specs/CLI-SPEC.md#cli-aot-migration)). Shipped via GitHub Releases and bundled in the per-platform VSIX. **No `dotnet tool` / NuGet channel** — a dotnet tool would reintroduce a .NET runtime requirement for end users.
+- **Standalone NativeAOT native binary (PRIMARY channel)** — `-p:PublishAot=true`, a single statically-linked binary per RID with zero .NET runtime dependency ([`cli-aot-migration`](../specs/CLI-SPEC.md#cli-aot-migration)). Shipped via GitHub Releases and bundled in the per-platform VSIX.
 - Homebrew formula + Scoop bucket (consume the GitHub Release binary)
 - `install.sh` / `install.ps1` (direct download + SHA-256 verify)
+- **`dotnet tool` NuGet package (SECONDARY, optional, best-effort)** — for .NET users; the only channel that needs the .NET SDK. Published by the non-blocking `publish-nuget` job; never blocks a release.
 - Winget / Chocolatey packages (future)
 - `nap new` scaffolding commands
 - Language-extensible script runner model — JavaScript & Python via the shared context protocol, see [SCRIPTING-LANGUAGES-PLAN.md](./SCRIPTING-LANGUAGES-PLAN.md)
@@ -120,8 +121,9 @@ nap/
 - [ ] `ctx.Set` for cross-step variable passing
 
 ### Phase 4 — Polish & Distribution
-- [x] Standalone native binary via **NativeAOT** (`-p:PublishAot=true`) per [`cli-aot-migration`](../specs/CLI-SPEC.md#cli-aot-migration) — single statically-linked binary per RID, zero .NET runtime dependency. The `napper lsp` language server ships inside it (AOT-safe System.Text.Json transport, no reflection). This is the **only** CLI distribution artifact — no `dotnet tool` / NuGet.
-- [x] VSIX bundles the per-platform native binary (`bin/${platform}/napper`); no `dotnet tool install`
+- [x] Standalone native binary via **NativeAOT** (`-p:PublishAot=true`) per [`cli-aot-migration`](../specs/CLI-SPEC.md#cli-aot-migration) — single statically-linked binary per RID, zero .NET runtime dependency. The `napper lsp` language server ships inside it (AOT-safe System.Text.Json transport, no reflection). This is the **primary** CLI distribution artifact.
+- [x] VSIX bundles the per-platform native binary (`bin/${platform}/napper`); extension never resolves via `dotnet tool`
+- [x] `dotnet tool` NuGet package kept as a **secondary, non-blocking** channel (`publish-nuget`)
 - [x] Homebrew formula + Scoop bucket (consume the GitHub Release binary)
 - [ ] Winget / Chocolatey packages
 - [ ] `nap new` scaffolding commands

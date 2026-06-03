@@ -59,6 +59,19 @@ scoop bucket add Nimblesite https://github.com/Nimblesite/scoop-bucket && scoop 
 
 Tracks latest only. Published by [`update-scoop`](../../.github/workflows/release.yml) on every release.
 
+### `cli-install-dotnet-tool` — dotnet tool (secondary, optional)
+
+```sh
+dotnet tool install -g napper                    # latest
+dotnet tool install -g napper --version 0.12.0   # exact version
+dotnet tool update  -g napper                    # update
+```
+
+For .NET developers who prefer it. This is the **only** channel that needs the **.NET 10 SDK**; all
+other channels need no .NET. Published best-effort by the non-blocking
+[`publish-nuget`](../../.github/workflows/release.yml) job — a NuGet failure never blocks a release,
+and the VS Code extension never resolves the CLI this way ([SWR-IDE-RESOLUTION]).
+
 ### `cli-runtime-dependency` — Runtime dependency
 
 **None.** `napper` is published with **NativeAOT** (`-p:PublishAot=true`, see
@@ -71,9 +84,10 @@ see `script-runtime`.)
 ### `cli-aot-migration` — NativeAOT (landed)
 
 `napper` ships as a NativeAOT binary (`PublishAot=true`): a single statically-linked native
-binary per RID with zero runtime dependencies, ~5–10 MB, ~10 ms cold start. Distribution
-channels are Brew / Scoop / the install script / the VSIX-bundled binary — there is **no
-`dotnet tool` channel**. The VSIX install flow needs no .NET SDK prerequisite.
+binary per RID with zero runtime dependencies, ~5–10 MB, ~10 ms cold start. Primary distribution is
+the native binary — Brew / Scoop / install script / VSIX-bundled. A secondary, optional `dotnet tool`
+NuGet package ([`cli-install-dotnet-tool`](#cli-install-dotnet-tool)) is published best-effort for
+.NET users. The VSIX install flow needs no .NET SDK prerequisite.
 
 **AOT constraints** (enforced): no reflection-based serialization — `printf`, quotations, and
 reflection fail at publish time; all third-party deps must be AOT-compatible. Verified by the

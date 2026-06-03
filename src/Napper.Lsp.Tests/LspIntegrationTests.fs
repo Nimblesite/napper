@@ -67,7 +67,13 @@ let ``initialized handshake leaves the real server fully operational`` () : Task
         // A synchronous round-trip is far stronger proof of liveness than a sleep:
         // open a doc and query it back through the real binary.
         let uri = "file:///tmp/post-init.nap"
-        do! server.SendNotification(MDidOpen, didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n")
+
+        do!
+            server.SendNotification(
+                MDidOpen,
+                didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n"
+            )
+
         let! symResponse = server.SendRequest(MDocumentSymbol, 2, textDocParams uri)
         Assert.Null(symResponse[FError])
         let symbols = symResponse[FResult] :?> JsonArray
@@ -83,7 +89,10 @@ let ``textDocument/didOpen tracks document so symbols, lenses and requestInfo al
         let! _ = handshake server
 
         let uri = "file:///tmp/test.nap"
-        let content = "[meta]\nname = \"T\"\n\n[request]\nmethod = GET\nurl = https://example.com\n"
+
+        let content =
+            "[meta]\nname = \"T\"\n\n[request]\nmethod = GET\nurl = https://example.com\n"
+
         do! server.SendNotification(MDidOpen, didOpenParams uri 1 content)
 
         // documentSymbol proves the opened content is actually tracked.
@@ -122,7 +131,11 @@ let ``textDocument/didChange replaces tracked content and ignores stale versions
         let! _ = handshake server
         let uri = "file:///tmp/test.nap"
 
-        do! server.SendNotification(MDidOpen, didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n")
+        do!
+            server.SendNotification(
+                MDidOpen,
+                didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n"
+            )
 
         // Before the change the tracked request is the GET.
         let! before = server.SendRequest(MExecuteCommand, 20, executeCommandParams CmdRequestInfo uri)
@@ -133,7 +146,12 @@ let ``textDocument/didChange replaces tracked content and ignores stale versions
         Assert.Equal("https://example.com", beforeUrl.GetValue<string>())
 
         // A newer version replaces the content.
-        do! server.SendNotification(MDidChange, didChangeParams uri 2 "[request]\nmethod = POST\nurl = https://example.com/users\n")
+        do!
+            server.SendNotification(
+                MDidChange,
+                didChangeParams uri 2 "[request]\nmethod = POST\nurl = https://example.com/users\n"
+            )
+
         let! after = server.SendRequest(MExecuteCommand, 21, executeCommandParams CmdRequestInfo uri)
         let afterInfo = after[FResult]
         let afterMethod = afterInfo["method"]
@@ -142,7 +160,12 @@ let ``textDocument/didChange replaces tracked content and ignores stale versions
         Assert.Equal("https://example.com/users", afterUrl.GetValue<string>())
 
         // A stale (older version) change must be ignored — content stays at v2.
-        do! server.SendNotification(MDidChange, didChangeParams uri 1 "[request]\nmethod = PUT\nurl = https://example.com/stale\n")
+        do!
+            server.SendNotification(
+                MDidChange,
+                didChangeParams uri 1 "[request]\nmethod = PUT\nurl = https://example.com/stale\n"
+            )
+
         let! stale = server.SendRequest(MExecuteCommand, 22, executeCommandParams CmdRequestInfo uri)
         let staleInfo = stale[FResult]
         let staleMethod = staleInfo["method"]
@@ -160,7 +183,11 @@ let ``textDocument/didClose removes the document so later queries see nothing`` 
         let! _ = handshake server
         let uri = "file:///tmp/test.nap"
 
-        do! server.SendNotification(MDidOpen, didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n")
+        do!
+            server.SendNotification(
+                MDidOpen,
+                didOpenParams uri 1 "[request]\nmethod = GET\nurl = https://example.com\n"
+            )
 
         // While open: symbols are present and requestInfo resolves.
         let! openSyms = server.SendRequest(MDocumentSymbol, 30, textDocParams uri)

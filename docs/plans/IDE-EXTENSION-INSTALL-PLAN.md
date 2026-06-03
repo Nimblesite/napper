@@ -23,7 +23,7 @@ Per [SWR-VSIX-CI-MATRIX] and [SWR-VSIX-PACKAGE], we build **6 per-platform VSIXe
 | Platform | Runner | vsceTarget | npm_config_arch |
 |----------|--------|------------|-----------------|
 | darwin-arm64 | macos-15 | darwin-arm64 | arm64 |
-| darwin-x64 | macos-13 | darwin-x64 | x64 |
+| darwin-x64 | macos-15-intel | darwin-x64 | x64 |
 | linux-x64 | ubuntu-latest | linux-x64 | x64 |
 | linux-arm64 | ubuntu-24.04-arm | linux-arm64 | arm64 |
 | win32-x64 | windows-latest | win32-x64 | x64 |
@@ -37,14 +37,17 @@ Local dev: `make package-vsix` builds a single-platform VSIX for the current mac
 
 ---
 
-## No NuGet / dotnet-tool deployment
+## Deployment channels
 
-`napper` deploys **only** as a self-contained NativeAOT native binary — via GitHub Releases
+`napper`'s **primary** artifact is a self-contained NativeAOT native binary — via GitHub Releases
 (consumed by Homebrew, Scoop, and `install.sh`/`install.ps1`) and bundled inside each per-platform
-VSIX. There is **no `dotnet tool` / NuGet channel and no `publish-nuget` job**: a dotnet tool would
-force end users to install the .NET runtime ([`cli-aot-migration`](../specs/CLI-SPEC.md#cli-aot-migration)).
-The Shipwright resolution chain is `user-setting → env → bundled` only — `path` and `dotnet-tool`
-are not startup sources ([SWR-IDE-RESOLUTION]).
+VSIX, so end users never need .NET ([`cli-aot-migration`](../specs/CLI-SPEC.md#cli-aot-migration)).
+
+A `dotnet tool` NuGet package is a **secondary, best-effort** channel for .NET users, published by
+the non-blocking `publish-nuget` job — it is **never** a dependency of the release / Marketplace /
+brew / scoop jobs, so a NuGet failure can never block a release. The VS Code extension's Shipwright
+resolution chain is `user-setting → env → bundled` only — `path` and `dotnet-tool` are **not**
+startup sources ([SWR-IDE-RESOLUTION]).
 
 ---
 

@@ -46,7 +46,9 @@ let ``napper --version prints 'napper <semver>' and exits 0`` () =
 
 [<Fact>]
 let ``napper --version --json conforms to the version manifest schema`` () =
-    let exitCode, stdout, _ = runCli "--version --json" (Directory.GetCurrentDirectory())
+    let exitCode, stdout, _ =
+        runCli "--version --json" (Directory.GetCurrentDirectory())
+
     Assert.Equal(0, exitCode)
     use doc = JsonDocument.Parse(firstLine stdout)
     let root = doc.RootElement
@@ -91,10 +93,14 @@ let ``stamper rewrites every version carrier from a tag`` () =
         let props = File.ReadAllText(Path.Combine(temp, propsName))
         Assert.Contains($"<Version>{version}</Version>", props)
 
-        use pkg = JsonDocument.Parse(File.ReadAllText(Path.Combine(temp, vscodeDir, pkgName)))
+        use pkg =
+            JsonDocument.Parse(File.ReadAllText(Path.Combine(temp, vscodeDir, pkgName)))
+
         Assert.Equal(version, pkg.RootElement.GetProperty("version").GetString())
 
-        use ship = JsonDocument.Parse(File.ReadAllText(Path.Combine(temp, vscodeDir, manifestName)))
+        use ship =
+            JsonDocument.Parse(File.ReadAllText(Path.Combine(temp, vscodeDir, manifestName)))
+
         Assert.Equal(version, ship.RootElement.GetProperty("product").GetProperty("version").GetString())
         let mutable componentCount = 0
 

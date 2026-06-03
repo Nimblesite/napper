@@ -135,16 +135,25 @@ module private Wire =
         | Some headers ->
             let len = contentLength headers
 
-            if len <= 0 then Skip
-            elif len > MaxMessageBytes then Eof
+            if len <= 0 then
+                Skip
+            elif len > MaxMessageBytes then
+                Eof
             else
                 let buf = Array.zeroCreate<byte> len
-                if readFully input buf len < len then Eof else Body(Encoding.UTF8.GetString buf)
+
+                if readFully input buf len < len then
+                    Eof
+                else
+                    Body(Encoding.UTF8.GetString buf)
 
     /// Frame and write one message, then flush.
     let writeMessage (output: Stream) (json: string) : unit =
         let body = Encoding.UTF8.GetBytes(json)
-        let header = Encoding.ASCII.GetBytes($"{HeaderContentLength}: {body.Length}{HeaderTerminator}")
+
+        let header =
+            Encoding.ASCII.GetBytes($"{HeaderContentLength}: {body.Length}{HeaderTerminator}")
+
         output.Write(header, 0, header.Length)
         output.Write(body, 0, body.Length)
         output.Flush()
@@ -157,7 +166,10 @@ module private Handlers =
     let private isNaplist (uri: string) = uri.EndsWith NaplistExtension
 
     let private uriToFilePath (uri: string) : string =
-        if uri.StartsWith FileScheme then Uri(uri).LocalPath else uri
+        if uri.StartsWith FileScheme then
+            Uri(uri).LocalPath
+        else
+            uri
 
     /// The text of a tracked document, falling back to reading from disk so the
     /// LSP serves files the IDE never opened (e.g. the explorer tree). A bad URI
@@ -221,9 +233,12 @@ module private Handlers =
         o :> JsonNode
 
     let private scanSections (uri: string) (text: string) : SectionScanner.SectionLocation list =
-        if isNap uri then SectionScanner.scanNapSections text
-        elif isNaplist uri then SectionScanner.scanNaplistSections text
-        else []
+        if isNap uri then
+            SectionScanner.scanNapSections text
+        elif isNaplist uri then
+            SectionScanner.scanNaplistSections text
+        else
+            []
 
     let documentSymbols (uri: string) : JsonNode =
         let arr = JsonArray()
@@ -237,9 +252,12 @@ module private Handlers =
     let private lens (line: int) (data: string option) : JsonNode =
         let o = JsonObject()
         o[FRange] <- range line line
-        o[FData] <- (match data with
-                     | Some d -> jstr d
-                     | None -> null)
+
+        o[FData] <-
+            (match data with
+             | Some d -> jstr d
+             | None -> null)
+
         o :> JsonNode
 
     let codeLenses (uri: string) : JsonNode =
@@ -391,7 +409,11 @@ module private Handlers =
         | MDocumentSymbol -> Some(ok id (documentSymbols (uriOf p)))
         | MCodeLens -> Some(ok id (codeLenses (uriOf p)))
         | MExecuteCommand -> Some(ok id (executeCommand p))
-        | _ -> if isRequest then Some(err id CodeMethodNotFound MsgMethodNotFound) else None
+        | _ ->
+            if isRequest then
+                Some(err id CodeMethodNotFound MsgMethodNotFound)
+            else
+                None
 
 /// Public entry point used by Napper.Cli and the integration tests.
 module LspRunner =
@@ -419,7 +441,10 @@ module LspRunner =
                 try
                     Handlers.handle methodName msg[FParams] id
                 with ex ->
-                    if isNull id then None else Some(Json.err id CodeInternalError ex.Message)
+                    if isNull id then
+                        None
+                    else
+                        Some(Json.err id CodeInternalError ex.Message)
 
             response |> Option.iter (fun r -> Wire.writeMessage output (r.ToJsonString()))
             true

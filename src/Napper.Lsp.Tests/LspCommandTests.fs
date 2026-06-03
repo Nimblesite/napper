@@ -66,7 +66,9 @@ let ``in-process listEnvironments works for both file uri and plain path`` () =
 
         for id in [ 110; 111 ] do
             let envs =
-                (resultArray responses id) |> Seq.map (fun e -> e.GetValue<string>()) |> Seq.toList
+                (resultArray responses id)
+                |> Seq.map (fun e -> e.GetValue<string>())
+                |> Seq.toList
 
             Assert.Contains("staging", envs)
             Assert.Contains("production", envs)

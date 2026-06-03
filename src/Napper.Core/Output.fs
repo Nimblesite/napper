@@ -132,7 +132,9 @@ let formatJson (result: NapResult) : string =
     | None -> ()
 
     // Request info
-    writer.WriteString("requestMethod", string result.Request.Method)
+    // .Name, not `string` on the DU: the `string` operator on a union reflects
+    // (structured-print) and aborts under NativeAOT.
+    writer.WriteString("requestMethod", result.Request.Method.Name)
     writer.WriteString("requestUrl", result.Request.Url)
     writer.WriteStartObject("requestHeaders")
 

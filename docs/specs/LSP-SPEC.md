@@ -207,12 +207,12 @@ The LSP accepts configuration via `workspace/didChangeConfiguration` and `initia
 ## Distribution
 
 The LSP has no separate distribution. It ships inside the native `napper` binary — you launch
-it via `napper lsp`. There is no `dotnet tool` / NuGet channel (see
-[`cli-aot-migration`](./CLI-SPEC.md#cli-aot-migration)):
+it via `napper lsp`. The primary channels need no .NET ([`cli-aot-migration`](./CLI-SPEC.md#cli-aot-migration)):
 
 - **Install script** — `install.sh` / `install.ps1` ([`cli-install-script`](./CLI-SPEC.md#cli-install-script)).
 - **Homebrew tap** — `brew install napper` ([`cli-install-homebrew`](./CLI-SPEC.md#cli-install-homebrew)).
 - **Scoop bucket** — `scoop install napper` ([`cli-install-scoop`](./CLI-SPEC.md#cli-install-scoop)).
+- **dotnet tool** (secondary, optional, needs .NET SDK) — `dotnet tool install -g napper` ([`cli-install-dotnet-tool`](./CLI-SPEC.md#cli-install-dotnet-tool)).
 
 The VSIX install resolver ([`vscode-cli-acquisition`](./IDE-EXTENSION-SPEC.md#vscode-cli-acquisition)) installs `napper` once. That single install gives you the LSP for free — no second download, no second version pin, no second discovery step.
 

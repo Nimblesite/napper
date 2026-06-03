@@ -88,7 +88,7 @@ jobs:
       matrix:
         include:
           - { platform: darwin-arm64, rid: osx-arm64,   os: macos-15,         archive: tar.gz, npm_config_arch: arm64 }
-          - { platform: darwin-x64,   rid: osx-x64,     os: macos-13,         archive: tar.gz, npm_config_arch: x64 }
+          - { platform: darwin-x64,   rid: osx-x64,     os: macos-15-intel,   archive: tar.gz, npm_config_arch: x64 }
           - { platform: linux-x64,    rid: linux-x64,   os: ubuntu-latest,    archive: tar.gz, npm_config_arch: x64 }
           - { platform: linux-arm64,  rid: linux-arm64, os: ubuntu-24.04-arm, archive: tar.gz, npm_config_arch: arm64 }
           - { platform: win32-x64,    rid: win-x64,     os: windows-latest,   archive: zip,    npm_config_arch: x64 }
@@ -238,6 +238,9 @@ jobs:
   package-cli:
     name: Package CLI assets
     needs: [validate-tag, build]
+    # Ship whatever platforms built: a single flaky leg (e.g. an ARM runner outage)
+    # must not block the release. Runs unless the gate failed (build skipped).
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -283,6 +286,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [validate-tag, package-cli, build]
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -314,6 +318,7 @@ jobs:
   publish-marketplace:
     name: Publish to VS Code Marketplace
     needs: [validate-tag, build]
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
