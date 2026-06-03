@@ -508,9 +508,12 @@ jobs:
           git push
 
   # ── Refresh the website after the release assets exist ──
+  # Ordered after brew/scoop, but gated only on the GitHub Release itself so a
+  # transient Homebrew/Scoop failure can never skip the production website push.
   deploy-website:
     name: Deploy Website
-    needs: [update-homebrew, update-scoop]
+    needs: [release, update-homebrew, update-scoop]
+    if: ${{ !cancelled() && needs.release.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
