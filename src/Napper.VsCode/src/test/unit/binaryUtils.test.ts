@@ -7,7 +7,9 @@ import { bundledBinaryPath, ensureExecutable } from '../../binaryUtils';
 
 suite('binaryUtils', () => {
   test('ensureExecutable sets +x on a file that lacks it', () => {
-    if (process.platform === 'win32') return;
+    if (process.platform === 'win32') {
+      return;
+    }
     const tmp = path.join(os.tmpdir(), `napper-test-${Date.now()}`);
     fs.writeFileSync(tmp, '#!/bin/sh\n', { mode: 0o644 });
     try {
@@ -22,7 +24,9 @@ suite('binaryUtils', () => {
   });
 
   test('ensureExecutable does nothing when file does not exist', () => {
-    assert.doesNotThrow(() => ensureExecutable('/nonexistent/path/napper'));
+    assert.doesNotThrow(() => {
+      ensureExecutable('/nonexistent/path/napper');
+    });
   });
 
   test('bundledBinaryPath returns path inside extensionPath/bin/<platform>/napper', () => {

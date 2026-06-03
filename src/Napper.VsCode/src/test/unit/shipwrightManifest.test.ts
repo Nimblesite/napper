@@ -9,7 +9,7 @@ const _PKG_PATH = path.join(__dirname, '../../../package.json');
 
 interface Manifest {
   product: { version: string };
-  components: Array<{ expectedVersion: string }>;
+  components: { expectedVersion: string }[];
 }
 
 const _TEMPLATE_RE = /\$\{[^}]+\}/;

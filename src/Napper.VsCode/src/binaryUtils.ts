@@ -9,7 +9,9 @@ export const bundledBinaryPath = (extensionPath: string): string => {
 };
 
 export const ensureExecutable = (binaryPath: string): void => {
-  if (process.platform === 'win32') return;
+  if (process.platform === 'win32') {
+    return;
+  }
   if (fs.existsSync(binaryPath)) {
     fs.chmodSync(binaryPath, 0o755);
   }

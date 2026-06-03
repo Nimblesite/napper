@@ -65,15 +65,28 @@ define _dotnet_test
 endef
 
 # Checks one coverage result against coverage-thresholds.json.
+# Exits non-zero immediately (FAIL FAST) if coverage < threshold.
+# Ratchets threshold up to floor(coverage)-1 when coverage improves.
 # $(1)=project key  $(2)=summary file  $(3)=label
 define _cov_check
 	@{ \
-	  t=$$(jq '.projects["$(1)"].threshold // .default_threshold' coverage-thresholds.json); \
+	  t=$$(jq -r '.projects["$(1)"].threshold // .default_threshold' coverage-thresholds.json); \
 	  if [ -f "$(2)" ]; then \
 	    c=$$(awk '/Line coverage:/ {gsub(/%/,""); print $$3}' "$(2)" 2>/dev/null || echo "0"); \
 	    echo "  $(3): $${c}% (threshold $${t}%)"; \
-	    [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ] && { echo "  FAIL"; exit 1; } || echo "  OK"; \
-	  else echo "  $(3): no data"; fi; \
+	    if [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ]; then \
+	      echo "  *** FAIL: $(3) coverage $${c}% is below threshold $${t}% — ABORTING ***"; \
+	      exit 1; \
+	    fi; \
+	    new_t=$$(( $$(echo "scale=0; $${c}/1" | bc) - 1 )); \
+	    if [ $$(echo "$${new_t} > $${t}" | bc -l) -eq 1 ]; then \
+	      tmp=$$(mktemp); \
+	      jq --argjson nt "$${new_t}" '.projects["$(1)"].threshold = $$nt' coverage-thresholds.json > "$${tmp}" && mv "$${tmp}" coverage-thresholds.json; \
+	      echo "  RATCHET: $(3) threshold -> $${new_t}%"; \
+	    else \
+	      echo "  OK"; \
+	    fi; \
+	  else echo "  $(3): no data (skipping)"; fi; \
 	}
 endef
 
@@ -187,20 +200,42 @@ _coverage_check:
 	$(call _cov_check,src/DotHttp.Tests,$(_DOTHTTP_COV)/report/Summary.txt,DotHttp)
 	$(call _cov_check,src/Napper.Lsp.Tests,$(_LSP_COV)/report/Summary.txt,Napper.Lsp)
 	@{ \
-	  t=$$(jq '.projects["src/Napper.Zed"].threshold // .default_threshold' coverage-thresholds.json); \
+	  t=$$(jq -r '.projects["src/Napper.Zed"].threshold // .default_threshold' coverage-thresholds.json); \
 	  if [ -f "$(_RUST_COV)/report/cobertura.xml" ]; then \
 	    lr=$$(sed -n 's/.*line-rate="\([0-9.]*\)".*/\1/p' "$(_RUST_COV)/report/cobertura.xml" | head -1); \
 	    c=$$(echo "$${lr:-0} * 100" | bc -l | xargs printf "%.1f"); \
 	    echo "  Rust: $${c}% (threshold $${t}%)"; \
-	    [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ] && { echo "  FAIL"; exit 1; } || echo "  OK"; \
-	  else echo "  Rust: no data"; fi; \
+	    if [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ]; then \
+	      echo "  *** FAIL: Rust coverage $${c}% is below threshold $${t}% — ABORTING ***"; \
+	      exit 1; \
+	    fi; \
+	    new_t=$$(( $$(echo "scale=0; $${c}/1" | bc) - 1 )); \
+	    if [ $$(echo "$${new_t} > $${t}" | bc -l) -eq 1 ]; then \
+	      tmp=$$(mktemp); \
+	      jq --argjson nt "$${new_t}" '.projects["src/Napper.Zed"].threshold = $$nt' coverage-thresholds.json > "$${tmp}" && mv "$${tmp}" coverage-thresholds.json; \
+	      echo "  RATCHET: Rust threshold -> $${new_t}%"; \
+	    else \
+	      echo "  OK"; \
+	    fi; \
+	  else echo "  Rust: no data (skipping)"; fi; \
 	}
 	@{ \
-	  t=$$(jq '.projects["src/Napper.VsCode"].threshold // .default_threshold' coverage-thresholds.json); \
+	  t=$$(jq -r '.projects["src/Napper.VsCode"].threshold // .default_threshold' coverage-thresholds.json); \
 	  if [ -f "$(_TS_COV)/report/index.html" ]; then \
 	    c=$$(cd src/Napper.VsCode && npx c8 report --reporter text 2>/dev/null | grep 'All files' | awk '{print $$4}' | tr -d '%' || echo "0"); \
 	    echo "  TypeScript: $${c}% (threshold $${t}%)"; \
-	    [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ] && { echo "  FAIL"; exit 1; } || echo "  OK"; \
-	  else echo "  TypeScript: no data"; fi; \
+	    if [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ]; then \
+	      echo "  *** FAIL: TypeScript coverage $${c}% is below threshold $${t}% — ABORTING ***"; \
+	      exit 1; \
+	    fi; \
+	    new_t=$$(( $$(echo "scale=0; $${c}/1" | bc) - 1 )); \
+	    if [ $$(echo "$${new_t} > $${t}" | bc -l) -eq 1 ]; then \
+	      tmp=$$(mktemp); \
+	      jq --argjson nt "$${new_t}" '.projects["src/Napper.VsCode"].threshold = $$nt' coverage-thresholds.json > "$${tmp}" && mv "$${tmp}" coverage-thresholds.json; \
+	      echo "  RATCHET: TypeScript threshold -> $${new_t}%"; \
+	    else \
+	      echo "  OK"; \
+	    fi; \
+	  else echo "  TypeScript: no data (skipping)"; fi; \
 	}
 	@echo "==> Coverage OK"

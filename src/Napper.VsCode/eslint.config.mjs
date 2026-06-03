@@ -268,6 +268,9 @@ export default tseslint.config(
       // Sequential awaits in test helpers are intentional —
       // tests need deterministic ordering, not parallelism.
       "no-await-in-loop": "off",
+      // Unix file-mode checks require bitwise AND (e.g. mode & 0o111).
+      // There is no alternative — this is the POSIX API surface.
+      "no-bitwise": "off",
       // Test object literals (fixtures, expected values) don't
       // need to follow property naming conventions.
       "@typescript-eslint/naming-convention": "off",

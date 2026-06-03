@@ -5,16 +5,9 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const _TRIMMER_ROOTS_PATH = path.join(
-  __dirname,
-  '../../../../Napper.Cli/TrimmerRoots.xml',
-);
+const _TRIMMER_ROOTS_PATH = path.join(__dirname, '../../../../Napper.Cli/TrimmerRoots.xml');
 
-const _REQUIRED_ASSEMBLIES = [
-  'StreamJsonRpc',
-  'Ionide.LanguageServerProtocol',
-  'Newtonsoft.Json',
-];
+const _REQUIRED_ASSEMBLIES = ['StreamJsonRpc', 'Ionide.LanguageServerProtocol', 'Newtonsoft.Json'];
 
 suite('TrimmerRoots.xml', () => {
   test('file exists', () => {

@@ -5,7 +5,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { activateDeploymentToolkit } from '@nimblesite/shipwright-vscode';
+import type { activateDeploymentToolkit } from '@nimblesite/shipwright-vscode' with {
+  'resolution-mode': 'import',
+};
 import { ExplorerAdapter } from './explorerAdapter';
 import { CodeLensProvider } from './codeLensProvider';
 import { EnvironmentStatusBar } from './environmentAdapter';
@@ -109,7 +111,9 @@ const getCliPath = (): string => {
   runShipwright = async (): Promise<void> => {
     logger.info('Resolving CLI via Shipwright...');
     ensureExecutable(bundledBinaryPath(extensionContext.extensionPath));
-    const result = await activateDeploymentToolkit(extensionContext, {
+    const { activateDeploymentToolkit: deployToolkit } =
+      await import('@nimblesite/shipwright-vscode');
+    const result = await deployToolkit(extensionContext, {
       vscode: makeVscodeAdapter(),
       manifestPath: path.join(extensionContext.extensionPath, 'shipwright.json'),
     });
