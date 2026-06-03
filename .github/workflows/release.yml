@@ -407,38 +407,67 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      # Install vsce ONCE at a pinned, known-replicated version. `npx --yes @vscode/vsce`
+      # re-resolves the package on every call, so a transient npm `latest`-tag replication
+      # race (ETARGET "No matching version found") on any single iteration aborts the whole
+      # loop mid-publish — exactly what stranded 3 of 6 platforms on v0.12.1. One install,
+      # one binary, reused for all targets.
+      - name: Install vsce (pinned)
+        run: npm install -g @vscode/vsce@3.9.1
       - name: Download all per-platform VSIXs
         uses: actions/download-artifact@v4
         with:
           path: vsix-artifacts
           pattern: vsix-*
           merge-multiple: true
-      # One `vsce publish` per platform-specific VSIX. vsce silently uses only the
-      # first when several are passed in a single call, so each --target VSIX MUST be
-      # published on its own (matches Basilisk / Deslop). A hyphenated SemVer tag is a
-      # prerelease and requires --pre-release.
+      # One `vsce publish` per platform-specific VSIX. vsce silently uses only the first
+      # when several are passed in a single call, so each --target VSIX MUST be published
+      # on its own (matches Basilisk / Deslop). The publish is IDEMPOTENT: a target whose
+      # (version, platform) is already on the Marketplace ("already exists") is treated as
+      # success so a re-run after a partial publish completes the remaining platforms
+      # instead of aborting on the first duplicate. A hyphenated SemVer tag is a prerelease.
       - name: Publish each platform VSIX
         env:
           VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           shopt -s globstar nullglob
           flag=""
           if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
             flag="--pre-release"
             echo "Prerelease tag ${GITHUB_REF_NAME}; publishing with --pre-release"
           fi
-          published=0
+          publish_one() {
+            local vsix="$1" attempt out rc
+            for attempt in 1 2 3; do
+              out="$(vsce publish ${flag} --packagePath "${vsix}" 2>&1)"; rc=$?
+              echo "${out}"
+              if [ "${rc}" -eq 0 ]; then return 0; fi
+              if echo "${out}" | grep -qiE "already exists"; then
+                echo "→ ${vsix} already on Marketplace; treating as published."
+                return 0
+              fi
+              echo "→ attempt ${attempt} failed (rc=${rc}); retrying in $((attempt*10))s..."
+              sleep $((attempt*10))
+            done
+            return 1
+          }
+          published=0; failed=0
           for vsix in vsix-artifacts/**/*.vsix; do
             echo "Publishing ${vsix}"
-            npx --yes @vscode/vsce publish ${flag} --packagePath "${vsix}"
-            published=$((published + 1))
+            if publish_one "${vsix}"; then
+              published=$((published + 1))
+            else
+              echo "::error::Failed to publish ${vsix} after retries"
+              failed=$((failed + 1))
+            fi
           done
           if [ "${published}" -eq 0 ]; then
             echo "::error::No VSIX artifacts found to publish"
             exit 1
           fi
-          echo "Published ${published} VSIX(es) to the Marketplace"
+          echo "Published/confirmed ${published} VSIX(es); ${failed} failed."
+          [ "${failed}" -eq 0 ]
 
   # ── SECONDARY, best-effort dotnet-tool NuGet package ──────────────────────────
   # continue-on-error + NOT a dependency of release / marketplace / brew / scoop, so a
