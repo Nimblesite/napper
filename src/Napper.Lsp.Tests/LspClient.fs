@@ -1,27 +1,23 @@
 // Implements [LSP-TEST-CLIENT]
-/// Test client that launches 'napper lsp' and communicates via JSON-RPC over stdio.
-/// This is the exact same protocol VSCode and Zed use.
+/// Test client that launches 'napper lsp' as a child process and communicates
+/// via JSON-RPC over stdio. This is the exact same protocol VSCode and Zed use.
+/// All wire framing, envelope building and string constants live in LspWire so
+/// this client and the in-process driver share one implementation.
 module Napper.Lsp.Tests.LspClient
 
 open System
 open System.Diagnostics
 open System.IO
-open System.Text
 open System.Text.Json.Nodes
 open System.Threading
 open System.Threading.Tasks
 open Xunit
+open Napper.Lsp.Tests.LspWire
 
 let private napperBinaryPath =
     let baseDir = AppContext.BaseDirectory
     let repoRoot = DirectoryInfo(baseDir).Parent.Parent.Parent.Parent.Parent.FullName
     Path.Combine(repoRoot, "src", "Napper.Cli", "bin", "Debug", "net10.0", "napper")
-
-/// Encode a JSON-RPC message with Content-Length header (LSP wire format)
-let private encodeMessage (json: string) : byte[] =
-    let body = Encoding.UTF8.GetBytes(json)
-    let header = $"Content-Length: {body.Length}\r\n\r\n"
-    Array.append (Encoding.UTF8.GetBytes(header)) body
 
 /// Read a single LSP response from the stream (Content-Length header + body)
 let private readMessage (reader: StreamReader) (ct: CancellationToken) : Task<JsonNode option> =
@@ -33,8 +29,8 @@ let private readMessage (reader: StreamReader) (ct: CancellationToken) : Task<Js
         headerLine <- firstLine
 
         while not (String.IsNullOrEmpty(headerLine)) do
-            if headerLine.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase) then
-                contentLength <- headerLine.Substring(15).Trim() |> int
+            if headerLine.StartsWith(ContentLengthHeader, StringComparison.OrdinalIgnoreCase) then
+                contentLength <- headerLine.Substring(ContentLengthHeader.Length + 1).Trim() |> int
 
             let! nextLine = reader.ReadLineAsync(ct)
             headerLine <- nextLine
@@ -47,12 +43,6 @@ let private readMessage (reader: StreamReader) (ct: CancellationToken) : Task<Js
             let json = String(buffer)
             return Some(JsonNode.Parse(json))
     }
-
-/// Helper: create a JsonValue from a string
-let str (s: string) : JsonNode = JsonValue.Create(s)
-
-/// Helper: create a JsonValue from an int
-let num (n: int) : JsonNode = JsonValue.Create(n)
 
 /// A running LSP server process for integration testing
 type LspServerProcess() =
@@ -74,16 +64,7 @@ type LspServerProcess() =
 
     member this.SendRequest(method: string, id: int, ?paramObj: JsonNode) : Task<JsonNode> =
         task {
-            let request = JsonObject()
-            request["jsonrpc"] <- str "2.0"
-            request["id"] <- num id
-            request["method"] <- str method
-
-            match paramObj with
-            | Some p -> request["params"] <- p
-            | None -> ()
-
-            let json = request.ToJsonString()
+            let json = (buildRequest method id paramObj).ToJsonString()
             let bytes = encodeMessage json
             do! proc.StandardInput.BaseStream.WriteAsync(bytes, 0, bytes.Length)
             do! proc.StandardInput.BaseStream.FlushAsync()
@@ -96,7 +77,7 @@ type LspServerProcess() =
                 let! msg = readMessage reader cts.Token
 
                 match msg with
-                | Some node when node["id"] <> null && node["id"].GetValue<int>() = id -> result <- Some node
+                | Some node when node[FId] <> null && node[FId].GetValue<int>() = id -> result <- Some node
                 | Some _ -> ()
                 | None -> failwith "Stream ended before response received"
 
@@ -105,15 +86,7 @@ type LspServerProcess() =
 
     member this.SendNotification(method: string, ?paramObj: JsonNode) : Task =
         task {
-            let notification = JsonObject()
-            notification["jsonrpc"] <- str "2.0"
-            notification["method"] <- str method
-
-            match paramObj with
-            | Some p -> notification["params"] <- p
-            | None -> ()
-
-            let json = notification.ToJsonString()
+            let json = (buildNotification method paramObj).ToJsonString()
             let bytes = encodeMessage json
             do! proc.StandardInput.BaseStream.WriteAsync(bytes, 0, bytes.Length)
             do! proc.StandardInput.BaseStream.FlushAsync()
