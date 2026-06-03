@@ -74,7 +74,7 @@ This phase **deletes duplicated TypeScript parsing code** and replaces it with L
 
 ### Phase 4 — Polish & Distribution
 
-- CLI install rewrite — see [IDE-EXTENSION-INSTALL-PLAN.md](./IDE-EXTENSION-INSTALL-PLAN.md).
+- CLI install rewrite — **done** (Shipwright-based bundling; see [`vscode-cli-acquisition`](../specs/IDE-EXTENSION-SPEC.md#vscode-cli-acquisition) and `release.yml`).
 
 Other Phase 4:
 - [ ] Split editor layout (request panel webview)
@@ -94,4 +94,4 @@ Other Phase 4:
 - [LSP Specification](../specs/LSP-SPEC.md) — Language server capabilities
 - [LSP Plan](./LSP-PLAN.md) — LSP implementation phases and TODO
 - [IDE Extension Spec](../specs/IDE-EXTENSION-SPEC.md) — Feature matrix and shared behaviour
-- [IDE Extension Install Plan](./IDE-EXTENSION-INSTALL-PLAN.md) — VSIX CLI install resolver
+- [IDE Extension Spec — CLI acquisition](../specs/IDE-EXTENSION-SPEC.md#vscode-cli-acquisition) — Shipwright-based VSIX CLI install (the install plan is complete)

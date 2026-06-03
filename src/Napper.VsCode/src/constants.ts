@@ -34,8 +34,11 @@ export const CONFIG_SPLIT_LAYOUT = 'splitEditorLayout';
 export const CONFIG_MASK_SECRETS = 'maskSecretsInPreview';
 export const CONFIG_CLI_PATH = 'cliPath';
 
-// CLI defaults — 'napper' falls back to PATH lookup when Shipwright hasn't resolved a path yet
-export const DEFAULT_CLI_PATH = 'napper';
+// CLI default — MUST equal the `napper.cliPath` default in package.json (''). When the
+// user has not configured an override, getCliPath() treats '' as "unset" and falls through
+// to the Shipwright-resolved bundled binary path ([SWR-IDE-RESOLUTION]). A non-empty default
+// here makes getCliPath() return '' (an empty/broken path) instead of the resolved one.
+export const DEFAULT_CLI_PATH = '';
 export const CLI_OUTPUT_JSON = 'json';
 export const CLI_OUTPUT_NDJSON = 'ndjson';
 export const CLI_CMD_RUN = 'run';

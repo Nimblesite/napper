@@ -83,6 +83,14 @@ let symbolNameKinds (result: JsonNode) : (string * int) list =
     |> Seq.map (fun s -> s["name"].GetValue<string>(), s["kind"].GetValue<int>())
     |> Seq.toList
 
+// ─── JSON navigation helpers ───
+// F# cannot chain indexers (`a[x][y]`) or index a parenthesised expression
+// (`(f x)[y]`) without ambiguity, so navigate by piping these instead.
+let field (name: string) (node: JsonNode) : JsonNode = node[name]
+let asStr (node: JsonNode) : string = node.GetValue<string>()
+let asInt (node: JsonNode) : int = node.GetValue<int>()
+let asBool (node: JsonNode) : bool = node.GetValue<bool>()
+
 /// Assert the structural invariants every documentSymbol must satisfy: a
 /// non-empty name, a positive LSP SymbolKind, a well-formed range, and a
 /// selectionRange that mirrors the range's start. Applied per symbol so a
@@ -97,14 +105,6 @@ let assertWellFormedSymbols (symbols: JsonArray) : unit =
         Assert.True(endLine >= startLine, "range end line must be >= start line")
         Assert.NotNull(s["selectionRange"])
         Assert.Equal(startLine, s |> field "selectionRange" |> field "start" |> field "line" |> asInt)
-
-// ─── JSON navigation helpers ───
-// F# cannot chain indexers (`a[x][y]`) or index a parenthesised expression
-// (`(f x)[y]`) without ambiguity, so navigate by piping these instead.
-let field (name: string) (node: JsonNode) : JsonNode = node[name]
-let asStr (node: JsonNode) : string = node.GetValue<string>()
-let asInt (node: JsonNode) : int = node.GetValue<int>()
-let asBool (node: JsonNode) : bool = node.GetValue<bool>()
 
 /// The `result` node of the response with the given id. A result query must
 /// never land on an error response, so that is asserted too.

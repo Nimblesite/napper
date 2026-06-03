@@ -63,6 +63,15 @@ jobs:
       - name: Restore dotnet packages
         run: dotnet restore
 
+      # Types.Generated.fs is gitignored and rebuilt from Types.td (typeDiagram DSL,
+      # the canonical source of truth). A fresh checkout has no generated file, so the
+      # F# build below fails (FS0225) unless we regenerate it first. typediagram is
+      # pinned to the version that ships F# support (Nimblesite/typeDiagram#36).
+      - name: Generate F# types (typeDiagram)
+        run: |
+          npm install -g typediagram@0.9.0
+          make generate-types
+
       - name: Format check (Fantomas)
         run: dotnet fantomas --check src/
 
@@ -133,6 +142,12 @@ jobs:
 
       - name: Restore
         run: dotnet restore
+
+      # Regenerate the gitignored Types.Generated.fs before any F# compile (see lint job).
+      - name: Generate F# types (typeDiagram)
+        run: |
+          npm install -g typediagram@0.9.0
+          make generate-types
 
       - name: Build (warnings as errors)
         run: dotnet build --no-restore --nologo -warnaserror
@@ -274,6 +289,16 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Regenerate the gitignored Types.Generated.fs before publishing (see lint job).
+      - name: Generate F# types (typeDiagram)
+        run: |
+          npm install -g typediagram@0.9.0
+          make generate-types
 
       # Guards the [cli-aot-migration] contract on every PR: the LSP and CLI must
       # publish AND RUN under NativeAOT. A reflection regression compiles fine but

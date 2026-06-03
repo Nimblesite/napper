@@ -226,7 +226,6 @@ IDE extensions launch the language server by spawning `<resolved-napper-path> ls
 
 - [CLI Spec](./CLI-SPEC.md) — `napper` CLI subcommands including `napper lsp`
 - [IDE Extension Spec](./IDE-EXTENSION-SPEC.md) — Feature matrix and IDE-specific behaviour
-- [IDE Extension Install Plan](../plans/IDE-EXTENSION-INSTALL-PLAN.md) — VSIX CLI install resolver (the same install gives you the LSP)
 - [IDE Extension Plan (VSCode)](../plans/IDE-EXTENSION-PLAN.md) — VSCode implementation phases
 - [Zed Extension Plan](../plans/ZED-EXTENSION-PLAN.md) — Zed implementation phases
 - [File Formats Spec](./FILE-FORMATS-SPEC.md) — `.nap`, `.naplist`, `.napenv` format definitions

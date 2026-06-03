@@ -389,6 +389,5 @@ Version MUST exactly match `product.version` in `shipwright.json` (which MUST eq
 - [LSP Specification](./LSP-SPEC.md) — Language server capabilities, architecture, and protocol details
 - [LSP Plan](../plans/LSP-PLAN.md) — LSP implementation phases and TODO
 - [IDE Extension Plan (VSCode)](../plans/IDE-EXTENSION-PLAN.md) — VSCode implementation phases and TODO
-- [IDE Extension Install Plan](../plans/IDE-EXTENSION-INSTALL-PLAN.md) — Shipwright-based CLI bundling and VSIX packaging
 - [IDE Extension Plan (Zed)](../plans/ZED-EXTENSION-PLAN.md) — Zed implementation phases and TODO
 - [OpenAPI Generation (Extension)](./IDE-EXTENION-OPENAPI-GENERATION-SPEC.md) — Import command and AI enrichment

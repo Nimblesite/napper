@@ -86,13 +86,21 @@ let ``in-process documentSymbol maps every nap section to its LSP kind`` () =
     let names = symbolNameKinds (resultOf responses 2) |> List.map fst
 
     Assert.Equal<string list>(
-        [ "[meta]"; "[vars]"; "[request]"; "[request.headers]"; "[request.body]"; "[assert]"; "[script]" ],
+        [ "[meta]"
+          "[vars]"
+          "[request]"
+          "[request.headers]"
+          "[request.body]"
+          "[assert]"
+          "[script]" ],
         names
     )
 
-    let startLines = [ for s in symbols -> s |> field "range" |> field "start" |> field "line" |> asInt ]
+    let startLines =
+        [ for s in symbols -> s |> field "range" |> field "start" |> field "line" |> asInt ]
+
     Assert.Equal(0, List.head startLines)
-    Assert.Equal(startLines, List.sort startLines)
+    Assert.Equal<int list>(startLines, List.sort startLines)
     Assert.Equal(List.length startLines, List.length (List.distinct startLines))
 
     // The first symbol ([meta]) starts on line 0 and carries a selectionRange.
@@ -120,9 +128,12 @@ let ``in-process documentSymbol maps naplist meta, vars and steps kinds`` () =
     assertWellFormedSymbols symbols
     let names = symbolNameKinds (resultOf responses 3) |> List.map fst
     Assert.Equal<string list>([ "[meta]"; "[vars]"; "[steps]" ], names)
-    let startLines = [ for s in symbols -> s |> field "range" |> field "start" |> field "line" |> asInt ]
+
+    let startLines =
+        [ for s in symbols -> s |> field "range" |> field "start" |> field "line" |> asInt ]
+
     Assert.Equal(0, List.head startLines)
-    Assert.Equal(startLines, List.sort startLines)
+    Assert.Equal<int list>(startLines, List.sort startLines)
     Assert.Equal(List.length startLines, List.length (List.distinct startLines))
 
 [<Fact>]
@@ -315,6 +326,33 @@ let ``in-process empty and truncated input exit cleanly`` () =
 
     Assert.Equal(0, truncCode)
     Assert.Empty(truncResponses)
+
+[<Fact>]
+let ``in-process oversized and body-truncated frames end the read after prior work`` () =
+    // A Content-Length beyond the 64 MiB cap ends the read (and never allocates
+    // the buffer) — a prior valid message is still answered.
+    let oversized =
+        Array.append
+            (framesOf [ buildRequest MInitialize 300 (Some(initializeParams ())) ])
+            (Encoding.UTF8.GetBytes($"{ContentLengthHeader}: 100000000{HeaderSep}x"))
+
+    let overCode, overResponses = driveBytes oversized
+    Assert.Equal(0, overCode)
+    Assert.True(hasResponse overResponses 300)
+    Assert.Null((responseFor overResponses 300)[FError])
+    Assert.Equal(1, overResponses.Length)
+
+    // A body shorter than its declared Content-Length is treated as end-of-stream.
+    let truncatedBody =
+        Array.append
+            (framesOf [ buildRequest MShutdown 301 None ])
+            (Encoding.UTF8.GetBytes($"{ContentLengthHeader}: 4096{HeaderSep}only-a-few-bytes"))
+
+    let truncCode, truncResponses = driveBytes truncatedBody
+    Assert.Equal(0, truncCode)
+    Assert.True(hasResponse truncResponses 301)
+    Assert.Null((responseFor truncResponses 301)[FError])
+    Assert.Equal(1, truncResponses.Length)
 
 [<Fact>]
 let ``in-process a failing output stream yields the crash code while a working stream does not`` () =
