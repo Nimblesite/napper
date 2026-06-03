@@ -10,15 +10,25 @@ EXT_BIN="${REPO_ROOT}/src/Napper.VsCode/bin"
 ARCH="$(uname -m)"
 OS="$(uname -s)"
 
+# RID is the .NET runtime identifier (osx-*/linux-*); NODE_PLATFORM is the
+# `${process.platform}-${process.arch}` string the extension's resolver uses to find
+# the bundled binary (bin/<NODE_PLATFORM>/napper — see src/binaryUtils.ts). They differ
+# on macOS (osx-arm64 vs darwin-arm64), so we MUST stage under the NODE_PLATFORM name.
 case "${OS}" in
   Darwin)
     case "${ARCH}" in
-      arm64)  RID="osx-arm64" ;;
-      x86_64) RID="osx-x64" ;;
+      arm64)  RID="osx-arm64"; NODE_PLATFORM="darwin-arm64" ;;
+      x86_64) RID="osx-x64";   NODE_PLATFORM="darwin-x64" ;;
       *)      echo "Unsupported arch: ${ARCH}" >&2; exit 1 ;;
     esac
     ;;
-  Linux)  RID="linux-x64" ;;
+  Linux)
+    case "${ARCH}" in
+      x86_64)        RID="linux-x64";   NODE_PLATFORM="linux-x64" ;;
+      aarch64|arm64) RID="linux-arm64"; NODE_PLATFORM="linux-arm64" ;;
+      *)             echo "Unsupported arch: ${ARCH}" >&2; exit 1 ;;
+    esac
+    ;;
   *)      echo "Unsupported OS: ${OS}" >&2; exit 1 ;;
 esac
 
@@ -35,6 +45,18 @@ dotnet publish "${REPO_ROOT}/src/Napper.Cli/Napper.Cli.fsproj" \
   --nologo
 
 echo "==> CLI built → ${OUT_DIR}/"
-mkdir -p "${EXT_BIN}"
+
+# PRIMARY: stage under the platform sub-dir the extension's bundled-binary resolver
+# (bundledBinaryPath) and Shipwright look for — the SAME layout the shipped per-platform
+# VSIX uses. This is what makes the extension + e2e tests resolve the REAL bundled binary.
+PLATFORM_BIN="${EXT_BIN}/${NODE_PLATFORM}"
+mkdir -p "${PLATFORM_BIN}"
+cp "${OUT_DIR}/napper" "${PLATFORM_BIN}/napper"
+chmod +x "${PLATFORM_BIN}/napper"
+echo "==> Staged CLI → ${PLATFORM_BIN}/napper"
+
+# SECONDARY: also keep a flat copy so tooling that resolves `napper` on PATH keeps working
+# (the CI Shipwright version-contract gate adds bin/ to PATH and runs `napper --version`).
 cp "${OUT_DIR}/napper" "${EXT_BIN}/napper"
-echo "==> Copied CLI → ${EXT_BIN}/"
+chmod +x "${EXT_BIN}/napper"
+echo "==> Staged CLI (flat, for PATH) → ${EXT_BIN}/napper"
