@@ -150,13 +150,16 @@ You should see the version number and the list of available commands.
 
 | Scenario | Requirement |
 |----------|-------------|
-| Running `.nap` / `.naplist` files | None — the CLI binary is self-contained |
+| Running `.nap` / `.naplist` files | None — the CLI is a self-contained native binary, not a .NET DLL |
 | VS Code extension | VS Code 1.95.0 or later |
+| Zed extension | Zed (latest) |
+| JavaScript script hooks (`.js`) | [Node.js 18+](https://nodejs.org/) |
+| Python script hooks (`.py`) | [Python 3.9+](https://www.python.org/downloads/) |
 | F# script hooks (`.fsx`) | [.NET 10 SDK](https://dotnet.microsoft.com/download) |
 | C# script hooks (`.csx`) | [.NET 10 SDK](https://dotnet.microsoft.com/download) |
 | Building from source | .NET 10 SDK + `make` |
 
-No account is required. Napper is entirely open source and free.
+You only need a script runtime for the language you actually script in — a JavaScript shop never installs .NET, and a .NET shop never installs Node. No account is required. Napper is entirely open source and free.
 
 ---
 
@@ -234,9 +237,9 @@ On macOS, you may see a warning that the binary is from an unidentified develope
 xattr -dr com.apple.quarantine /usr/local/bin/napper
 ```
 
-**Script hooks fail with "dotnet not found"**
+**Script hooks fail with "runtime not found"**
 
-F# (`.fsx`) and C# (`.csx`) script hooks require the .NET 10 SDK. Download it from [dotnet.microsoft.com](https://dotnet.microsoft.com/download). Plain `.nap` and `.naplist` files do not need the SDK.
+Script hooks need the runtime for the language they are written in — and only that one. JavaScript (`.js`) needs [Node.js 18+](https://nodejs.org/), Python (`.py`) needs [Python 3.9+](https://www.python.org/downloads/), and F# (`.fsx`) / C# (`.csx`) need the [.NET 10 SDK](https://dotnet.microsoft.com/download). Napper resolves each runtime from its setting (`nap.nodePath`, `nap.pythonPath`, `nap.dotnetPath`), the matching environment variable, or your `PATH`. Plain `.nap` and `.naplist` files need no runtime at all. The JavaScript and Python SDKs are bundled with Napper, so `import "napper"` works with no `npm install` or `pip install`.
 
 ---
 

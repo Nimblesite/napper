@@ -34,28 +34,36 @@ jobs:
   build-cli:
     name: Build CLI ${{ matrix.rid }}
     needs: validate-tag
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # NativeAOT compiles to native machine code and CANNOT cross-compile, so each
+    # RID is built on a runner of its own OS/arch (per cli-aot-migration).
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
           - rid: osx-arm64
+            os: macos-14
             archive: tar.gz
             dtk-platform: darwin-arm64
           - rid: osx-x64
+            os: macos-13
             archive: tar.gz
             dtk-platform: darwin-x64
           - rid: linux-x64
+            os: ubuntu-latest
             archive: tar.gz
             dtk-platform: linux-x64
           - rid: linux-arm64
+            os: ubuntu-24.04-arm
             archive: tar.gz
             dtk-platform: linux-arm64
           - rid: win-x64
+            os: windows-latest
             archive: zip
             dtk-platform: win32-x64
           - rid: win-arm64
+            os: windows-11-arm
             archive: zip
             dtk-platform: win32-arm64
     env:
@@ -68,14 +76,18 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Publish CLI (${{ matrix.rid }})
+      # NativeAOT links with the platform C toolchain. macOS (Xcode CLT) and
+      # Windows (MSVC) runners ship it; Linux runners need clang + zlib headers.
+      - name: Install NativeAOT prerequisites (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Publish CLI (${{ matrix.rid }}) [NativeAOT]
         shell: bash
         run: |
           dotnet publish src/Napper.Cli/Napper.Cli.fsproj \
             -r ${{ matrix.rid }} \
-            --self-contained \
-            -p:PublishTrimmed=true \
-            -p:PublishSingleFile=true \
+            -p:PublishAot=true \
             -p:Version=$VERSION \
             -p:AssemblyVersion=$VERSION \
             -p:FileVersion=$VERSION \
@@ -84,7 +96,7 @@ jobs:
             --nologo
 
       - name: Verify binary version matches tag (Unix)
-        if: matrix.rid == 'osx-arm64' || matrix.rid == 'osx-x64' || matrix.rid == 'linux-x64'
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           chmod +x out/${{ matrix.rid }}/napper
@@ -108,21 +120,18 @@ jobs:
           print('JSON version manifest: OK')
           "
 
-      - name: Verify binary version is embedded (Windows .exe, scanned on Linux)
-        if: matrix.rid == 'win-x64' || matrix.rid == 'win-arm64'
+      - name: Verify binary version matches tag (Windows)
+        if: runner.os == 'Windows'
         shell: bash
         run: |
-          # Cannot execute the Windows .exe on Linux. .NET embeds InformationalVersion
-          # as a UTF-16LE string in the PE metadata. Scan for both ASCII and UTF-16LE.
+          # NativeAOT now builds Windows on a Windows runner, so we can execute it.
           BIN=out/${{ matrix.rid }}/napper.exe
           test -s "$BIN"
-          echo "napper.exe built ($(stat -c %s "$BIN") bytes)"
-          if strings -a "$BIN" | grep -Fq "$VERSION"; then
-            echo "Found version $VERSION in ASCII strings"
-          elif strings -a -e l "$BIN" | grep -Fq "$VERSION"; then
-            echo "Found version $VERSION in UTF-16LE strings"
-          else
-            echo "::error::Version $VERSION not found in $BIN metadata"
+          ACTUAL=$("$BIN" --version)
+          echo "Binary reports: $ACTUAL"
+          EXPECTED="napper $VERSION"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Binary version '$ACTUAL' does not match expected 'napper $VERSION'"
             exit 1
           fi
 

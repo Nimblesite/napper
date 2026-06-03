@@ -19,10 +19,10 @@ let ``in-process requestInfo returns method, url and projected headers`` () =
             [ buildNotification MDidOpen (Some(didOpenParams NapUri 1 ValidPostWithHeader))
               buildRequest MExecuteCommand 100 (Some(executeCommandParams CmdRequestInfo NapUri)) ]
 
-    let info = (responseFor responses 100)[FResult]
-    Assert.Equal("POST", info["method"].GetValue<string>())
-    Assert.Equal("https://api.example.com/users", info["url"].GetValue<string>())
-    Assert.Equal("application/json", info["headers"]["Accept"].GetValue<string>())
+    let info = resultOf responses 100
+    Assert.Equal("POST", info |> field "method" |> asStr)
+    Assert.Equal("https://api.example.com/users", info |> field "url" |> asStr)
+    Assert.Equal("application/json", info |> field "headers" |> field "Accept" |> asStr)
 
 [<Fact>]
 let ``in-process copyCurl returns a curl command for the request`` () =
@@ -31,7 +31,7 @@ let ``in-process copyCurl returns a curl command for the request`` () =
             [ buildNotification MDidOpen (Some(didOpenParams NapUri 1 ValidPostWithHeader))
               buildRequest MExecuteCommand 101 (Some(executeCommandParams CmdCopyCurl NapUri)) ]
 
-    let curl = (responseFor responses 101)[FResult].GetValue<string>()
+    let curl = resultOf responses 101 |> asStr
     Assert.Contains("curl", curl)
     Assert.Contains("POST", curl)
     Assert.Contains("https://api.example.com/users", curl)
@@ -45,9 +45,9 @@ let ``in-process requestInfo and copyCurl return null for parse errors and unope
               buildRequest MExecuteCommand 103 (Some(executeCommandParams CmdCopyCurl BadNapUri))
               buildRequest MExecuteCommand 104 (Some(executeCommandParams CmdRequestInfo UnopenedUri)) ]
 
-    Assert.Null((responseFor responses 102)[FResult]) // parse error → none
-    Assert.Null((responseFor responses 103)[FResult]) // parse error → none
-    Assert.Null((responseFor responses 104)[FResult]) // never opened → none
+    Assert.Null(resultOf responses 102) // parse error → none
+    Assert.Null(resultOf responses 103) // parse error → none
+    Assert.Null(resultOf responses 104) // never opened → none
 
 [<Fact>]
 let ``in-process listEnvironments works for both file uri and plain path`` () =
@@ -66,9 +66,7 @@ let ``in-process listEnvironments works for both file uri and plain path`` () =
 
         for id in [ 110; 111 ] do
             let envs =
-                ((responseFor responses id)[FResult] :?> JsonArray)
-                |> Seq.map (fun e -> e.GetValue<string>())
-                |> Seq.toList
+                (resultArray responses id) |> Seq.map (fun e -> e.GetValue<string>()) |> Seq.toList
 
             Assert.Contains("staging", envs)
             Assert.Contains("production", envs)
@@ -98,9 +96,9 @@ let ``in-process executeCommand returns null for unknown command and missing or 
               buildRequest MExecuteCommand 121 (Some nullArg) // firstArg null element
               buildRequest MExecuteCommand 122 (Some noArgs) ] // firstArg missing arguments
 
-    Assert.Null((responseFor responses 120)[FResult])
-    Assert.Null((responseFor responses 121)[FResult])
-    Assert.Null((responseFor responses 122)[FResult])
+    Assert.Null(resultOf responses 120)
+    Assert.Null(resultOf responses 121)
+    Assert.Null(resultOf responses 122)
 
 [<Fact>]
 let ``in-process didChange honors version ordering, ignores stale and empty changes`` () =
@@ -125,8 +123,6 @@ let ``in-process didChange honors version ordering, ignores stale and empty chan
         p[FContentChanges] <- changes
         p :> JsonNode
 
-    let info responses id = (responseFor responses id)[FResult]
-
     let responses =
         drive
             [ buildNotification MDidOpen (Some(didOpenParams NapUri 1 ValidGet))
@@ -147,20 +143,20 @@ let ``in-process didChange honors version ordering, ignores stale and empty chan
               buildRequest MExecuteCommand 135 (Some(executeCommandParams CmdRequestInfo NapUri))
               buildRequest MDocumentSymbol 136 (Some(textDocParams NapUri)) ]
 
-    Assert.Equal("GET", (info responses 130)["method"].GetValue<string>())
+    Assert.Equal("GET", resultOf responses 130 |> field "method" |> asStr)
     // Newer version applied.
-    Assert.Equal("POST", (info responses 131)["method"].GetValue<string>())
-    Assert.Equal("https://example.com/v2", (info responses 131)["url"].GetValue<string>())
+    Assert.Equal("POST", resultOf responses 131 |> field "method" |> asStr)
+    Assert.Equal("https://example.com/v2", resultOf responses 131 |> field "url" |> asStr)
     // Stale (older version) change ignored — still the v2 content.
-    Assert.Equal("POST", (info responses 132)["method"].GetValue<string>())
+    Assert.Equal("POST", resultOf responses 132 |> field "method" |> asStr)
     // Empty contentChanges ignored.
-    Assert.Equal("POST", (info responses 133)["method"].GetValue<string>())
+    Assert.Equal("POST", resultOf responses 133 |> field "method" |> asStr)
     // Missing version (=> 0) is stale and ignored.
-    Assert.Equal("POST", (info responses 134)["method"].GetValue<string>())
-    Assert.Equal("https://example.com/v2", (info responses 134)["url"].GetValue<string>())
+    Assert.Equal("POST", resultOf responses 134 |> field "method" |> asStr)
+    Assert.Equal("https://example.com/v2", resultOf responses 134 |> field "url" |> asStr)
     // After close the document is gone.
-    Assert.Null((info responses 135))
-    Assert.Equal(0, ((responseFor responses 136)[FResult] :?> JsonArray).Count)
+    Assert.Null(resultOf responses 135)
+    Assert.Equal(0, (resultArray responses 136).Count)
 
 [<Fact>]
 let ``in-process didOpen without a version still tracks the document`` () =
@@ -178,4 +174,4 @@ let ``in-process didOpen without a version still tracks the document`` () =
             [ buildNotification MDidOpen (Some noVersionOpen)
               buildRequest MDocumentSymbol 140 (Some(textDocParams NapUri)) ]
 
-    Assert.Equal(7, ((responseFor responses 140)[FResult] :?> JsonArray).Count)
+    Assert.Equal(7, (resultArray responses 140).Count)

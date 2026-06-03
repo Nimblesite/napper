@@ -70,6 +70,22 @@ let symbolNameKinds (result: JsonNode) : (string * int) list =
     |> Seq.map (fun s -> s["name"].GetValue<string>(), s["kind"].GetValue<int>())
     |> Seq.toList
 
+// ─── JSON navigation helpers ───
+// F# cannot chain indexers (`a[x][y]`) or index a parenthesised expression
+// (`(f x)[y]`) without ambiguity, so navigate by piping these instead.
+let field (name: string) (node: JsonNode) : JsonNode = node[name]
+let asStr (node: JsonNode) : string = node.GetValue<string>()
+let asInt (node: JsonNode) : int = node.GetValue<int>()
+let asBool (node: JsonNode) : bool = node.GetValue<bool>()
+
+/// The `result` node of the response with the given id.
+let resultOf (responses: JsonNode list) (id: int) : JsonNode =
+    let r = responseFor responses id
+    r[FResult]
+
+/// The `result` node of the response with the given id, as a JSON array.
+let resultArray (responses: JsonNode list) (id: int) : JsonArray = (resultOf responses id) :?> JsonArray
+
 // ─── Shared sample documents (one location for the test fixtures) ───
 
 [<Literal>]

@@ -6,11 +6,9 @@
 /// VSCode and Zed depend on. No internal state is touched.
 module Napper.Lsp.Tests.LspProtocolTests
 
-open System.IO
 open System.Text
 open System.Text.Json.Nodes
 open Xunit
-open Napper.Lsp
 open Napper.Lsp.Tests.LspWire
 open Napper.Lsp.Tests.LspDriver
 
@@ -30,8 +28,6 @@ let KindArray = 18
 [<Literal>]
 let KindStruct = 23
 
-let private resultArray (response: JsonNode) : JsonArray = response[FResult] :?> JsonArray
-
 [<Fact>]
 let ``in-process initialize advertises capabilities, commands and serverInfo`` () =
     let responses = drive [ buildRequest MInitialize 1 (Some(initializeParams ())) ]
@@ -40,23 +36,24 @@ let ``in-process initialize advertises capabilities, commands and serverInfo`` (
     Assert.Null(r[FError])
     Assert.NotNull(r[FResult])
 
-    let caps = r[FResult]["capabilities"]
-    Assert.Equal(1, caps["textDocumentSync"].GetValue<int>())
-    Assert.True(caps["documentSymbolProvider"].GetValue<bool>())
-    Assert.False(caps["codeLensProvider"]["resolveProvider"].GetValue<bool>())
+    let caps = r |> field FResult |> field "capabilities"
+    Assert.Equal(1, caps |> field "textDocumentSync" |> asInt)
+    Assert.True(caps |> field "documentSymbolProvider" |> asBool)
+    Assert.False(caps |> field "codeLensProvider" |> field "resolveProvider" |> asBool)
+
+    let commandsNode = caps |> field "executeCommandProvider" |> field "commands"
 
     let commands =
-        (caps["executeCommandProvider"]["commands"] :?> JsonArray)
-        |> Seq.map (fun c -> c.GetValue<string>())
-        |> Seq.toList
+        (commandsNode :?> JsonArray) |> Seq.map (fun c -> c.GetValue<string>()) |> Seq.toList
 
     Assert.Contains(CmdCopyCurl, commands)
     Assert.Contains(CmdListEnvironments, commands)
     Assert.Contains(CmdRequestInfo, commands)
     Assert.Equal(3, commands.Length)
 
-    Assert.Equal("napper-lsp", r[FResult]["serverInfo"]["name"].GetValue<string>())
-    Assert.Equal("0.1.0", r[FResult]["serverInfo"]["version"].GetValue<string>())
+    let info = r |> field FResult |> field "serverInfo"
+    Assert.Equal("napper-lsp", info |> field "name" |> asStr)
+    Assert.Equal("0.1.0", info |> field "version" |> asStr)
 
 [<Fact>]
 let ``in-process documentSymbol maps every nap section to its LSP kind`` () =
@@ -65,11 +62,10 @@ let ``in-process documentSymbol maps every nap section to its LSP kind`` () =
             [ buildNotification MDidOpen (Some(didOpenParams NapUri 1 AllNapSections))
               buildRequest MDocumentSymbol 2 (Some(textDocParams NapUri)) ]
 
-    let r = responseFor responses 2
-    Assert.Null(r[FError])
+    Assert.Null((responseFor responses 2)[FError])
 
-    let symbols = resultArray r
-    let kinds = symbolNameKinds symbols |> Map.ofList
+    let symbols = resultArray responses 2
+    let kinds = symbolNameKinds (resultOf responses 2) |> Map.ofList
 
     Assert.Equal(7, symbols.Count)
     Assert.Equal(KindNamespace, kinds["[meta]"])
@@ -82,8 +78,8 @@ let ``in-process documentSymbol maps every nap section to its LSP kind`` () =
 
     // The first symbol ([meta]) starts on line 0 and carries a selectionRange.
     let first = symbols[0]
-    Assert.Equal("[meta]", first["name"].GetValue<string>())
-    Assert.Equal(0, first["range"]["start"]["line"].GetValue<int>())
+    Assert.Equal("[meta]", first |> field "name" |> asStr)
+    Assert.Equal(0, first |> field "range" |> field "start" |> field "line" |> asInt)
     Assert.NotNull(first["selectionRange"])
 
 [<Fact>]
@@ -93,7 +89,7 @@ let ``in-process documentSymbol maps naplist meta, vars and steps kinds`` () =
             [ buildNotification MDidOpen (Some(didOpenParams NaplistUri 1 AllNaplistSections))
               buildRequest MDocumentSymbol 3 (Some(textDocParams NaplistUri)) ]
 
-    let kinds = symbolNameKinds (resultArray (responseFor responses 3)) |> Map.ofList
+    let kinds = symbolNameKinds (resultOf responses 3) |> Map.ofList
 
     Assert.Equal(KindNamespace, kinds["[meta]"])
     Assert.Equal(KindVariable, kinds["[vars]"])
@@ -117,7 +113,7 @@ let ``in-process documentSymbol is empty for unopened, non-nap and malformed par
               buildRequest MDocumentSymbol 7 (Some emptyTextDocument) ] // strField null arm
 
     for id in [ 4; 5; 6; 7 ] do
-        Assert.Equal(0, (resultArray (responseFor responses id)).Count)
+        Assert.Equal(0, (resultArray responses id).Count)
 
 [<Fact>]
 let ``in-process codeLens emits request detail, naplist meta, and none otherwise`` () =
@@ -134,24 +130,24 @@ let ``in-process codeLens emits request detail, naplist meta, and none otherwise
               buildRequest MCodeLens 14 (Some(textDocParams UnopenedUri)) ]
 
     // Valid nap → one lens on line 0 with "METHOD url" detail.
-    let napLenses = resultArray (responseFor responses 10)
+    let napLenses = resultArray responses 10
     Assert.Equal(1, napLenses.Count)
-    Assert.Equal(0, napLenses[0]["range"]["start"]["line"].GetValue<int>())
-    Assert.Equal("GET https://example.com", napLenses[0]["data"].GetValue<string>())
+    Assert.Equal(0, napLenses[0] |> field "range" |> field "start" |> field "line" |> asInt)
+    Assert.Equal("GET https://example.com", napLenses[0] |> field "data" |> asStr)
 
     // Unparseable nap still has a [request] section → lens, but no detail.
-    let badLenses = resultArray (responseFor responses 11)
+    let badLenses = resultArray responses 11
     Assert.True(badLenses.Count >= 1)
     Assert.True(isNull (badLenses[0]["data"]))
 
     // Naplist → a meta lens with no detail.
-    let listLenses = resultArray (responseFor responses 12)
+    let listLenses = resultArray responses 12
     Assert.True(listLenses.Count >= 1)
     Assert.True(isNull (listLenses[0]["data"]))
 
     // Non-nap and unopened → no lenses.
-    Assert.Equal(0, (resultArray (responseFor responses 13)).Count)
-    Assert.Equal(0, (resultArray (responseFor responses 14)).Count)
+    Assert.Equal(0, (resultArray responses 13).Count)
+    Assert.Equal(0, (resultArray responses 14).Count)
 
 [<Fact>]
 let ``in-process initialized and lifecycle notifications are accepted`` () =
@@ -194,7 +190,7 @@ let ``in-process unknown request errors with method-not-found, unknown notificat
 
     let err = responseFor responses 20
     Assert.NotNull(err[FError])
-    Assert.Equal(-32601, err[FError][FCode].GetValue<int>())
+    Assert.Equal(-32601, err |> field FError |> field FCode |> asInt)
 
     Assert.True(hasResponse responses 21, "server must keep serving after an unknown method")
     Assert.Equal(2, responses.Length)
@@ -233,7 +229,7 @@ let ``in-process request triggering an internal error returns -32603 and server 
 
     let err = responseFor responses 40
     Assert.NotNull(err[FError])
-    Assert.Equal(-32603, err[FError][FCode].GetValue<int>())
+    Assert.Equal(-32603, err |> field FError |> field FCode |> asInt)
     Assert.True(hasResponse responses 41, "server must survive an internal error")
 
 [<Fact>]
@@ -284,9 +280,6 @@ let ``in-process empty and truncated input exit cleanly`` () =
 
 [<Fact>]
 let ``in-process server returns a crash code when the output stream fails`` () =
-    use input = new MemoryStream(framesOf [ buildRequest MInitialize 70 (Some(initializeParams ())) ])
     use output = new ThrowingStream()
-
-    let code = LspRunner.run input output
-
+    let code = runWithOutput (framesOf [ buildRequest MInitialize 70 (Some(initializeParams ())) ]) output
     Assert.Equal(1, code)

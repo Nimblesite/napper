@@ -1,7 +1,7 @@
 ---
 layout: layouts/docs.njk
 title: "Napper vs .http Files"
-description: "Comparing Napper and .http files for API testing. Napper adds assertions, test suites, environments, F# and C# scripting, CLI execution, and a built-in converter to migrate your existing .http files."
+description: "Comparing Napper and .http files for API testing. Napper adds assertions, test suites, environments, scripting in JavaScript, Python, F#, or C#, CLI execution, and a built-in converter to migrate your existing .http files."
 keywords: "Napper vs http files, http file alternative, REST Client alternative, VS Code API testing, http file converter, convert http to nap, JetBrains http migration"
 eleventyNavigation:
   key: vs .http Files
@@ -16,7 +16,7 @@ eleventyNavigation:
 
 `.http` files (also called `.rest` files) are plain text files supported by the REST Client extension in VS Code and by JetBrains IDEs (IntelliJ, Rider, WebStorm). They let you define HTTP requests and send them directly from your editor. They are simple and lightweight, but limited in functionality.
 
-## What does Napper add beyond .http files? (spec: nap-assert, nap-vars, script-fsx, script-csx, cli-output)
+## What does Napper add beyond .http files? (spec: nap-assert, nap-vars, script-js, script-py, script-fsx, script-csx, cli-output)
 
 Napper adds six major capabilities that `.http` files lack:
 
@@ -24,7 +24,7 @@ Napper adds six major capabilities that `.http` files lack:
 - **Declarative assertions** (spec: nap-assert) — Verify status codes, JSON body paths, headers, and response times with a clean, readable syntax directly in the request file.
 - **Composable test suites** — Chain multiple requests into ordered playlists with `.naplist` files. Nest playlists and reference entire folders.
 - **Environment management** (spec: nap-vars, cli-env) — Define variables in `.napenv` files, create named environments for staging and production, and override secrets locally with `.napenv.local`.
-- **F# and C# scripting** (spec: script-fsx, script-csx) — Run pre-request and post-request scripts with full access to the .NET ecosystem for token generation, data setup, and complex validation.
+- **Scripting in your language** (spec: script-js, script-py, script-fsx, script-csx) — Run pre-request and post-request scripts in JavaScript, Python, F#, or C# on real runtimes for token generation, data setup, and complex validation. No sandbox.
 - **CLI execution** (spec: cli-run, cli-output) — Run any request or test suite from the terminal. Output JUnit XML, JSON, or NDJSON for CI/CD pipelines.
 
 ## How do I convert .http files to Napper? (spec: cli-convert)
@@ -73,12 +73,12 @@ The converter auto-detects the dialect, or you can specify it explicitly with `-
 | Feature | Napper | .http files |
 |---------|--------|-------------|
 | Plain text requests | Yes (`.nap` files) | Yes (`.http` files) |
-| VS Code support | Native extension | REST Client extension |
+| Editor support | VS Code, Zed & LSP | REST Client extension |
 | CLI execution | Yes (primary interface) | No |
-| Assertions | Declarative + F#/C# scripts | None |
+| Assertions | Declarative + scripts | None |
 | Test suites | `.naplist` playlists | None |
 | Environment variables | `.napenv` files with layering | Limited (REST Client) |
-| Scripting | Full F# and C# scripting | None |
+| Scripting | JavaScript, Python, F#, C# on real runtimes | None |
 | CI/CD output | JUnit, JSON, NDJSON | None |
 | Test Explorer | Native VS Code support | No |
 | .http migration | Built-in converter | N/A |
