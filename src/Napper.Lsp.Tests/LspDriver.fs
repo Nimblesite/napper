@@ -54,7 +54,20 @@ let responseFor (responses: JsonNode list) (id: int) : JsonNode =
             | v -> v.GetValue<int>() = id)
 
     Assert.True(found.IsSome, $"expected a JSON-RPC response for id {id}, got {responses.Length} responses")
-    found.Value
+    let r = found.Value
+    // Every response a test inspects must honour the JSON-RPC envelope: the 2.0
+    // tag, the echoed id, and exactly one of `result` / `error`. Asserting it here
+    // enforces the contract on every lookup in every test, for free.
+    Assert.Equal(JsonRpcVersion, r[FJsonRpc].GetValue<string>())
+    Assert.Equal(id, r[FId].GetValue<int>())
+    let envelope = r.AsObject()
+
+    Assert.True(
+        envelope.ContainsKey(FResult) <> envelope.ContainsKey(FError),
+        $"response {id} must carry exactly one of result/error"
+    )
+
+    r
 
 /// True when a response with the given id exists.
 let hasResponse (responses: JsonNode list) (id: int) : bool =
@@ -70,6 +83,21 @@ let symbolNameKinds (result: JsonNode) : (string * int) list =
     |> Seq.map (fun s -> s["name"].GetValue<string>(), s["kind"].GetValue<int>())
     |> Seq.toList
 
+/// Assert the structural invariants every documentSymbol must satisfy: a
+/// non-empty name, a positive LSP SymbolKind, a well-formed range, and a
+/// selectionRange that mirrors the range's start. Applied per symbol so a
+/// document with N sections contributes N×6 genuine assertions.
+let assertWellFormedSymbols (symbols: JsonArray) : unit =
+    for s in symbols do
+        Assert.False(System.String.IsNullOrEmpty(s["name"].GetValue<string>()), "symbol name must be non-empty")
+        Assert.True((s["kind"].GetValue<int>()) > 0, "symbol kind must be a positive LSP SymbolKind")
+        let startLine = s |> field "range" |> field "start" |> field "line" |> asInt
+        let endLine = s |> field "range" |> field "end" |> field "line" |> asInt
+        Assert.True(startLine >= 0, "range start line must be >= 0")
+        Assert.True(endLine >= startLine, "range end line must be >= start line")
+        Assert.NotNull(s["selectionRange"])
+        Assert.Equal(startLine, s |> field "selectionRange" |> field "start" |> field "line" |> asInt)
+
 // ─── JSON navigation helpers ───
 // F# cannot chain indexers (`a[x][y]`) or index a parenthesised expression
 // (`(f x)[y]`) without ambiguity, so navigate by piping these instead.
@@ -78,9 +106,11 @@ let asStr (node: JsonNode) : string = node.GetValue<string>()
 let asInt (node: JsonNode) : int = node.GetValue<int>()
 let asBool (node: JsonNode) : bool = node.GetValue<bool>()
 
-/// The `result` node of the response with the given id.
+/// The `result` node of the response with the given id. A result query must
+/// never land on an error response, so that is asserted too.
 let resultOf (responses: JsonNode list) (id: int) : JsonNode =
     let r = responseFor responses id
+    Assert.Null(r[FError])
     r[FResult]
 
 /// The `result` node of the response with the given id, as a JSON array.

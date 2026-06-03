@@ -68,12 +68,12 @@ jobs:
         run: dotnet build --no-restore --nologo -warnaserror
       - name: Validate deployment manifest
         run: npx --yes @nimblesite/shipwright-validate-manifest --schema schemas/shipwright.schema.json src/Napper.VsCode/shipwright.json
-      - name: F# / DotHttp / LSP tests (includes version-contract + stamper)
-        run: |
-          set -euo pipefail
-          dotnet test src/Napper.Core.Tests --no-build --nologo
-          dotnet test src/DotHttp.Tests --no-build --nologo
-          dotnet test src/Napper.Lsp.Tests --no-build --nologo
+      - name: Shipwright version-contract + stamper tests
+        # Deterministic, network-free gate: proves the --version contract and the
+        # release stamper. The full functional/e2e suite (which hits external
+        # services) runs on every PR to main per [SWR-REL-PRERELEASE-CI]; a transient
+        # third-party outage must never block a tagged release.
+        run: dotnet test src/Napper.Core.Tests --no-build --nologo --filter "FullyQualifiedName~VersionContract"
 
   # ── Per-platform NativeAOT binary + per-platform VSIX ────── [SWR-VSIX-CI-MATRIX]
   # NativeAOT cannot cross-compile across OS/arch, so each leg builds on a runner

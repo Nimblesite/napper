@@ -78,6 +78,23 @@ let ``in-process documentSymbol maps every nap section to its LSP kind`` () =
     Assert.Equal(KindFunction, kinds["[assert]"])
     Assert.Equal(KindFunction, kinds["[script]"])
 
+    // Every symbol is structurally well-formed (name, positive kind, ordered
+    // range, mirrored selectionRange) — 6 assertions per section.
+    assertWellFormedSymbols symbols
+
+    // Sections are reported in file order, each on a strictly later line.
+    let names = symbolNameKinds (resultOf responses 2) |> List.map fst
+
+    Assert.Equal<string list>(
+        [ "[meta]"; "[vars]"; "[request]"; "[request.headers]"; "[request.body]"; "[assert]"; "[script]" ],
+        names
+    )
+
+    let startLines = [ for s in symbols -> s |> field "range" |> field "start" |> field "line" |> asInt ]
+    Assert.Equal(0, List.head startLines)
+    Assert.Equal(startLines, List.sort startLines)
+    Assert.Equal(List.length startLines, List.length (List.distinct startLines))
+
     // The first symbol ([meta]) starts on line 0 and carries a selectionRange.
     let first = symbols[0]
     Assert.Equal("[meta]", first |> field "name" |> asStr)
@@ -91,11 +108,22 @@ let ``in-process documentSymbol maps naplist meta, vars and steps kinds`` () =
             [ buildNotification MDidOpen (Some(didOpenParams NaplistUri 1 AllNaplistSections))
               buildRequest MDocumentSymbol 3 (Some(textDocParams NaplistUri)) ]
 
+    let symbols = resultArray responses 3
     let kinds = symbolNameKinds (resultOf responses 3) |> Map.ofList
 
+    Assert.Equal(3, symbols.Count)
     Assert.Equal(KindNamespace, kinds["[meta]"])
     Assert.Equal(KindVariable, kinds["[vars]"])
     Assert.Equal(KindArray, kinds["[steps]"])
+
+    // Every naplist symbol is structurally well-formed, reported in file order.
+    assertWellFormedSymbols symbols
+    let names = symbolNameKinds (resultOf responses 3) |> List.map fst
+    Assert.Equal<string list>([ "[meta]"; "[vars]"; "[steps]" ], names)
+    let startLines = [ for s in symbols -> s |> field "range" |> field "start" |> field "line" |> asInt ]
+    Assert.Equal(0, List.head startLines)
+    Assert.Equal(startLines, List.sort startLines)
+    Assert.Equal(List.length startLines, List.length (List.distinct startLines))
 
 [<Fact>]
 let ``in-process documentSymbol is empty for unopened, non-nap and malformed params`` () =
