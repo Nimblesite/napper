@@ -23,7 +23,7 @@
     "napper"
   ],
   "icon": "media/logo.png",
-  "preview": true,
+  "preview": false,
   "engines": {
     "vscode": "^1.99.0"
   },

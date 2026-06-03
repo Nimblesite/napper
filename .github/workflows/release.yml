@@ -396,11 +396,11 @@ jobs:
       # never blocks the native-binary release — only the Marketplace publish waits.
       - name: Require Marketplace credential
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         run: |
           set -euo pipefail
           if [ -z "${VSCE_PAT:-}" ]; then
-            echo "::error title=VSCE_PAT secret is not set::Add a VS Code Marketplace Personal Access Token as the repo secret VSCE_PAT, then re-run, to publish the per-platform VSIXs. The GitHub Release (with all VSIX + CLI assets), Homebrew, and Scoop already shipped independently. Token guide: https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token"
+            echo "::error title=VSCODE_MARKETPLACE_PAT not accessible::This is the Nimblesite ORG-level secret used by Basilisk/Deslop/too-many-cooks. If it exists at the org level, add napper to its allowed repositories under Org Settings -> Secrets and variables -> Actions, then re-run. The GitHub Release (with all VSIX + CLI assets), Homebrew, and Scoop already shipped independently."
             exit 1
           fi
           echo "VSCE_PAT present — proceeding with Marketplace publish."
@@ -413,10 +413,32 @@ jobs:
           path: vsix-artifacts
           pattern: vsix-*
           merge-multiple: true
-      - name: Publish all platforms in one atomic call
-        run: npx @vscode/vsce publish --packagePath $(find vsix-artifacts -name '*.vsix' | tr '\n' ' ')
+      # One `vsce publish` per platform-specific VSIX. vsce silently uses only the
+      # first when several are passed in a single call, so each --target VSIX MUST be
+      # published on its own (matches Basilisk / Deslop). A hyphenated SemVer tag is a
+      # prerelease and requires --pre-release.
+      - name: Publish each platform VSIX
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          flag=""
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            flag="--pre-release"
+            echo "Prerelease tag ${GITHUB_REF_NAME}; publishing with --pre-release"
+          fi
+          published=0
+          for vsix in vsix-artifacts/**/*.vsix; do
+            echo "Publishing ${vsix}"
+            npx --yes @vscode/vsce publish ${flag} --packagePath "${vsix}"
+            published=$((published + 1))
+          done
+          if [ "${published}" -eq 0 ]; then
+            echo "::error::No VSIX artifacts found to publish"
+            exit 1
+          fi
+          echo "Published ${published} VSIX(es) to the Marketplace"
 
   # ── SECONDARY, best-effort dotnet-tool NuGet package ──────────────────────────
   # continue-on-error + NOT a dependency of release / marketplace / brew / scoop, so a
