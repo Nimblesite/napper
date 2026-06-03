@@ -38,6 +38,12 @@ let driveBytes (inputBytes: byte[]) : int * JsonNode list =
 /// Run the real server over a batch of messages; return the framed responses.
 let drive (messages: JsonNode list) : JsonNode list = driveBytes (framesOf messages) |> snd
 
+/// Run the server with an explicit output stream (e.g. one that fails on write,
+/// to exercise the top-level crash handler). Returns the exit code.
+let runWithOutput (inputBytes: byte[]) (output: Stream) : int =
+    use input = new MemoryStream(inputBytes)
+    LspRunner.run input output
+
 /// Find the response with the given JSON-RPC id, asserting it exists.
 let responseFor (responses: JsonNode list) (id: int) : JsonNode =
     let found =
@@ -63,6 +69,45 @@ let symbolNameKinds (result: JsonNode) : (string * int) list =
     (result :?> JsonArray)
     |> Seq.map (fun s -> s["name"].GetValue<string>(), s["kind"].GetValue<int>())
     |> Seq.toList
+
+// ─── Shared sample documents (one location for the test fixtures) ───
+
+[<Literal>]
+let NapUri = "file:///tmp/req.nap"
+
+[<Literal>]
+let BadNapUri = "file:///tmp/bad.nap"
+
+[<Literal>]
+let NaplistUri = "file:///tmp/list.naplist"
+
+[<Literal>]
+let TxtUri = "file:///tmp/note.txt"
+
+[<Literal>]
+let UnopenedUri = "file:///tmp/never-opened.nap"
+
+/// A valid GET request that parses cleanly.
+[<Literal>]
+let ValidGet = "[request]\nmethod = GET\nurl = https://example.com\n"
+
+/// A valid POST request carrying a header — exercises header projection.
+[<Literal>]
+let ValidPostWithHeader =
+    "[request]\nmethod = POST\nurl = https://api.example.com/users\n\n[request.headers]\nAccept = application/json\n"
+
+/// Has a [request] header line but a body the parser rejects.
+[<Literal>]
+let UnparseableRequest = "[request]\nthis is not a valid request line\n"
+
+/// Every known .nap section — drives documentSymbol kind coverage.
+[<Literal>]
+let AllNapSections =
+    "[meta]\nname = \"All\"\n\n[vars]\nx = 1\n\n[request]\nmethod = GET\nurl = https://example.com\n\n[request.headers]\nAccept = application/json\n\n[request.body]\n{}\n\n[assert]\nstatus = 200\n\n[script]\npost = \"x\"\n"
+
+/// Every known .naplist section — drives documentSymbol kind coverage.
+[<Literal>]
+let AllNaplistSections = "[meta]\nname = \"L\"\n\n[vars]\ny = 2\n\n[steps]\na.nap\nb.nap\n"
 
 /// A write-only stream whose Write always throws — used to drive the server's
 /// top-level crash handler (the write happens outside its per-message try).

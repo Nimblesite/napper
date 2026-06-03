@@ -15,8 +15,8 @@ Nap is a developer-first HTTP testing tool. It is as simple as curl for one-off 
 1. **Files are the source of truth.** All requests, tests, and playlists are plain files. Git-friendly by default.
 2. **Simple things are simple.** A single HTTP call should look almost as terse as curl.
 3. **Tests are reusable components.** A `.nap` file (`nap-file`) is a reusable unit. It can be composed into playlists (`naplist-file`) without modification.
-4. **Scripting is opt-in and external.** F# and C# scripts live in `.fsx`/`.csx` files referenced by name (`script-fsx`, `script-csx`). Simple assertions need no scripting.
-5. **No lock-in.** The format is plain text. The scripting is standard `.fsx`/`.csx`. Results emit standard formats.
+4. **Scripting is opt-in, external, and language-agnostic.** Scripts live in standalone files referenced by name — F# (`.fsx`), C# (`.csx`), JavaScript (`.js`), or Python (`.py`) (`script-fsx`, `script-csx`, `script-js`, `script-py`). Every language sees the same `ctx`/`nap` surface (`script-protocol`). Simple assertions need no scripting at all.
+5. **No lock-in.** The format is plain text. Scripts are standard files in standard languages run by their standard runtimes — no proprietary sandbox. Results emit standard formats.
 
 ---
 
@@ -63,7 +63,7 @@ The CLI MUST migrate to **NativeAOT** (`PublishAot=true`). Non-negotiable. End s
 - Brew / Scoop / direct download become the primary channels. `dotnet tool` becomes optional.
 - The VSIX install flow ([`vscode-cli-acquisition`](./IDE-EXTENSION-SPEC.md#vscode-cli-acquisition)) collapses: no more .NET SDK prerequisite, no brew/scoop/choco-install-dotnet step.
 
-**Risks**: F# AOT has rough edges (`printf`, reflection, quotations) — anything reflection-based fails at publish time. Third-party deps must be AOT-compatible (audit required). User `.fsx` / `.csx` script hooks still need the .NET SDK after migration — that dependency is on `dotnet fsi`, not on `napper`, and is acceptable.
+**Risks**: F# AOT has rough edges (`printf`, reflection, quotations) — anything reflection-based fails at publish time. Third-party deps must be AOT-compatible (audit required). User script hooks still need their own language runtime after migration — `.fsx`/`.csx` need the .NET SDK (`dotnet fsi`), `.js` needs Node.js, `.py` needs Python 3 (`script-runtime`). That dependency is on the script's runtime, never on `napper` itself, and is acceptable — a user only installs the runtime for the language they actually script in.
 
 Tracked in [CLI-PLAN.md](../plans/CLI-PLAN.md).
 
@@ -153,7 +153,7 @@ napper lsp
 ## Related Specs
 
 - [File Formats](./FILE-FORMATS-SPEC.md) — `.nap`, `.napenv`, `.naplist` format specifications
-- [Scripting](./SCRIPTING-SPEC.md) — F# and C# scripting model, NapContext, NapRunner
+- [Scripting](./SCRIPTING-SPEC.md) — language-agnostic scripting model (F#, C#, JavaScript, Python), NapContext, NapRunner, the context protocol
 - [CLI Plan](../plans/CLI-PLAN.md) — Parser, project layout, implementation phases
 - [LSP Specification](./LSP-SPEC.md) — `napper lsp` subcommand: protocol, capabilities, transport
 - [LSP Plan](../plans/LSP-PLAN.md) — LSP implementation phases (same `napper` binary)

@@ -42,6 +42,12 @@
 - **Turn on F# analyzers** - Strict rules to enforce F# best practice
 - **Prefer moving config from fsproj -> buildprops** avoid project config across projects
 
+### Type Models
+
+- All models are declared with [typeDiagram markup syntax](https://typediagram.dev/docs/language-reference.html)
+- Use the [typeDiagram code generator](https://typediagram.dev/docs/cli.html) to generat the F# ADTS. 
+- If you have any issues with typeDiagram, log bugs on the [gh repo](https://github.com/Nimblesite/typeDiagram).
+
 ## Testing
 
 #### Rules

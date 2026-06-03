@@ -3,6 +3,8 @@
 // this file talks JSON-RPC over stdio using only the System.Text.Json DOM
 // (JsonNode / Utf8 framing) — no StreamJsonRpc, no Newtonsoft, no reflection.
 // All domain logic lives in Napper.Core; this file is protocol glue only.
+// Hardened to NEVER crash the loop on malformed input (LSP-SPEC: the server
+// never crashes on malformed input).
 namespace Napper.Lsp
 
 open System
@@ -11,279 +13,70 @@ open System.Text
 open System.Text.Json
 open System.Text.Json.Nodes
 open Napper.Core
+open Protocol
 
-/// JSON-RPC / LSP protocol constants — the single location for every wire string.
-module private Protocol =
-    [<Literal>]
-    let JsonRpcVersion = "2.0"
-
-    // ─── JSON-RPC envelope fields ───
-    [<Literal>]
-    let FJsonRpc = "jsonrpc"
-
-    [<Literal>]
-    let FId = "id"
-
-    [<Literal>]
-    let FMethod = "method"
-
-    [<Literal>]
-    let FParams = "params"
-
-    [<Literal>]
-    let FResult = "result"
-
-    [<Literal>]
-    let FError = "error"
-
-    [<Literal>]
-    let FCode = "code"
-
-    [<Literal>]
-    let FMessage = "message"
-
-    // ─── Methods ───
-    [<Literal>]
-    let MInitialize = "initialize"
-
-    [<Literal>]
-    let MInitialized = "initialized"
-
-    [<Literal>]
-    let MShutdown = "shutdown"
-
-    [<Literal>]
-    let MExit = "exit"
-
-    [<Literal>]
-    let MDidOpen = "textDocument/didOpen"
-
-    [<Literal>]
-    let MDidChange = "textDocument/didChange"
-
-    [<Literal>]
-    let MDidClose = "textDocument/didClose"
-
-    [<Literal>]
-    let MDocumentSymbol = "textDocument/documentSymbol"
-
-    [<Literal>]
-    let MCodeLens = "textDocument/codeLens"
-
-    [<Literal>]
-    let MExecuteCommand = "workspace/executeCommand"
-
-    // ─── Capability / result fields ───
-    [<Literal>]
-    let FCapabilities = "capabilities"
-
-    [<Literal>]
-    let FTextDocumentSync = "textDocumentSync"
-
-    [<Literal>]
-    let FDocumentSymbolProvider = "documentSymbolProvider"
-
-    [<Literal>]
-    let FCodeLensProvider = "codeLensProvider"
-
-    [<Literal>]
-    let FExecuteCommandProvider = "executeCommandProvider"
-
-    [<Literal>]
-    let FResolveProvider = "resolveProvider"
-
-    [<Literal>]
-    let FCommands = "commands"
-
-    [<Literal>]
-    let FServerInfo = "serverInfo"
-
-    [<Literal>]
-    let FName = "name"
-
-    [<Literal>]
-    let FVersion = "version"
-
-    // ─── Document / params fields ───
-    [<Literal>]
-    let FTextDocument = "textDocument"
-
-    [<Literal>]
-    let FUri = "uri"
-
-    [<Literal>]
-    let FText = "text"
-
-    [<Literal>]
-    let FContentChanges = "contentChanges"
-
-    [<Literal>]
-    let FCommand = "command"
-
-    [<Literal>]
-    let FArguments = "arguments"
-
-    // ─── Symbol / lens / range fields ───
-    [<Literal>]
-    let FKind = "kind"
-
-    [<Literal>]
-    let FRange = "range"
-
-    [<Literal>]
-    let FSelectionRange = "selectionRange"
-
-    [<Literal>]
-    let FStart = "start"
-
-    [<Literal>]
-    let FEnd = "end"
-
-    [<Literal>]
-    let FLine = "line"
-
-    [<Literal>]
-    let FCharacter = "character"
-
-    [<Literal>]
-    let FData = "data"
-
-    // ─── executeCommand result fields ───
-    [<Literal>]
-    let FUrl = "url"
-
-    [<Literal>]
-    let FHeaders = "headers"
-
-    // ─── Commands ───
-    [<Literal>]
-    let CmdCopyCurl = "napper.copyCurl"
-
-    [<Literal>]
-    let CmdListEnvironments = "napper.listEnvironments"
-
-    [<Literal>]
-    let CmdRequestInfo = "napper.requestInfo"
-
-    // ─── Section names (mirror Napper.Core.SectionScanner) ───
-    [<Literal>]
-    let SecMeta = "meta"
-
-    [<Literal>]
-    let SecRequest = "request"
-
-    [<Literal>]
-    let SecRequestHeaders = "request.headers"
-
-    [<Literal>]
-    let SecRequestBody = "request.body"
-
-    [<Literal>]
-    let SecAssert = "assert"
-
-    [<Literal>]
-    let SecScript = "script"
-
-    [<Literal>]
-    let SecVars = "vars"
-
-    [<Literal>]
-    let SecSteps = "steps"
-
-    // ─── Misc ───
-    [<Literal>]
-    let ServerName = "napper-lsp"
-
-    [<Literal>]
-    let ServerVersion = "0.1.0"
-
-    [<Literal>]
-    let FileScheme = "file://"
-
-    [<Literal>]
-    let NapExtension = ".nap"
-
-    [<Literal>]
-    let NaplistExtension = ".naplist"
-
-    [<Literal>]
-    let HeaderContentLength = "Content-Length"
-
-    [<Literal>]
-    let HeaderTerminator = "\r\n\r\n"
-
-    // ─── LSP SymbolKind enum values (LSP 3.17) ───
-    [<Literal>]
-    let KindNamespace = 3
-
-    [<Literal>]
-    let KindFunction = 12
-
-    [<Literal>]
-    let KindVariable = 13
-
-    [<Literal>]
-    let KindArray = 18
-
-    [<Literal>]
-    let KindKey = 20
-
-    [<Literal>]
-    let KindStruct = 23
-
-    // ─── TextDocumentSyncKind / error codes ───
-    [<Literal>]
-    let SyncFull = 1
-
-    [<Literal>]
-    let CodeMethodNotFound = -32601
-
-    [<Literal>]
-    let CodeInternalError = -32603
-
-    [<Literal>]
-    let MsgMethodNotFound = "Method not found"
-
-/// Small reflection-free helpers over the System.Text.Json DOM.
+/// Small reflection-free, null-safe helpers over the System.Text.Json DOM.
 module private Json =
     let jstr (s: string) : JsonNode = JsonValue.Create(s) :> JsonNode
     let jint (n: int) : JsonNode = JsonValue.Create(n) :> JsonNode
     let jbool (b: bool) : JsonNode = JsonValue.Create(b) :> JsonNode
 
-    /// Read a string field, or "" if absent/null.
-    let strField (node: JsonNode) (key: string) : string =
-        match node[key] with
-        | null -> ""
-        | v -> v.GetValue<string>()
+    /// Safe property access: Some only when `node` is an object that has `key`.
+    /// Never throws on a null node or a non-object node.
+    let item (node: JsonNode) (key: string) : JsonNode option =
+        match node with
+        | :? JsonObject as o ->
+            match o[key] with
+            | null -> None
+            | v -> Some v
+        | _ -> None
 
-    /// Read an int field, or the supplied default if absent/null.
+    /// Read a string field, or "" when absent / null / not a string.
+    let strField (node: JsonNode) (key: string) : string =
+        match item node key with
+        | Some(:? JsonValue as v) ->
+            match v.TryGetValue<string>() with
+            | true, s -> s
+            | _ -> ""
+        | _ -> ""
+
+    /// Read an int field, or `fallback` when absent / null / not a number.
     let intField (node: JsonNode) (key: string) (fallback: int) : int =
-        match node[key] with
-        | null -> fallback
-        | v -> v.GetValue<int>()
+        match item node key with
+        | Some(:? JsonValue as v) ->
+            match v.TryGetValue<int>() with
+            | true, i -> i
+            | _ -> fallback
+        | _ -> fallback
 
     /// Build a successful JSON-RPC response. `result` may be null (→ "result":null).
     let ok (id: JsonNode) (result: JsonNode) : JsonNode =
         let o = JsonObject()
-        o[Protocol.FJsonRpc] <- jstr Protocol.JsonRpcVersion
-        o[Protocol.FId] <- (if isNull id then null else id.DeepClone())
-        o[Protocol.FResult] <- result
+        o[FJsonRpc] <- jstr JsonRpcVersion
+        o[FId] <- (if isNull id then null else id.DeepClone())
+        o[FResult] <- result
         o :> JsonNode
 
     /// Build a JSON-RPC error response.
     let err (id: JsonNode) (code: int) (message: string) : JsonNode =
         let detail = JsonObject()
-        detail[Protocol.FCode] <- jint code
-        detail[Protocol.FMessage] <- jstr message
+        detail[FCode] <- jint code
+        detail[FMessage] <- jstr message
         let o = JsonObject()
-        o[Protocol.FJsonRpc] <- jstr Protocol.JsonRpcVersion
-        o[Protocol.FId] <- (if isNull id then null else id.DeepClone())
-        o[Protocol.FError] <- detail
+        o[FJsonRpc] <- jstr JsonRpcVersion
+        o[FId] <- (if isNull id then null else id.DeepClone())
+        o[FError] <- detail
         o :> JsonNode
 
 /// LSP wire framing: `Content-Length: N\r\n\r\n` + UTF-8 JSON body.
 module private Wire =
-    open Protocol
+
+    /// A framed read result. `Skip` is a recoverable malformed/empty frame (keep
+    /// the loop alive); `Eof` is genuine end-of-stream (stop).
+    type Frame =
+        | Eof
+        | Skip
+        | Body of string
 
     /// Read raw header bytes up to and including the blank-line terminator.
     let private readHeaders (input: Stream) : string option =
@@ -304,7 +97,7 @@ module private Wire =
 
         if finished then Some(sb.ToString()) else None
 
-    /// Extract the Content-Length value from a header block.
+    /// Extract the Content-Length value from a header block, or 0 when absent.
     let private contentLength (headers: string) : int =
         headers.Split('\n')
         |> Array.tryPick (fun line ->
@@ -316,19 +109,30 @@ module private Wire =
             | _ -> None)
         |> Option.defaultValue 0
 
-    /// Read one framed message body, or None at end-of-stream.
-    let readMessage (input: Stream) : string option =
+    /// Read exactly `len` bytes unless the stream ends first; returns bytes read.
+    let private readFully (input: Stream) (buf: byte[]) (len: int) : int =
+        let mutable total = 0
+        let mutable n = 1
+
+        while total < len && n > 0 do
+            n <- input.Read(buf, total, len - total)
+            total <- total + n
+
+        total
+
+    /// Read one framed message. Distinguishes EOF (stop) from a recoverable
+    /// malformed/empty frame (Skip) so a bad frame never terminates the session.
+    let readMessage (input: Stream) : Frame =
         match readHeaders input with
-        | None -> None
+        | None -> Eof
         | Some headers ->
             let len = contentLength headers
 
-            if len <= 0 then
-                None
+            if len <= 0 then Skip
+            elif len > MaxMessageBytes then Eof
             else
                 let buf = Array.zeroCreate<byte> len
-                input.ReadExactly(buf, 0, len)
-                Some(Encoding.UTF8.GetString(buf))
+                if readFully input buf len < len then Eof else Body(Encoding.UTF8.GetString buf)
 
     /// Frame and write one message, then flush.
     let writeMessage (output: Stream) (json: string) : unit =
@@ -340,7 +144,6 @@ module private Wire =
 
 /// Request/notification handlers. All domain logic delegates to Napper.Core.
 module private Handlers =
-    open Protocol
     open Json
 
     let private isNap (uri: string) = uri.EndsWith NapExtension
@@ -349,8 +152,21 @@ module private Handlers =
     let private uriToFilePath (uri: string) : string =
         if uri.StartsWith FileScheme then Uri(uri).LocalPath else uri
 
+    /// The text of a tracked document, falling back to reading from disk so the
+    /// LSP works on files the IDE has not opened (e.g. the explorer tree).
     let private docText (uri: string) : string option =
-        Workspace.tryGetDocument uri |> Option.map _.Text
+        match Workspace.tryGetDocument uri with
+        | Some doc -> Some doc.Text
+        | None ->
+            let path = uriToFilePath uri
+
+            if File.Exists path then
+                try
+                    Some(File.ReadAllText path)
+                with _ ->
+                    None
+            else
+                None
 
     let private parseRequest (uri: string) : NapRequest option =
         docText uri
@@ -392,7 +208,6 @@ module private Handlers =
         o[FSelectionRange] <- r.DeepClone()
         o :> JsonNode
 
-    /// Section scan for the given URI, choosing the scanner by extension.
     let private scanSections (uri: string) (text: string) : SectionScanner.SectionLocation list =
         if isNap uri then SectionScanner.scanNapSections text
         elif isNaplist uri then SectionScanner.scanNaplistSections text
@@ -407,11 +222,12 @@ module private Handlers =
 
         arr :> JsonNode
 
-    /// A code lens at a section line, carrying optional display data.
     let private lens (line: int) (data: string option) : JsonNode =
         let o = JsonObject()
         o[FRange] <- range line line
-        o[FData] <- (match data with | Some d -> jstr d | None -> null)
+        o[FData] <- (match data with
+                     | Some d -> jstr d
+                     | None -> null)
         o :> JsonNode
 
     let codeLenses (uri: string) : JsonNode =
@@ -452,6 +268,17 @@ module private Handlers =
         | None -> null
         | Some req -> jstr (CurlGenerator.toCurl req)
 
+    /// Step file paths declared in a .naplist's [steps] section (reads from disk
+    /// when the file is not open) — lets the IDE drop its own .naplist parsing.
+    let private naplistSteps (uri: string) : JsonNode =
+        let arr = JsonArray()
+
+        match docText uri with
+        | Some text -> SectionScanner.scanNaplistStepPaths text |> List.iter (fun p -> arr.Add(jstr p))
+        | None -> ()
+
+        arr :> JsonNode
+
     let private listEnvironments (rootUri: string) : JsonNode =
         let arr = JsonArray()
 
@@ -462,11 +289,14 @@ module private Handlers =
 
     /// First string argument of a workspace/executeCommand request.
     let private firstArg (p: JsonNode) : string =
-        match p[FArguments] with
-        | :? JsonArray as a when a.Count > 0 ->
+        match item p FArguments with
+        | Some(:? JsonArray as a) when a.Count > 0 ->
             match a[0] with
-            | null -> ""
-            | v -> v.GetValue<string>()
+            | :? JsonValue as v ->
+                match v.TryGetValue<string>() with
+                | true, s -> s
+                | _ -> ""
+            | _ -> ""
         | _ -> ""
 
     let private executeCommand (p: JsonNode) : JsonNode =
@@ -476,12 +306,13 @@ module private Handlers =
         | CmdRequestInfo -> requestInfo arg
         | CmdCopyCurl -> copyCurl arg
         | CmdListEnvironments -> listEnvironments arg
+        | CmdNaplistSteps -> naplistSteps arg
         | _ -> null
 
     let private uriOf (p: JsonNode) : string =
-        match p[FTextDocument] with
-        | null -> ""
-        | td -> strField td FUri
+        match item p FTextDocument with
+        | Some td -> strField td FUri
+        | None -> ""
 
     let private capabilities () : JsonNode =
         let codeLens = JsonObject()
@@ -491,6 +322,7 @@ module private Handlers =
         commands.Add(jstr CmdCopyCurl)
         commands.Add(jstr CmdListEnvironments)
         commands.Add(jstr CmdRequestInfo)
+        commands.Add(jstr CmdNaplistSteps)
         let exec = JsonObject()
         exec[FCommands] <- commands
 
@@ -511,20 +343,20 @@ module private Handlers =
         o :> JsonNode
 
     let private onDidOpen (p: JsonNode) : unit =
-        match p[FTextDocument] with
-        | null -> ()
-        | td -> Workspace.openDocument (strField td FUri) (intField td FVersion 0) (strField td FText)
+        match item p FTextDocument with
+        | Some td -> Workspace.openDocument (strField td FUri) (intField td FVersion 0) (strField td FText)
+        | None -> ()
 
     let private onDidChange (p: JsonNode) : unit =
-        match p[FTextDocument], p[FContentChanges] with
-        | (:? JsonObject as td), (:? JsonArray as changes) when changes.Count > 0 ->
+        match item p FTextDocument, item p FContentChanges with
+        | Some td, Some(:? JsonArray as changes) when changes.Count > 0 ->
             Workspace.changeDocument (strField td FUri) (intField td FVersion 0) (strField changes[0] FText)
         | _ -> ()
 
     let private onDidClose (p: JsonNode) : unit =
-        match p[FTextDocument] with
-        | null -> ()
-        | td -> Workspace.closeDocument (strField td FUri)
+        match item p FTextDocument with
+        | Some td -> Workspace.closeDocument (strField td FUri)
+        | None -> ()
 
     /// Dispatch one message. Returns Some response for requests, None for
     /// notifications. Notifications run their side effect here.
@@ -551,24 +383,26 @@ module private Handlers =
 
 /// Public entry point used by Napper.Cli and the integration tests.
 module LspRunner =
-    open Protocol
 
-    let private tryParse (body: string) : JsonNode option =
+    /// Parse a frame body; accept ONLY a JSON object root. Array/primitive roots
+    /// (valid JSON a non-conformant client may send) are dropped, not crashed on.
+    let private tryParse (body: string) : JsonObject option =
         try
             match JsonNode.Parse(body) with
-            | null -> None
-            | node -> Some node
+            | :? JsonObject as o -> Some o
+            | _ -> None
         with _ ->
             None
 
     /// Process one message; returns false when the server should stop (exit).
-    let private processMessage (output: Stream) (msg: JsonNode) : bool =
+    let private processMessage (output: Stream) (msg: JsonObject) : bool =
         let methodName = Json.strField msg FMethod
-        let id = msg[FId]
 
         if methodName = MExit then
             false
         else
+            let id = msg[FId]
+
             let response =
                 try
                     Handlers.handle methodName msg[FParams] id
@@ -586,13 +420,14 @@ module LspRunner =
 
             while running do
                 match Wire.readMessage input with
-                | None -> running <- false
-                | Some body ->
+                | Wire.Eof -> running <- false
+                | Wire.Skip -> ()
+                | Wire.Body body ->
                     match tryParse body with
-                    | None -> ()
                     | Some msg -> running <- processMessage output msg
+                    | None -> ()
 
             0
         with ex ->
-            eprintfn $"napper lsp crashed: %A{ex}"
+            Console.Error.WriteLine(CrashPrefix + string ex)
             1

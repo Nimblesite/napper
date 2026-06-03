@@ -489,11 +489,25 @@ let convertHttp (args: CliArgs) : int =
 
 [<EntryPoint>]
 let main argv =
-    // LSP subcommand: take over stdio immediately, suppress all other stdout
+    // LSP subcommand: take over stdio immediately, suppress all other stdout.
+    // Logging goes to a file (never stdout — that would corrupt the LSP stream),
+    // opt-in via --verbose / NAPPER_LSP_VERBOSE so we don't litter on every spawn.
     if argv.Length > 0 && argv[0] = "lsp" then
+        let verbose =
+            (argv |> Array.contains "--verbose")
+            || Environment.GetEnvironmentVariable "NAPPER_LSP_VERBOSE" = "1"
+
+        if verbose then
+            try
+                Logger.init true
+            with _ ->
+                ()
+
         let input = Console.OpenStandardInput()
         let output = Console.OpenStandardOutput()
-        Environment.Exit(Napper.Lsp.LspRunner.run input output)
+        let exitCode = Napper.Lsp.LspRunner.run input output
+        Logger.close ()
+        Environment.Exit(exitCode)
 
     let args = parseArgs argv
     Logger.init args.Verbose

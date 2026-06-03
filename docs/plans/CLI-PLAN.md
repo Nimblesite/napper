@@ -82,7 +82,7 @@ nap/
 - Homebrew formula
 - Winget / Chocolatey / Scoop packages (future)
 - `nap new` scaffolding commands
-- Language-extensible script runner plugin model
+- Language-extensible script runner model — JavaScript & Python via the shared context protocol, see [SCRIPTING-LANGUAGES-PLAN.md](./SCRIPTING-LANGUAGES-PLAN.md)
 
 ---
 
@@ -91,7 +91,7 @@ nap/
 - **GraphQL support** — a `[request.graphql]` block with query/variables sub-keys.
 - **WebSocket / SSE testing** — separate request type, different assertion model.
 - **Mock server mode** — `nap mock ./collection/` serves a mock based on expected responses.
-- **Script language plugins** — `.py`, `.js` runners as opt-in packages.
+- **More script languages** — JavaScript & Python are specified and planned in [SCRIPTING-LANGUAGES-PLAN.md](./SCRIPTING-LANGUAGES-PLAN.md) (`script-js`, `script-py`); `.ts` (Deno/`tsx`) is the next candidate.
 - **Secret manager integration** — pull `{{token}}` from 1Password, AWS Secrets Manager, etc. at runtime.
 - **HTML report output** — `--output html` for a shareable test report.
 
@@ -126,4 +126,4 @@ nap/
 - [ ] Homebrew formula
 - [ ] Winget / Chocolatey / Scoop packages
 - [ ] `nap new` scaffolding commands
-- [ ] Language-extensible script runner plugin model
+- [ ] Language-extensible script runner model — JavaScript & Python (see [SCRIPTING-LANGUAGES-PLAN.md](./SCRIPTING-LANGUAGES-PLAN.md))

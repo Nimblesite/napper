@@ -6,8 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="LspWire.fs" />
     <Compile Include="LspClient.fs" />
+    <Compile Include="LspDriver.fs" />
     <Compile Include="LspIntegrationTests.fs" />
+    <Compile Include="LspProtocolTests.fs" />
+    <Compile Include="LspCommandTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

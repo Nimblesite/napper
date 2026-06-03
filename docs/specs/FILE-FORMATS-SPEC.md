@@ -67,7 +67,7 @@ post = ./scripts/validate-user.fsx   # runs after the response
   - `assert-contains` — `headers.Content-Type contains "json"` — substring check
   - `assert-lt` — `duration < 500ms` — less-than comparison
   - `assert-gt` — `body.count > 0` — greater-than comparison
-- **`[script]` block** — references external `.fsx`/`.csx` files for pre/post hooks (see `script-fsx`, `script-csx`).
+- **`[script]` block** — references external script files for pre/post hooks in any supported language: F# (`.fsx`), C# (`.csx`), JavaScript (`.js`), or Python (`.py`). Dispatch is by extension (see `script-dispatch`).
 - `nap-comments` — Comments with `#`.
 
 #### `http-methods` — Supported HTTP Methods
@@ -135,7 +135,7 @@ A `.naplist` file is an explicit ordered list of steps. Steps can reference:
 - `naplist-nap-step` — Individual `.nap` files (by relative path)
 - `naplist-folder-step` — Folders (run all `.nap` files in that folder, sorted)
 - `naplist-nested` — Other `.naplist` files (nested playlists — fully recursive)
-- `naplist-script-step` — `.fsx` or `.csx` scripts
+- `naplist-script-step` — script files in any supported language (`.fsx`, `.csx`, `.js`, `.py`) (`script-dispatch`)
 
 ### Example `smoke.naplist`
 

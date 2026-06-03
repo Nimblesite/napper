@@ -94,3 +94,21 @@ let scanNaplistSections (content: string) : SectionLocation list =
 
     closeSection (lines.Length - 1)
     sections
+
+/// Extract the step file paths declared in a .naplist's [steps] section, in order.
+/// Skips blank lines and comments. Shared by the CLI runner and the LSP so no
+/// consumer (IDE extension) re-parses .naplist content itself.
+let scanNaplistStepPaths (content: string) : string list =
+    let mutable inSteps = false
+    let mutable steps: string list = []
+
+    for rawLine in content.Split([| '\n' |]) do
+        let trimmed = rawLine.Trim()
+
+        match isSectionHeader rawLine with
+        | Some name -> inSteps <- name = "steps"
+        | None ->
+            if inSteps && trimmed.Length > 0 && not (trimmed.StartsWith "#") then
+                steps <- steps @ [ trimmed ]
+
+    steps
