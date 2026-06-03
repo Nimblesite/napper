@@ -195,21 +195,73 @@ jobs:
           path: rawbin/*
           if-no-files-found: error
 
-      # ── Per-platform VSIX bundling the freshly-built native binary ──
+  # ── Per-platform VSIX packaging (decoupled from the native build) ─── [SWR-VSIX-PACKAGE]
+  # vsce packaging only ZIPS the staged native binary + manifest; it never executes the
+  # target binary, so it is fully cross-platform and runs entirely on Linux. Packaging
+  # here (instead of on each native runner) sidesteps the win32-arm npm toolchain gap —
+  # @vscode/vsce-sign ships no win32-arm build, so `npm ci` fails outright on a Windows
+  # ARM runner — and the Windows file-lock (EPERM) flakiness, while still producing one
+  # correctly-targeted VSIX per platform. Implements [SWR-VSIX-CI-MATRIX], [SWR-VSIX-VERIFY].
+  package-vsix:
+    name: Package VSIX ${{ matrix.platform }}
+    needs: [validate-tag, build]
+    # Ship whatever platforms built: one flaky native leg drops only its own VSIX.
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: darwin-arm64, rid: osx-arm64 }
+          - { platform: darwin-x64, rid: osx-x64 }
+          - { platform: linux-x64, rid: linux-x64 }
+          - { platform: linux-arm64, rid: linux-arm64 }
+          - { platform: win32-x64, rid: win-x64 }
+          - { platform: win32-arm64, rid: win-arm64 }
+    env:
+      VERSION: ${{ needs.validate-tag.outputs.version }}
+      TAG: ${{ needs.validate-tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/Napper.VsCode/package-lock.json
+
+      # The VSIX manifest version comes from package.json (and the bundled
+      # shipwright.json expectedVersion), so the source carriers MUST be stamped from
+      # the tag before packaging — otherwise the Marketplace VSIX would ship 0.0.0-dev.
+      # Same first-class stamper used by the native legs ([SWR-VERSION-BUILD-STAMPING]).
+      - name: Stamp version from tag
+        run: dotnet fsi scripts/stamp-version.fsx --tag "$TAG"
+
+      # The native binary was built on its own OS/arch runner; pull just that one.
+      # A missing leg (e.g. an ARM-runner outage) drops only its VSIX, never the others.
+      - name: Download native binary for ${{ matrix.platform }}
+        uses: actions/download-artifact@v4
+        with:
+          name: rawbin-${{ matrix.rid }}
+          path: rawbin
+
       - name: Stage binary into the extension
         shell: bash
         run: |
           set -euo pipefail
-          exe=""; [ "${{ runner.os }}" = "Windows" ] && exe=".exe"
+          exe=""; case "${{ matrix.platform }}" in win32-*) exe=".exe";; esac
           mkdir -p "src/Napper.VsCode/bin/${{ matrix.platform }}"
-          cp "out/${{ matrix.rid }}/napper$exe" "src/Napper.VsCode/bin/${{ matrix.platform }}/napper$exe"
+          cp "rawbin/napper$exe" "src/Napper.VsCode/bin/${{ matrix.platform }}/napper$exe"
           chmod +x "src/Napper.VsCode/bin/${{ matrix.platform }}/napper$exe" || true
 
       - name: Install extension dependencies
         working-directory: src/Napper.VsCode
         run: npm ci
-        env:
-          npm_config_arch: ${{ matrix.npm_config_arch }}
 
       - name: Compile extension
         working-directory: src/Napper.VsCode
@@ -223,9 +275,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          exe=""; [ "${{ runner.os }}" = "Windows" ] && exe=".exe"
+          exe=""; case "${{ matrix.platform }}" in win32-*) exe=".exe";; esac
           VSIX="$(ls src/Napper.VsCode/*.vsix | head -1)"
           echo "VSIX: $VSIX"
+          # The packaged file name carries the stamped version: napper-<ver>.vsix.
+          case "$VSIX" in *"$VERSION"*) : ;; *) echo "::error::VSIX '$VSIX' does not carry version $VERSION"; exit 1;; esac
           unzip -l "$VSIX" > vsix-contents.txt
           cat vsix-contents.txt
           grep -q "shipwright.json" vsix-contents.txt \
@@ -299,8 +353,8 @@ jobs:
   # ── GitHub Release with all CLI assets + per-platform VSIXs ──── [SWR-REL-GITHUB]
   release:
     name: Create GitHub Release
-    needs: [validate-tag, package-cli, build]
-    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
+    needs: [validate-tag, package-cli, package-vsix]
+    if: ${{ !cancelled() && needs.package-vsix.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -331,11 +385,25 @@ jobs:
   # ── Publish per-platform VSIXs to the VS Code Marketplace ─────── [SWR-VSIX-PUBLISH]
   publish-marketplace:
     name: Publish to VS Code Marketplace
-    needs: [validate-tag, build]
-    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
+    needs: [validate-tag, package-vsix]
+    if: ${{ !cancelled() && needs.package-vsix.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # Turn the Marketplace's opaque "TF400813: user aaaaaaaa-... not authorized" (what
+      # you get from an empty/blank PAT) into an actionable, operator-facing error. The
+      # GitHub Release + Homebrew + Scoop do NOT depend on this job, so a missing token
+      # never blocks the native-binary release — only the Marketplace publish waits.
+      - name: Require Marketplace credential
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VSCE_PAT:-}" ]; then
+            echo "::error title=VSCE_PAT secret is not set::Add a VS Code Marketplace Personal Access Token as the repo secret VSCE_PAT, then re-run, to publish the per-platform VSIXs. The GitHub Release (with all VSIX + CLI assets), Homebrew, and Scoop already shipped independently. Token guide: https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token"
+            exit 1
+          fi
+          echo "VSCE_PAT present — proceeding with Marketplace publish."
       - uses: actions/setup-node@v4
         with:
           node-version: 22

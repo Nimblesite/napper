@@ -31,6 +31,14 @@
          under AOT by the black-box e2e suite (which runs the real native binary), so
          these two non-actionable codes are the only ones suppressed. -->
     <NoWarn>$(NoWarn);IL2104;IL3053</NoWarn>
+
+    <!-- NativeAOT portability: without ICU the runtime aborts (exit 133) the instant
+         any culture is touched (e.g. DateTimeFormatInfo.CurrentInfo when printing the
+         version). A bare Linux image (ubuntu:24.04) ships no libicu, so the binary must
+         carry its own invariant globalization to run with TRULY zero system deps: that
+         is the whole point of the clean-room release gate. The CLI/LSP/HTTP surface is
+         culture-agnostic, so invariant is the correct, deterministic mode. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
