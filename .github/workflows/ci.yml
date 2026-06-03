@@ -55,7 +55,7 @@ jobs:
         run: npm ci
 
       - name: Validate Shipwright manifest
-        run: npx --yes @nimblesite/shipwright-validate-manifest src/Napper.VsCode/shipwright.json
+        run: npx --yes @nimblesite/shipwright-validate-manifest --schema schemas/shipwright.schema.json src/Napper.VsCode/shipwright.json
 
       - name: Restore dotnet tools
         run: dotnet tool restore

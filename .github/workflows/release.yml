@@ -67,7 +67,7 @@ jobs:
       - name: Lint + build (warnings as errors)
         run: dotnet build --no-restore --nologo -warnaserror
       - name: Validate deployment manifest
-        run: npx --yes @nimblesite/shipwright-validate-manifest src/Napper.VsCode/shipwright.json
+        run: npx --yes @nimblesite/shipwright-validate-manifest --schema schemas/shipwright.schema.json src/Napper.VsCode/shipwright.json
       - name: F# / DotHttp / LSP tests (includes version-contract + stamper)
         run: |
           set -euo pipefail

@@ -22,13 +22,15 @@ Nap is a developer-first HTTP testing tool. It is as simple as curl for one-off 
 
 ## Installation
 
-**Native-binary channels only — end users never need .NET installed.** `napper` is a
+**The primary channels are native-binary — end users never need .NET installed.** `napper` is a
 self-contained NativeAOT binary. The VS Code extension bundles the matching per-platform binary
 inside the VSIX ([`vscode-cli-acquisition`](./IDE-EXTENSION-SPEC.md#vscode-cli-acquisition)), so
 installing the extension needs no separate CLI install. CLI users pick a channel below.
 
-There is deliberately **no `dotnet tool` / NuGet channel**: a dotnet tool would force users to
-install the .NET runtime, which [`cli-aot-migration`](#cli-aot-migration) removed.
+A `dotnet tool` NuGet package remains available as a **secondary, optional** channel for .NET
+developers who prefer it — it is the only channel that needs the .NET SDK, and its release job is
+best-effort/non-blocking. The VS Code extension never resolves the CLI via `dotnet-tool`
+([SWR-IDE-RESOLUTION]); it only uses the bundled native binary.
 
 ### `cli-install-script` — install script (macOS / Linux / Windows)
 

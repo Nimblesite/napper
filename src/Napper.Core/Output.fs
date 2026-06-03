@@ -29,7 +29,7 @@ let formatPretty (result: NapResult) : string =
             else "33"
 
         appendLine
-            $"  \x1b[{statusColor}m{resp.StatusCode}\x1b[0m {result.Request.Method} {result.Request.Url}  ({resp.Duration.TotalMilliseconds:F0}ms)"
+            $"  \x1b[{statusColor}m{resp.StatusCode}\x1b[0m {result.Request.Method.Name} {result.Request.Url}  ({resp.Duration.TotalMilliseconds:F0}ms)"
 
         // Assertions
         for a in result.Assertions do

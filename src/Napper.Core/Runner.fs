@@ -17,7 +17,9 @@ let private httpClient = new HttpClient()
 /// Execute an HTTP request from a resolved NapRequest
 let executeRequest (request: NapRequest) : Async<NapResponse> =
     async {
-        Logger.info $"HTTP {request.Method} {request.Url}"
+        // .Name, not {request.Method}: interpolating the DU triggers reflective
+        // structured-print (GetUnionFields) which aborts under NativeAOT.
+        Logger.info $"HTTP {request.Method.Name} {request.Url}"
         Logger.debug $"Request headers: {request.Headers.Count} headers"
         let msg = new HttpRequestMessage(request.Method.ToNetMethod(), request.Url)
 

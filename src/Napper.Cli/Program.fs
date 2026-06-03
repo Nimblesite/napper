@@ -403,8 +403,9 @@ let convertHttp (args: CliArgs) : int =
                     match DotHttp.Parser.parse content with
                     | Error msg -> eprintfn "Error parsing %s: %s" (Path.GetFileName httpPath) msg
                     | Ok(httpFile: DotHttp.HttpFile) ->
-                        Logger.info
-                            $"Parsed {httpPath}: {httpFile.Requests.Length} requests, dialect={httpFile.Dialect}"
+                        // No {httpFile.Dialect}: interpolating the DU triggers reflective
+                        // structured-print (GetUnionFields) which aborts under NativeAOT.
+                        Logger.info $"Parsed {httpPath}: {httpFile.Requests.Length} requests"
 
                         // Convert env files if present
                         match args.EnvFile with

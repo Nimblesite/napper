@@ -289,13 +289,21 @@ let ``in-process empty and truncated input exit cleanly`` () =
     Assert.Empty(truncResponses)
 
 [<Fact>]
-let ``in-process server returns a crash code when the output stream fails`` () =
-    use output = new ThrowingStream()
+let ``in-process a failing output stream yields the crash code while a working stream does not`` () =
+    let input = framesOf [ buildRequest MInitialize 70 (Some(initializeParams ())) ]
 
-    let code =
-        runWithOutput (framesOf [ buildRequest MInitialize 70 (Some(initializeParams ())) ]) output
+    // Baseline: over normal in-memory streams the run succeeds and answers.
+    let okCode, responses = driveBytes input
+    Assert.Equal(0, okCode)
+    Assert.True(hasResponse responses 70)
+    Assert.Null((responseFor responses 70)[FError])
+    Assert.NotNull((responseFor responses 70)[FResult])
 
-    Assert.Equal(1, code)
+    // The SAME input over a stream whose Write throws drives the top-level crash
+    // handler, which returns exit code 1 rather than letting the process die.
+    use failing = new ThrowingStream()
+    let crashCode = runWithOutput input failing
+    Assert.Equal(1, crashCode)
 
 [<Fact>]
 let ``in-process degenerate envelopes and arguments are handled safely`` () =
