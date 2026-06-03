@@ -2,16 +2,16 @@
   "name": "napper",
   "displayName": "Napper",
   "description": "CLI-first, test-oriented HTTP API testing tool. Send requests, run assertions, manage environments.",
-  "version": "0.11.0",
+  "version": "0.0.0-dev",
   "publisher": "nimblesite",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/MelbourneDeveloper/napper"
+    "url": "https://github.com/Nimblesite/napper"
   },
-  "homepage": "https://github.com/MelbourneDeveloper/napper",
+  "homepage": "https://github.com/Nimblesite/napper",
   "bugs": {
-    "url": "https://github.com/MelbourneDeveloper/napper/issues"
+    "url": "https://github.com/Nimblesite/napper/issues"
   },
   "keywords": [
     "api",
@@ -25,7 +25,7 @@
   "icon": "media/logo.png",
   "preview": true,
   "engines": {
-    "vscode": "^1.95.0"
+    "vscode": "^1.99.0"
   },
   "categories": [
     "Testing",
@@ -318,8 +318,8 @@
         },
         "napper.cliPath": {
           "type": "string",
-          "default": "napper",
-          "description": "Path or command name for the Napper CLI binary"
+          "default": "",
+          "description": "Override path to the Napper CLI binary. Leave empty to use the bundled binary."
         }
       }
     }
@@ -329,8 +329,9 @@
     "build:cli": "bash ../../scripts/build-cli.sh",
     "compile": "webpack --mode production",
     "compile:tests": "tsc -p tsconfig.test.json",
+    "compile:e2e": "tsc -p tsconfig.e2e.json",
     "watch": "webpack --mode development --watch",
-    "pretest": "npm run build:cli && npm run compile && npm run compile:tests",
+    "pretest": "npm run build:cli && npm run compile && npm run compile:tests && npm run compile:e2e",
     "test": "vscode-test",
     "test:unit": "npm run compile:tests && c8 mocha out/test/unit/**/*.test.js --ui tdd --timeout 5000",
     "lint": "eslint src",
@@ -356,5 +357,9 @@
     "typescript-eslint": "^8.56.1",
     "webpack": "^5.105.3",
     "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@nimblesite/shipwright-vscode": "^0.1.0",
+    "vscode-languageclient": "^9.0.1"
   }
 }

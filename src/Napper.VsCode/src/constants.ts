@@ -4,14 +4,13 @@
 export const NAP_EXTENSION = '.nap';
 export const NAPLIST_EXTENSION = '.naplist';
 export const NAPENV_EXTENSION = '.napenv';
-export const NAPENV_LOCAL_SUFFIX = '.local';
+export const NAPENV_LOCAL_SUFFIX = '.napenv.local';
 export const FSX_EXTENSION = '.fsx';
 export const CSX_EXTENSION = '.csx';
 
 // Glob patterns
 export const NAP_GLOB = '**/*.nap';
 export const NAPLIST_GLOB = '**/*.naplist';
-export const NAPENV_GLOB = '**/.napenv*';
 export const DIRECTORY_GLOB = '**/';
 
 // View IDs
@@ -35,8 +34,11 @@ export const CONFIG_SPLIT_LAYOUT = 'splitEditorLayout';
 export const CONFIG_MASK_SECRETS = 'maskSecretsInPreview';
 export const CONFIG_CLI_PATH = 'cliPath';
 
-// CLI defaults
-export const DEFAULT_CLI_PATH = 'napper';
+// CLI default — MUST equal the `napper.cliPath` default in package.json (''). When the
+// user has not configured an override, getCliPath() treats '' as "unset" and falls through
+// to the Shipwright-resolved bundled binary path ([SWR-IDE-RESOLUTION]). A non-empty default
+// here makes getCliPath() return '' (an empty/broken path) instead of the resolved one.
+export const DEFAULT_CLI_PATH = '';
 export const CLI_OUTPUT_JSON = 'json';
 export const CLI_OUTPUT_NDJSON = 'ndjson';
 export const CLI_CMD_RUN = 'run';
@@ -45,7 +47,6 @@ export const CLI_CMD_GENERATE = 'generate';
 export const CLI_SUBCMD_OPENAPI = 'openapi';
 export const CLI_FLAG_OUTPUT = '--output';
 export const CLI_FLAG_ENV = '--env';
-export const CLI_FLAG_VAR = '--var';
 export const CLI_FLAG_OUTPUT_DIR = '--output-dir';
 
 // Context values for tree items
@@ -66,7 +67,6 @@ export const ICON_RUNNING = 'loading~spin';
 export const ICON_PASSED = 'pass';
 export const ICON_FAILED = 'error';
 export const ICON_ERROR = 'warning';
-export const ICON_IMPORT_OPENAPI = 'cloud-download';
 
 // Badge decorations (single-char for file decorations)
 export const BADGE_PASSED = '\u2713';
@@ -126,9 +126,6 @@ export const CLI_ERROR_PREFIX = 'Napper CLI error: ';
 export const STATUS_RUNNING_ICON = '$(loading~spin) Running ';
 export const STATUS_RUNNING_SUFFIX = '...';
 
-// Curl
-export const CURL_CMD_PREFIX = 'curl -X ';
-
 // File creation
 export const REQUEST_NAME_SUFFIX = '-request';
 
@@ -139,53 +136,11 @@ export const NAP_NAME_KEY_SUFFIX = '"';
 // Property keys
 export const PROP_FILE_PATH = 'filePath';
 
-// CLI installer (binary download)
+// CLI binary name
 export const CLI_BINARY_NAME = 'napper';
-export const CLI_BIN_DIR = 'bin';
-export const CLI_DOWNLOAD_REPO = 'MelbourneDeveloper/napper';
-export const CLI_DOWNLOAD_BASE_URL =
-  'https://github.com/MelbourneDeveloper/napper/releases/download';
-export const CLI_CHECKSUMS_FILE = 'checksums-sha256.txt';
-export const CLI_ASSET_PREFIX = 'napper-';
-export const CLI_WIN_EXE_SUFFIX = '.exe';
-export const CLI_PLATFORM_DARWIN = 'darwin';
-export const CLI_PLATFORM_LINUX = 'linux';
-export const CLI_PLATFORM_WIN32 = 'win32';
-export const CLI_ARCH_ARM64 = 'arm64';
-export const CLI_ARCH_X64 = 'x64';
-export const CLI_RID_OSX_ARM64 = 'osx-arm64';
-export const CLI_RID_OSX_X64 = 'osx-x64';
-export const CLI_RID_LINUX_X64 = 'linux-x64';
-export const CLI_RID_WIN_X64 = 'win-x64';
-export const CLI_UNSUPPORTED_PLATFORM_MSG = 'Unsupported platform: ';
-export const CLI_DOWNLOAD_ERROR_PREFIX = 'Binary download failed: ';
-export const CLI_CHECKSUM_MISMATCH_MSG = 'SHA256 checksum mismatch';
-export const CLI_CHECKSUM_NOT_FOUND_MSG = 'Asset not found in checksums file';
-export const CLI_FILE_MODE_EXECUTABLE = 0o755;
-export const CLI_MAX_REDIRECTS = 5;
-export const CLI_TOO_MANY_REDIRECTS = 'Too many redirects';
-export const CLI_REDIRECT_ERROR = 'Redirect with no location header';
 
-// CLI installer (dotnet tool fallback)
-export const CLI_DOTNET_CMD = 'dotnet';
-export const CLI_TOOL_ARG = 'tool';
-export const CLI_TOOL_INSTALL_ARG = 'install';
-export const CLI_TOOL_UPDATE_ARG = 'update';
-export const CLI_TOOL_LIST_ARG = 'list';
-export const CLI_TOOL_GLOBAL_FLAG = '-g';
-export const CLI_TOOL_VERSION_FLAG = '--version';
-export const CLI_DOTNET_TOOL_INSTALL_TIMEOUT = 60000;
-export const CLI_DOTNET_FALLBACK_MSG = 'Binary install failed, falling back to dotnet tool';
-export const CLI_DOTNET_INSTALL_ERROR_PREFIX = 'dotnet tool install failed: ';
-
-// CLI installer (shared)
-export const CLI_INSTALL_MSG = 'Installing Napper CLI...';
-export const CLI_INSTALL_COMPLETE_MSG = 'Napper CLI installed successfully';
-export const CLI_INSTALL_FAILED_MSG = 'Failed to install Napper CLI: ';
-export const CLI_VERSION_FLAG = '--version';
-export const CLI_VERSION_CHECK_TIMEOUT = 5000;
-export const CLI_VERSION_CHECK_ERROR = 'Failed to check CLI version: ';
-export const CLI_VERSION_MISMATCH_MSG = 'CLI version mismatch — re-installing';
+// CLI installer complete message
+export const CLI_INSTALL_COMPLETE_MSG = 'Napper CLI ready';
 
 // VSCode built-in commands
 export const CMD_VSCODE_OPEN = 'vscode.open';
@@ -216,11 +171,9 @@ export const PROMPT_SELECT_ENV = 'Select Napper environment';
 // Default values
 export const PLACEHOLDER_URL = 'https://api.example.com/resource';
 export const DEFAULT_PLAYLIST_NAME = 'new-playlist';
-export const DEFAULT_METHOD = 'GET';
 
 // .nap file keys
 export const NAP_KEY_METHOD = 'method';
-export const NAP_KEY_URL = 'url';
 
 // HTTP methods
 export const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const;
@@ -232,26 +185,12 @@ export const REPORT_FOOTER_GENERATED_BY = 'Generated by';
 export const REPORT_FOOTER_MADE_BY = 'Made by';
 
 // .nap file sections (additional)
-export const SECTION_REQUEST_HEADERS = '[request.headers]';
 export const SECTION_REQUEST_BODY = '[request.body]';
 export const SECTION_ASSERT = '[assert]';
-export const SECTION_VARS = '[vars]';
 
 // .nap file content
 export const NAP_TRIPLE_QUOTE = '"""';
-export const HEADER_CONTENT_TYPE = 'Content-Type';
-export const HEADER_ACCEPT = 'Accept';
-export const CONTENT_TYPE_JSON = 'application/json';
-export const ASSERT_STATUS_PREFIX = 'status = ';
-export const ASSERT_BODY_EXISTS_SUFFIX = ' exists';
-export const ASSERT_BODY_PREFIX = 'body.';
-export const NAP_KEY_NAME = 'name';
-export const NAP_KEY_DESCRIPTION = 'description';
-export const NAP_KEY_GENERATED = 'generated';
-export const NAP_VALUE_TRUE = 'true';
-export const BASE_URL_VAR = '{{baseUrl}}';
 export const BASE_URL_KEY = 'baseUrl';
-export const VARS_PLACEHOLDER = 'REPLACE_ME';
 
 // OpenAPI generator — commands
 export const CMD_IMPORT_OPENAPI_URL = 'napper.importOpenApiUrl';
@@ -267,48 +206,6 @@ export const OPENAPI_URL_PROMPT = 'Enter OpenAPI specification URL';
 export const OPENAPI_URL_PLACEHOLDER = 'https://petstore3.swagger.io/api/v3/openapi.json';
 export const OPENAPI_DOWNLOAD_FAILED_PREFIX = 'Failed to download spec: ';
 export const OPENAPI_DOWNLOADING = 'Downloading OpenAPI spec...';
-export const ICON_IMPORT_OPENAPI_FILE = 'file-symlink-file';
-
-// OpenAPI generator — validation
-export const OPENAPI_INVALID_SPEC = 'Invalid OpenAPI specification: missing paths';
-export const OPENAPI_NO_ENDPOINTS = 'No endpoints found in specification';
-export const OPENAPI_PARSE_ERROR = 'Failed to parse JSON';
-
-// OpenAPI generator — spec fields
-export const HTTPS_SCHEME = 'https';
-export const DEFAULT_BASE_URL = 'https://api.example.com';
-export const OPENAPI_DEFAULT_TITLE = 'API Tests';
-export const PARAM_IN_BODY = 'body';
-export const PARAM_IN_QUERY = 'query';
-export const PARAM_IN_PATH = 'path';
-export const AUTH_BEARER_PREFIX = 'Authorization = Bearer ';
-export const AUTH_BASIC_PREFIX = 'Authorization = Basic ';
-export const SECURITY_TYPE_HTTP = 'http';
-export const SECURITY_SCHEME_BEARER = 'bearer';
-export const SECURITY_SCHEME_BASIC = 'basic';
-export const SECURITY_TYPE_API_KEY = 'apiKey';
-export const SECURITY_LOCATION_HEADER = 'header';
-export const SECURITY_LOCATION_QUERY = 'query';
-
-// OpenAPI generator — HTTP methods (lowercase for spec parsing)
-export const OPENAPI_HTTP_METHODS = [
-  'get',
-  'post',
-  'put',
-  'patch',
-  'delete',
-  'head',
-  'options',
-] as const;
-
-// JSON Schema types
-export const SCHEMA_TYPE_STRING = 'string';
-export const SCHEMA_TYPE_NUMBER = 'number';
-export const SCHEMA_TYPE_INTEGER = 'integer';
-export const SCHEMA_TYPE_BOOLEAN = 'boolean';
-export const SCHEMA_TYPE_ARRAY = 'array';
-export const SCHEMA_TYPE_OBJECT = 'object';
-export const SCHEMA_EXAMPLE_STRING = 'example';
 
 // Logging
 export const LOG_CHANNEL_NAME = 'Napper';
@@ -334,7 +231,6 @@ export const LOG_MSG_OPENAPI_AI_CHOICE = 'OpenAPI AI choice:';
 export const LOG_MSG_OPENAPI_AI_NO_MODEL = 'No Copilot model available for AI enhancement';
 export const LOG_MSG_OPENAPI_AI_MODEL_SELECTED = 'Copilot model selected for AI enhancement:';
 export const LOG_MSG_OPENAPI_GENERATE_CLI = 'OpenAPI generate CLI call:';
-export const LOG_MSG_OPENAPI_GENERATE_RESULT = 'OpenAPI generate result:';
 
 // AI enrichment
 export const OPENAPI_AI_CHOICE_TITLE = 'How should tests be generated?';
@@ -386,7 +282,6 @@ export const DUPLICATE_SUFFIX = '-copy';
 // .http file conversion
 export const HTTP_FILE_EXTENSION = '.http';
 export const REST_FILE_EXTENSION = '.rest';
-export const HTTP_FILE_GLOB = '**/*.http';
 export const CLI_CMD_CONVERT = 'convert';
 export const CLI_SUBCMD_HTTP = 'http';
 export const CMD_CONVERT_HTTP_FILE = 'napper.convertHttpFile';
@@ -405,10 +300,6 @@ export const CONVERT_HTTP_CODELENS_TITLE = '$(file-add) Convert to .nap';
 
 // Numeric thresholds
 export const PERCENTAGE_MULTIPLIER = 100;
-export const HTTP_STATUS_OK = 200;
 export const HTTP_STATUS_REDIRECT_MIN = 300;
 export const HTTP_STATUS_CLIENT_ERROR_MIN = 400;
 export const JSON_INDENT_SIZE = 2;
-export const PAD_DIGITS_DEFAULT = 2;
-export const PAD_DIGITS_LARGE = 3;
-export const PAD_LARGE_THRESHOLD = 100;

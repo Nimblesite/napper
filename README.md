@@ -6,16 +6,16 @@
 
 <p align="center">
   <strong>API Testing, Supercharged.</strong><br>
-  Napper is a free, open-source API testing tool that runs from the command line and integrates natively with VS Code.
+  Napper is a free, open-source API testing tool for anyone testing APIs. It runs from the command line and edits natively in VS Code, Zed, and any editor via a portable language server.
   Define HTTP requests as plain text <code>.nap</code> files, add declarative assertions, chain them into test suites, and run everything in CI/CD with JUnit output.
-  As simple as curl for quick requests. As powerful as F# and C# for full test suites.
+  As simple as curl for quick requests. As powerful as your own code &mdash; script in JavaScript, Python, F#, or C#.
 </p>
 
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=Nimblesite.napper">VS Code Marketplace</a> &middot;
   <a href="https://napperapi.dev">Website</a> &middot;
   <a href="https://napperapi.dev/docs/">Documentation</a> &middot;
-  <a href="https://github.com/MelbourneDeveloper/napper/releases">Releases</a>
+  <a href="https://github.com/Nimblesite/napper/releases">Releases</a>
 </p>
 
 ---
@@ -30,9 +30,9 @@
 
 Everything you need for API testing. Nothing you don't.
 
-- **CLI First** (`cli-run`) &mdash; The command line is the product. Run requests, execute test suites, and integrate with CI/CD pipelines from your terminal.
-- **VS Code Native** (`vscode-extension`) &mdash; Full extension with syntax highlighting (`vscode-syntax`), request explorer (`vscode-explorer`), environment switching (`vscode-env-switcher`), and Test Explorer integration (`vscode-test-explorer`). Never leave your editor.
-- **F# and C# Scripting** (`script-fsx`, `script-csx`) &mdash; Full power of F# and C# for pre/post request hooks. Extract tokens, build dynamic payloads, orchestrate complex flows with the entire .NET ecosystem.
+- **CLI First** (`cli-run`) &mdash; The command line is the product. Run requests, execute test suites, and integrate with CI/CD pipelines from your terminal. Napper ships as a self-contained **native binary** &mdash; not a .NET DLL &mdash; with zero runtime dependencies.
+- **Editor-Native, LSP-Powered** (`vscode-extension`, `lsp`) &mdash; First-class extensions for VS Code and Zed, plus a portable language server that brings completions, diagnostics, and hover to any editor. Syntax highlighting (`vscode-syntax`), request explorer (`vscode-explorer`), environment switching (`vscode-env-switcher`), and Test Explorer integration (`vscode-test-explorer`). Never leave your editor.
+- **Script in Any Language** (`script-js`, `script-py`, `script-fsx`, `script-csx`) &mdash; Write pre/post hooks and orchestration in JavaScript, Python, F#, or C# &mdash; whatever your team already runs. Real runtimes (Node.js, Python 3, .NET), full ecosystem access (npm, PyPI, NuGet), no sandbox. `.fsx` and `.csx` are genuinely lovely, but never required.
 - **Declarative Assertions** (`nap-assert`) &mdash; Assert on status codes (`assert-status`), JSON paths (`assert-equals`, `assert-exists`), headers (`assert-contains`), and response times (`assert-lt`) with a clean, readable syntax. No scripting required for simple checks.
 - **Composable Playlists** (`naplist-file`) &mdash; Chain requests into test suites with `.naplist` files. Nest playlists (`naplist-nested`), reference folders (`naplist-folder-step`), pass variables between steps (`naplist-var-scope`).
 - **OpenAPI Import** (`openapi-generate`) &mdash; Generate test files from any OpenAPI spec. Point it at a file, and Napper creates `.nap` files with requests, headers, bodies, and assertions. Optionally enhance with AI via GitHub Copilot (`vscode-openapi-ai`).
@@ -60,10 +60,10 @@ The CLI is a self-contained binary with **no runtime dependencies**.
 
 | Platform | Download |
 |----------|----------|
-| macOS (Apple Silicon) | [`napper-osx-arm64`](https://github.com/MelbourneDeveloper/napper/releases/latest/download/napper-osx-arm64) |
-| macOS (Intel) | [`napper-osx-x64`](https://github.com/MelbourneDeveloper/napper/releases/latest/download/napper-osx-x64) |
-| Linux (x64) | [`napper-linux-x64`](https://github.com/MelbourneDeveloper/napper/releases/latest/download/napper-linux-x64) |
-| Windows (x64) | [`napper-win-x64.exe`](https://github.com/MelbourneDeveloper/napper/releases/latest/download/napper-win-x64.exe) |
+| macOS (Apple Silicon) | [`napper-osx-arm64`](https://github.com/Nimblesite/napper/releases/latest/download/napper-osx-arm64) |
+| macOS (Intel) | [`napper-osx-x64`](https://github.com/Nimblesite/napper/releases/latest/download/napper-osx-x64) |
+| Linux (x64) | [`napper-linux-x64`](https://github.com/Nimblesite/napper/releases/latest/download/napper-linux-x64) |
+| Windows (x64) | [`napper-win-x64.exe`](https://github.com/Nimblesite/napper/releases/latest/download/napper-win-x64.exe) |
 
 **macOS / Linux:**
 ```sh
@@ -74,20 +74,20 @@ napper --version
 
 **Install script (macOS / Linux):**
 ```sh
-curl -fsSL https://raw.githubusercontent.com/MelbourneDeveloper/napper/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.sh | bash
 ```
 
 **Install script (Windows PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/MelbourneDeveloper/napper/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.ps1 | iex
 ```
 
 **Build from source** (requires .NET SDK + `make`):
 ```sh
-git clone https://github.com/MelbourneDeveloper/napper.git && cd napper && make install-binaries
+git clone https://github.com/Nimblesite/napper.git && cd napper && make install-binaries
 ```
 
-> **Note:** F# (`.fsx`) and C# (`.csx`) script hooks require the [.NET 10 SDK](https://dotnet.microsoft.com/download). Plain `.nap` and `.naplist` files need nothing extra.
+> **Note:** Script hooks need a runtime only for the language you write in — JavaScript (`.js`) needs [Node.js 18+](https://nodejs.org/), Python (`.py`) needs [Python 3.9+](https://www.python.org/downloads/), and F# (`.fsx`) / C# (`.csx`) need the [.NET 10 SDK](https://dotnet.microsoft.com/download). Plain `.nap` and `.naplist` files need nothing extra. The JS and Python SDKs are bundled — no `npm install` / `pip install` required.
 
 See the [full installation guide](https://napperapi.dev/docs/installation/) for VSIX manual install, troubleshooting, and macOS Gatekeeper notes.
 
@@ -181,6 +181,8 @@ napper run ./tests/ --env staging --output junit
 | `.napenv` | `env-base` | Environment variables (base config, checked into git) | `.napenv` |
 | `.napenv.local` | `env-local` | Local secrets (gitignored) | `.napenv.local` |
 | `.napenv.<name>` | `env-named` | Named environment | `.napenv.staging` |
+| `.js` / `.mjs` | `script-js` | JavaScript scripts (Node.js) for pre/post hooks and orchestration | `setup.js` |
+| `.py` | `script-py` | Python scripts (Python 3) for pre/post hooks and orchestration | `setup.py` |
 | `.fsx` | `script-fsx` | F# scripts for pre/post hooks and orchestration | `setup.fsx` |
 | `.csx` | `script-csx` | C# scripts for pre/post hooks and orchestration | `setup.csx` |
 
@@ -315,11 +317,11 @@ Options:
 | Feature | Napper | Postman | Bruno | .http files |
 |---------|--------|---------|-------|-------------|
 | CLI-first design | Yes | No | GUI-first | No CLI |
-| VS Code integration | Native | Separate app | Separate app | Built-in |
+| Editor integration | VS Code, Zed & LSP | Separate app | Separate app | VS Code only |
 | Git-friendly files | Yes | JSON blobs | Yes | Yes |
 | OpenAPI import | URL + file + AI | Import only | Import only | No |
 | Assertions | Declarative + scripts | JS scripts | JS scripts | None |
-| Full scripting language | F# + C# (.fsx/.csx) | Sandboxed JS | Sandboxed JS | None |
+| Full scripting language | JS, Python, F#, C# | Sandboxed JS | Sandboxed JS | None |
 | CI/CD output formats | JUnit, JSON, NDJSON | Via Newman | Via CLI | None |
 | Test Explorer | Native | No | No | No |
 | Free & open source | Yes | Freemium | Yes | Yes |

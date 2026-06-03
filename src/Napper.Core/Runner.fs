@@ -17,7 +17,9 @@ let private httpClient = new HttpClient()
 /// Execute an HTTP request from a resolved NapRequest
 let executeRequest (request: NapRequest) : Async<NapResponse> =
     async {
-        Logger.info $"HTTP {request.Method} {request.Url}"
+        // .Name, not {request.Method}: interpolating the DU triggers reflective
+        // structured-print (GetUnionFields) which aborts under NativeAOT.
+        Logger.info $"HTTP {request.Method.Name} {request.Url}"
         Logger.debug $"Request headers: {request.Headers.Count} headers"
         let msg = new HttpRequestMessage(request.Method.ToNetMethod(), request.Url)
 
@@ -94,7 +96,8 @@ let private resolveTarget (response: NapResponse) (target: string) : string opti
     if target = "status" then
         Some(string response.StatusCode)
     elif target = "duration" then
-        Some(sprintf "%.0fms" response.Duration.TotalMilliseconds)
+        // .ToString, not sprintf %f: F#'s %f path is reflection-based and aborts under NativeAOT.
+        Some(response.Duration.TotalMilliseconds.ToString("F0") + "ms")
     elif target.StartsWith "headers." then
         let headerName = target.Substring(8)
 

@@ -5,6 +5,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import type { activateDeploymentToolkit } from '@nimblesite/shipwright-vscode' with {
+  'resolution-mode': 'import',
+};
 import { ExplorerAdapter } from './explorerAdapter';
 import { CodeLensProvider } from './codeLensProvider';
 import { EnvironmentStatusBar } from './environmentAdapter';
@@ -16,27 +19,18 @@ import { parsePlaylistStepPaths } from './explorerProvider';
 import { generatePlaylistReport } from './reportGenerator';
 import { type Logger, createLogger } from './logger';
 import {
-  type DownloadBinaryParams,
-  downloadBinary,
-  getCliVersion,
-  installDotnetTool,
-  installedBinaryPath,
-} from './cliInstaller';
-import {
   registerEditCommands,
   registerHttpConvertCommands,
   registerOpenApiCommands,
 } from './editAndImportCommands';
 import { registerContextMenuCommands } from './contextMenuCommands';
 import { registerAutoRun, registerWatchers } from './watchers';
+import { startLspClient, stopLspClient } from './lspClient';
+import { bundledBinaryPath, ensureExecutable } from './binaryUtils';
 import {
-  CLI_BIN_DIR,
   CLI_BINARY_NAME,
   CLI_ERROR_PREFIX,
   CLI_INSTALL_COMPLETE_MSG,
-  CLI_INSTALL_FAILED_MSG,
-  CLI_INSTALL_MSG,
-  CLI_VERSION_MISMATCH_MSG,
   CMD_OPEN_RESPONSE,
   CMD_RUN_ALL,
   CMD_RUN_FILE,
@@ -74,109 +68,60 @@ import {
 } from './constants';
 
 let envStatusBar: EnvironmentStatusBar,
-  extensionDir: string,
+  extensionContext: vscode.ExtensionContext,
   extensionVersion: string,
   explorerProvider: ExplorerAdapter,
-  installedCliOverride: string | undefined,
+  resolvedCliPath: string | undefined,
   lastPlaylistReport: (() => void) | undefined,
   lastResult: RunResult | undefined,
   logger: Logger,
+  outputChannel: vscode.OutputChannel,
   playlistPanel: PlaylistPanel,
-  responsePanel: ResponsePanel,
-  storageDir: string;
+  responsePanel: ResponsePanel;
 
-const bundledCliPath = (): string => path.join(extensionDir, CLI_BIN_DIR, CLI_BINARY_NAME),
-  getCliPath = (): string => {
+const getCliPath = (): string => {
     const configured = vscode.workspace
       .getConfiguration(CONFIG_SECTION)
       .get<string>(CONFIG_CLI_PATH, DEFAULT_CLI_PATH);
     if (configured !== DEFAULT_CLI_PATH) {
       return configured;
     }
-    if (installedCliOverride !== undefined) {
-      return installedCliOverride;
-    }
-    const bundled = bundledCliPath();
-    return fs.existsSync(bundled) ? bundled : CLI_BINARY_NAME;
+    return resolvedCliPath ?? CLI_BINARY_NAME;
   },
-  checkVersionAt = async (cliPath: string): Promise<boolean> => {
-    logger.debug(`Version check: ${cliPath}`);
-    const result = await getCliVersion(cliPath);
-    if (!result.ok) {
-      logger.debug(`Version check failed at ${cliPath}: ${result.error}`);
-      return false;
-    }
-    logger.debug(`${cliPath}: v${result.value} (need ${extensionVersion})`);
-    if (result.value !== extensionVersion) {
-      return false;
-    }
-    installedCliOverride = cliPath;
+  startCliAndLsp = (cliPath: string): void => {
+    resolvedCliPath = cliPath;
     logger.info(`${CLI_INSTALL_COMPLETE_MSG} (${cliPath})`);
-    return true;
+    startLspClient(cliPath, outputChannel, extensionContext);
   },
-  checkVersionMatch = async (): Promise<boolean> => {
-    if (await checkVersionAt(installedBinaryPath(storageDir))) {
-      return true;
-    }
-    if (await checkVersionAt(bundledCliPath())) {
-      return true;
-    }
-    if (await checkVersionAt(CLI_BINARY_NAME)) {
-      return true;
-    }
-    logger.info(CLI_VERSION_MISMATCH_MSG);
-    return false;
-  },
-  installParams = (): DownloadBinaryParams => ({
-    version: extensionVersion,
-    storageDir,
-    log: (msg) => {
-      logger.info(msg);
+  makeVscodeAdapter = () => ({
+    workspace: vscode.workspace,
+    window: {
+      showErrorMessage: async (msg: string, opts: { modal: boolean }, ...items: string[]) =>
+        vscode.window.showErrorMessage(msg, opts, ...items) as Promise<string | undefined>,
+      showWarningMessage: async (msg: string, opts: { modal: boolean }, ...items: string[]) =>
+        vscode.window.showWarningMessage(msg, opts, ...items) as Promise<string | undefined>,
     },
   }),
-  tryBinaryInstall = async (params: DownloadBinaryParams): Promise<boolean> => {
-    const dlResult = await downloadBinary(params);
-    if (!dlResult.ok) {
-      logger.error(dlResult.error);
-      return false;
+  logShipwrightResult = (result: Awaited<ReturnType<typeof activateDeploymentToolkit>>): void => {
+    outputChannel.appendLine(`Shipwright result: ok=${String(result.ok)}`);
+    for (const d of result.diagnostics) {
+      outputChannel.appendLine(`  [${d.componentId}] ${d.resolution.status}: ${d.message}`);
     }
-    if (await checkVersionAt(dlResult.value)) {
-      return true;
-    }
-    logger.error(`Binary downloaded but version check failed at ${dlResult.value}`);
-    return false;
   },
-  tryDotnetFallback = async (params: DownloadBinaryParams): Promise<void> => {
-    const dotnetResult = await installDotnetTool(params);
-    if (!dotnetResult.ok) {
-      logger.error(`${CLI_INSTALL_FAILED_MSG}${dotnetResult.error}`);
-      void vscode.window.showErrorMessage(`${CLI_INSTALL_FAILED_MSG}${dotnetResult.error}`);
-      return;
+  runShipwright = async (): Promise<void> => {
+    logger.info('Resolving CLI via Shipwright...');
+    ensureExecutable(bundledBinaryPath(extensionContext.extensionPath));
+    const { activateDeploymentToolkit: deployToolkit } =
+      await import('@nimblesite/shipwright-vscode');
+    const result = await deployToolkit(extensionContext, {
+      vscode: makeVscodeAdapter(),
+      manifestPath: path.join(extensionContext.extensionPath, 'shipwright.json'),
+    });
+    logShipwrightResult(result);
+    if (result.ok) {
+      const napperDiag = result.diagnostics.find((d) => d.componentId === 'napper');
+      startCliAndLsp(napperDiag?.resolution.path ?? CLI_BINARY_NAME);
     }
-    installedCliOverride = CLI_BINARY_NAME;
-    logger.info(`${CLI_INSTALL_COMPLETE_MSG} (dotnet tool)`);
-  },
-  performInstall = async (): Promise<void> => {
-    const params = installParams();
-    if (await tryBinaryInstall(params)) {
-      return;
-    }
-    await tryDotnetFallback(params);
-  },
-  ensureCliInstalled = async (): Promise<void> => {
-    logger.info('Checking CLI installation...');
-    if (await checkVersionMatch()) {
-      return;
-    }
-    logger.info('No matching CLI found, starting install...');
-    await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: CLI_INSTALL_MSG,
-        cancellable: false,
-      },
-      performInstall,
-    );
   },
   getWorkspacePath = (): string | undefined => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
   getResponseColumn = (): vscode.ViewColumn => {
@@ -292,12 +237,12 @@ const collectResult = (state: StreamState, result: RunResult): void => {
     }
   },
   runSingleFile = async (fileUri: vscode.Uri, cwd: string): Promise<void> => {
-    const resolvedCliPath = getCliPath();
+    const resolvedPath = getCliPath();
     logger.info(`${LOG_MSG_RUN_FILE} ${fileUri.fsPath}`);
-    logger.info(`CLI path: ${resolvedCliPath}, cwd: ${cwd}`);
+    logger.info(`CLI path: ${resolvedPath}, cwd: ${cwd}`);
     const statusMsg = makeRunningStatus(fileUri.fsPath),
       result = await runCli({
-        cliPath: resolvedCliPath,
+        cliPath: resolvedPath,
         filePath: fileUri.fsPath,
         env: currentEnvOrUndefined(),
         cwd,
@@ -370,17 +315,16 @@ const collectResult = (state: StreamState, result: RunResult): void => {
     );
   },
   initLogger = (context: vscode.ExtensionContext): void => {
-    const outputChannel = vscode.window.createOutputChannel(LOG_CHANNEL_NAME);
+    extensionContext = context;
+    outputChannel = vscode.window.createOutputChannel(LOG_CHANNEL_NAME);
     context.subscriptions.push(outputChannel);
     logger = createLogger((msg) => {
       outputChannel.appendLine(msg);
     });
     logger.info(LOG_MSG_ACTIVATED);
     extensionVersion = (context.extension.packageJSON as { version: string }).version;
-    extensionDir = context.extensionUri.fsPath;
-    storageDir = context.globalStorageUri.fsPath;
     logger.info(`Extension version: ${extensionVersion}`);
-    ensureCliInstalled().catch(() => undefined);
+    runShipwright().catch(() => undefined);
   };
 
 export interface ExtensionApi {
@@ -407,6 +351,7 @@ export function activate(context: vscode.ExtensionContext): ExtensionApi {
   return { explorerProvider };
 }
 
-export function deactivate(): void {
+export async function deactivate(): Promise<void> {
   logger.info(LOG_MSG_DEACTIVATED);
+  await stopLspClient();
 }

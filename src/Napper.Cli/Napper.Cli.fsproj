@@ -3,12 +3,42 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AssemblyName>napper</AssemblyName>
+    <Description>CLI-first, test-oriented HTTP API testing tool</Description>
+    <NuGetAuditMode>direct</NuGetAuditMode>
+
+    <!-- DEPLOYMENT: the PRIMARY artifact is a self-contained NativeAOT native binary
+         (GitHub Releases / Homebrew / Scoop / install script) that is also bundled
+         inside the per-platform VSIX — end users never need .NET. These props only
+         affect `dotnet pack`, which produces a SECONDARY, best-effort `dotnet tool`
+         NuGet package for .NET users who want it. `dotnet pack` and the AOT
+         `dotnet publish` are independent commands and do not interfere. The VSIX
+         resolver NEVER uses dotnet-tool as a startup source ([SWR-IDE-RESOLUTION]);
+         the NuGet publish job is non-blocking and never gates the release. -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>napper</ToolCommandName>
     <PackageId>napper</PackageId>
     <PackageOutputPath>./nupkg</PackageOutputPath>
-    <Description>CLI-first, test-oriented HTTP API testing tool</Description>
     <PackageTags>http;api;testing;cli;rest;fsharp;dotnet-tool</PackageTags>
+
+    <!-- Implements [CLI-AOT-MIGRATION]. NativeAOT is enabled on the publish
+         command line (-p:PublishAot=true), keeping plain build/test on the JIT. -->
+
+    <!-- IL2104 (trim) and IL3053 (AOT) are whole-assembly *rollup* warnings emitted
+         only by FSharp.Core and FParsec — third-party assemblies that ship without
+         full trim/AOT annotations and which we cannot modify. The FSharp.Core rollup
+         is present in every F# NativeAOT application. Our own F# code stays
+         warning-clean via TreatWarningsAsErrors, and the LSP/CLI are verified working
+         under AOT by the black-box e2e suite (which runs the real native binary), so
+         these two non-actionable codes are the only ones suppressed. -->
+    <NoWarn>$(NoWarn);IL2104;IL3053</NoWarn>
+
+    <!-- NativeAOT portability: without ICU the runtime aborts (exit 133) the instant
+         any culture is touched (e.g. DateTimeFormatInfo.CurrentInfo when printing the
+         version). A bare Linux image (ubuntu:24.04) ships no libicu, so the binary must
+         carry its own invariant globalization to run with TRULY zero system deps: that
+         is the whole point of the clean-room release gate. The CLI/LSP/HTTP surface is
+         culture-agnostic, so invariant is the correct, deterministic mode. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,7 +48,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Napper.Core\Napper.Core.fsproj" />
     <ProjectReference Include="..\DotHttp\DotHttp.fsproj" />
+    <ProjectReference Include="..\Napper.Lsp\Napper.Lsp.fsproj" />
   </ItemGroup>
-
 
 </Project>

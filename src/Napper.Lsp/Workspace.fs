@@ -43,9 +43,3 @@ let tryGetDocument (uri: string) : TrackedDocument option =
     match documents.TryGetValue(uri) with
     | true, doc -> Some doc
     | false, _ -> None
-
-/// Get all currently tracked document URIs
-let trackedUris () : string list = documents.Keys |> Seq.toList
-
-/// Number of currently tracked documents
-let documentCount () : int = documents.Count

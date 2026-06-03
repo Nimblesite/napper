@@ -23,6 +23,7 @@
     <Compile Include="RunnerE2eTests.fs" />
     <Compile Include="OpenApiE2eTests.fs" />
     <Compile Include="HttpConvertE2eTests.fs" />
+    <Compile Include="VersionContractTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

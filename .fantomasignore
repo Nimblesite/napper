@@ -1,0 +1,6 @@
+# Fantomas ignore — gitignore-style globs.
+# Generated source: Types.Generated.fs is emitted by `make generate-types` from
+# Types.td (typeDiagram DSL). typeDiagram emits unformatted F#, so style-checking
+# it is meaningless and would break `fantomas --check` in CI. The file is gitignored
+# and rebuilt from its canonical source, so its layout is never reviewed.
+src/Napper.Core/Types.Generated.fs
