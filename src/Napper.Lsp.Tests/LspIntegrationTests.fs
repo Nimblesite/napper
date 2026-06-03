@@ -333,8 +333,7 @@ let ``executeCommand listEnvironments returns env names`` () : Task =
         try
             let rootUri = $"file://{tmpDir}"
 
-            let! response =
-                server.SendRequest(MExecuteCommand, 22, executeCommandParams CmdListEnvironments rootUri)
+            let! response = server.SendRequest(MExecuteCommand, 22, executeCommandParams CmdListEnvironments rootUri)
 
             Assert.Null(response[FError])
             Assert.NotNull(response[FResult])

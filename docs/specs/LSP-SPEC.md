@@ -206,9 +206,11 @@ The LSP accepts configuration via `workspace/didChangeConfiguration` and `initia
 
 ## Distribution
 
-The LSP has no separate distribution. It ships inside `napper`:
+The LSP has no separate distribution. It ships inside the native `napper` binary — you launch
+it via `napper lsp`. There is no `dotnet tool` / NuGet channel (see
+[`cli-aot-migration`](./CLI-SPEC.md#cli-aot-migration)):
 
-- **NuGet** — `dotnet tool install -g napper` ([`cli-install-dotnet-tool`](./CLI-SPEC.md#cli-install-dotnet-tool)). The LSP is the same binary; you launch it via `napper lsp`.
+- **Install script** — `install.sh` / `install.ps1` ([`cli-install-script`](./CLI-SPEC.md#cli-install-script)).
 - **Homebrew tap** — `brew install napper` ([`cli-install-homebrew`](./CLI-SPEC.md#cli-install-homebrew)).
 - **Scoop bucket** — `scoop install napper` ([`cli-install-scoop`](./CLI-SPEC.md#cli-install-scoop)).
 

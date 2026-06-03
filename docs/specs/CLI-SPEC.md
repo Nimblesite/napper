@@ -22,17 +22,24 @@ Nap is a developer-first HTTP testing tool. It is as simple as curl for one-off 
 
 ## Installation
 
-Three channels. `dotnet tool` is canonical (only channel that pins to a historical version) and is what the VSIX uses ([`vscode-cli-acquisition`](./IDE-EXTENSION-SPEC.md#vscode-cli-acquisition)). Brew/Scoop are convenience channels for end users; both track "latest from tap" only.
+**Native-binary channels only — end users never need .NET installed.** `napper` is a
+self-contained NativeAOT binary. The VS Code extension bundles the matching per-platform binary
+inside the VSIX ([`vscode-cli-acquisition`](./IDE-EXTENSION-SPEC.md#vscode-cli-acquisition)), so
+installing the extension needs no separate CLI install. CLI users pick a channel below.
 
-### `cli-install-dotnet-tool` — dotnet tool (canonical)
+There is deliberately **no `dotnet tool` / NuGet channel**: a dotnet tool would force users to
+install the .NET runtime, which [`cli-aot-migration`](#cli-aot-migration) removed.
+
+### `cli-install-script` — install script (macOS / Linux / Windows)
 
 ```sh
-dotnet tool install -g napper                    # latest
-dotnet tool install -g napper --version 0.12.0   # exact version
-dotnet tool update  -g napper                    # update
+curl -fsSL https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.sh | bash
+# Windows (PowerShell):
+irm https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.ps1 | iex
 ```
 
-Requires the **.NET 10 SDK** ([`cli-runtime-dependency`](#cli-runtime-dependency)).
+Downloads the native binary for the host platform from the GitHub Release and verifies its
+SHA-256 against `checksums-sha256.txt`.
 
 ### `cli-install-homebrew` — Homebrew tap (macOS / Linux)
 
@@ -50,20 +57,26 @@ scoop bucket add Nimblesite https://github.com/Nimblesite/scoop-bucket && scoop 
 
 Tracks latest only. Published by [`update-scoop`](../../.github/workflows/release.yml) on every release.
 
-### `cli-runtime-dependency` — Current runtime dependency
+### `cli-runtime-dependency` — Runtime dependency
 
-Self-contained, trimmed, single-file `dotnet publish` targeting **`net10.0`**. End users running `napper` do not need .NET installed. The `dotnet tool install` channel does require the .NET 10 SDK at install time.
+**None.** `napper` is published with **NativeAOT** (`-p:PublishAot=true`, see
+[`cli-aot-migration`](#cli-aot-migration)) as a single statically-linked native binary per RID.
+End users need neither the .NET runtime nor the SDK to install or run it. .NET is a build-time
+dependency only. (Script *hooks* — `.fsx`/`.csx`/`.js`/`.py` — still need their own language
+runtime, but that is the script author's choice and never a dependency of `napper` itself;
+see `script-runtime`.)
 
-### `cli-aot-migration` — MUST: drop the .NET dependency
+### `cli-aot-migration` — NativeAOT (landed)
 
-The CLI MUST migrate to **NativeAOT** (`PublishAot=true`). Non-negotiable. End state:
+`napper` ships as a NativeAOT binary (`PublishAot=true`): a single statically-linked native
+binary per RID with zero runtime dependencies, ~5–10 MB, ~10 ms cold start. Distribution
+channels are Brew / Scoop / the install script / the VSIX-bundled binary — there is **no
+`dotnet tool` channel**. The VSIX install flow needs no .NET SDK prerequisite.
 
-- Single statically-linked native binary per RID, zero runtime dependencies.
-- Smaller (~5–10 MB vs ~17–20 MB), faster cold start (~10 ms vs ~150 ms — critical because the VSIX spawns the CLI on every save).
-- Brew / Scoop / direct download become the primary channels. `dotnet tool` becomes optional.
-- The VSIX install flow ([`vscode-cli-acquisition`](./IDE-EXTENSION-SPEC.md#vscode-cli-acquisition)) collapses: no more .NET SDK prerequisite, no brew/scoop/choco-install-dotnet step.
-
-**Risks**: F# AOT has rough edges (`printf`, reflection, quotations) — anything reflection-based fails at publish time. Third-party deps must be AOT-compatible (audit required). User script hooks still need their own language runtime after migration — `.fsx`/`.csx` need the .NET SDK (`dotnet fsi`), `.js` needs Node.js, `.py` needs Python 3 (`script-runtime`). That dependency is on the script's runtime, never on `napper` itself, and is acceptable — a user only installs the runtime for the language they actually script in.
+**AOT constraints** (enforced): no reflection-based serialization — `printf`, quotations, and
+reflection fail at publish time; all third-party deps must be AOT-compatible. Verified by the
+black-box e2e suite running the real native binary, and by the release `Verify binary version
+contract` step.
 
 Tracked in [CLI-PLAN.md](../plans/CLI-PLAN.md).
 

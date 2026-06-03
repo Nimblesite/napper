@@ -44,7 +44,9 @@ let ``in-process initialize advertises capabilities, commands and serverInfo`` (
     let commandsNode = caps |> field "executeCommandProvider" |> field "commands"
 
     let commands =
-        (commandsNode :?> JsonArray) |> Seq.map (fun c -> c.GetValue<string>()) |> Seq.toList
+        (commandsNode :?> JsonArray)
+        |> Seq.map (fun c -> c.GetValue<string>())
+        |> Seq.toList
 
     Assert.Contains(CmdCopyCurl, commands)
     Assert.Contains(CmdListEnvironments, commands)
@@ -256,9 +258,7 @@ let ``in-process notification with a non-int version is handled with no response
         p :> JsonNode
 
     let responses =
-        drive
-            [ buildNotification MDidOpen (Some badVersion)
-              buildRequest MShutdown 50 None ]
+        drive [ buildNotification MDidOpen (Some badVersion); buildRequest MShutdown 50 None ]
 
     Assert.True(hasResponse responses 50)
     Assert.Equal(1, responses.Length)
@@ -291,7 +291,10 @@ let ``in-process empty and truncated input exit cleanly`` () =
 [<Fact>]
 let ``in-process server returns a crash code when the output stream fails`` () =
     use output = new ThrowingStream()
-    let code = runWithOutput (framesOf [ buildRequest MInitialize 70 (Some(initializeParams ())) ]) output
+
+    let code =
+        runWithOutput (framesOf [ buildRequest MInitialize 70 (Some(initializeParams ())) ]) output
+
     Assert.Equal(1, code)
 
 [<Fact>]

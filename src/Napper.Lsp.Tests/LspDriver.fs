@@ -123,7 +123,8 @@ let AllNapSections =
 
 /// Every known .naplist section — drives documentSymbol kind coverage.
 [<Literal>]
-let AllNaplistSections = "[meta]\nname = \"L\"\n\n[vars]\ny = 2\n\n[steps]\na.nap\nb.nap\n"
+let AllNaplistSections =
+    "[meta]\nname = \"L\"\n\n[vars]\ny = 2\n\n[steps]\na.nap\nb.nap\n"
 
 /// A write-only stream whose Write always throws — used to drive the server's
 /// top-level crash handler (the write happens outside its per-message try).
@@ -133,7 +134,11 @@ type ThrowingStream() =
     override _.CanSeek = false
     override _.CanWrite = true
     override _.Length = 0L
-    override _.Position with get () = 0L and set _ = ()
+
+    override _.Position
+        with get () = 0L
+        and set _ = ()
+
     override _.Flush() = ()
     override _.Read(_, _, _) = 0
     override _.Seek(_, _) = 0L
