@@ -106,3 +106,5 @@ tests/Napper.Core.Tests/.spec-cache/
 scripts/logs/
 
 scripts/.too_many_cooks/
+
+__pycache__/

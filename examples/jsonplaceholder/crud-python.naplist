@@ -1,0 +1,13 @@
+[meta]
+name = "JSONPlaceholder CRUD (Python)"
+description = "Full create-read-update-delete lifecycle with pure Python scripts"
+
+[steps]
+../scripts/setup.py
+./01_get-posts.nap
+./02_get-post-by-id.nap
+./03_create-post.nap
+./04_update-post.nap
+./05_patch-post.nap
+./06_delete-post.nap
+../scripts/teardown.py
