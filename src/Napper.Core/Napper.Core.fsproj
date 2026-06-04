@@ -14,6 +14,7 @@
     <Compile Include="ScriptDispatch.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Environment.fs" />
+    <Compile Include="ScriptContext.fs" />
     <Compile Include="Runner.fs" />
     <Compile Include="Output.fs" />
     <Compile Include="OpenApiGenerator.fs" />

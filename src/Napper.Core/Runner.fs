@@ -202,77 +202,164 @@ let evaluateAssertions (assertions: Assertion list) (response: NapResponse) : As
     assertions
     |> List.map (fun assertion -> resolveTarget response assertion.Target |> evaluateOp assertion)
 
-/// Run a script (.fsx, .csx, .js, .mjs, .cjs, .py) and capture its output
-/// Dispatch table lives in [script-dispatch] (ScriptDispatch module) — the single source of truth.
-let runScript (scriptPath: string) : Async<NapResult> =
+/// An empty NapResult skeleton for a script invocation (scripts have no HTTP request/response of their own).
+let private scriptBaseResult (scriptPath: string) : NapResult =
+    { File = scriptPath
+      Request =
+        { Method = GET
+          Url = ""
+          Headers = Map.empty
+          Body = None }
+      Response = None
+      Assertions = []
+      Passed = false
+      Error = None
+      Log = []
+      SetVars = Map.empty }
+
+let private splitStdout (stdout: string) : string list =
+    stdout.Split('\n')
+    |> Array.map (fun l -> l.TrimEnd('\r'))
+    |> Array.filter (fun l -> l.Length > 0)
+    |> Array.toList
+
+/// Run a script (.fsx, .csx, .js, .mjs, .cjs, .py) with the [script-protocol] context injected.
+/// Dispatch lives in [script-dispatch]; the `ctx` object is wired in by [script-sdk] (ScriptContext).
+/// A script fails when it exits non-zero OR calls ctx.fail; its ctx.log lines and ctx.set vars
+/// are merged into the result. Implements [script-context], [script-protocol-in], [script-protocol-out].
+let private runScriptInternal (inv: ScriptContext.Invocation) (scriptPath: string) : Async<NapResult> =
     async {
         Logger.info $"Script start: {scriptPath}"
-
-        let baseResult =
-            { File = scriptPath
-              Request =
-                { Method = GET
-                  Url = ""
-                  Headers = Map.empty
-                  Body = None }
-              Response = None
-              Assertions = []
-              Passed = false
-              Error = None
-              Log = [] }
+        let baseResult = scriptBaseResult scriptPath
 
         match ScriptDispatch.resolve scriptPath with
         | Error msg ->
             Logger.error $"Script dispatch failed: {msg}"
             return { baseResult with Error = Some msg }
         | Ok(exe, args) ->
+            let plan = ScriptContext.prepare inv scriptPath exe args
             let psi = ProcessStartInfo()
-            psi.FileName <- exe
-            psi.Arguments <- args
+            psi.FileName <- plan.Exe
+            psi.Arguments <- plan.Args
             psi.WorkingDirectory <- System.IO.Path.GetDirectoryName(scriptPath)
             psi.RedirectStandardOutput <- true
             psi.RedirectStandardError <- true
             psi.UseShellExecute <- false
             psi.CreateNoWindow <- true
 
-            let sw = Stopwatch.StartNew()
+            for k, v in plan.Env do
+                psi.Environment[k] <- v
 
             try
                 use proc = Process.Start(psi)
                 let! stdout = proc.StandardOutput.ReadToEndAsync() |> Async.AwaitTask
                 let! stderr = proc.StandardError.ReadToEndAsync() |> Async.AwaitTask
                 do! proc.WaitForExitAsync() |> Async.AwaitTask
-                sw.Stop()
-
-                let logLines =
-                    stdout.Split('\n')
-                    |> Array.map (fun l -> l.TrimEnd('\r'))
-                    |> Array.filter (fun l -> l.Length > 0)
-                    |> Array.toList
-
-                let passed = proc.ExitCode = 0
-                Logger.info $"Script exit code: {proc.ExitCode}"
+                let directives = ScriptContext.readDirectives plan.ResultPath
+                ScriptContext.cleanup plan
+                Logger.info $"Script exit code: {proc.ExitCode}; ctx.failed={directives.Failed}"
+                let passed = proc.ExitCode = 0 && not directives.Failed
 
                 let error =
-                    if passed then None
-                    elif stderr.Length > 0 then Some stderr
-                    else Some $"Script exited with code {proc.ExitCode}"
+                    if directives.Failed then
+                        directives.FailMessage |> Option.orElse (Some "Script called ctx.fail")
+                    elif proc.ExitCode = 0 then
+                        None
+                    elif stderr.Length > 0 then
+                        Some stderr
+                    else
+                        Some $"Script exited with code {proc.ExitCode}"
 
                 return
                     { baseResult with
                         Passed = passed
                         Error = error
-                        Log = logLines }
+                        Log = splitStdout stdout @ directives.Logs
+                        SetVars = directives.Vars }
             with ex ->
-                sw.Stop()
+                ScriptContext.cleanup plan
                 Logger.error $"Script failed: {ex.Message}"
 
                 return
                     { baseResult with
-                        Error = Some $"Could not start runtime '{exe}' for {scriptPath}: {ex.Message}" }
+                        Error = Some $"Could not start runtime '{plan.Exe}' for {scriptPath}: {ex.Message}" }
     }
 
-/// Run a single .nap file end-to-end
+/// Run a standalone script with no surrounding context (back-compat entry point).
+let runScript (scriptPath: string) : Async<NapResult> =
+    runScriptInternal (ScriptContext.stepInvocation Map.empty None) scriptPath
+
+/// Run a naplist script step, handing it the current variable scope and environment as `ctx`.
+let runScriptStep (vars: Map<string, string>) (env: string option) (scriptPath: string) : Async<NapResult> =
+    runScriptInternal (ScriptContext.stepInvocation vars env) scriptPath
+
+/// Right-biased map merge: every key in `b` overrides `a`. Used to fold ctx.set vars forward.
+let mergeVars (a: Map<string, string>) (b: Map<string, string>) : Map<string, string> =
+    Map.fold (fun acc k v -> Map.add k v acc) a b
+
+/// Run a `.nap` file's [script] pre/post hook, handing it the request (and, for post, the response) as `ctx`.
+/// Implements [script-pre], [script-post].
+let private runHook
+    (phase: ScriptContext.Phase)
+    (dir: string)
+    (scriptRel: string)
+    (vars: Map<string, string>)
+    (env: string option)
+    (request: NapRequest)
+    (response: NapResponse option)
+    : Async<NapResult> =
+    runScriptInternal
+        { Phase = phase
+          Vars = vars
+          Env = env
+          Request = Some request
+          Response = response }
+        (System.IO.Path.Combine(dir, scriptRel))
+
+/// Send the request, evaluate assertions, then run the post hook. The step passes only when the
+/// assertions pass AND the post hook passes; ctx.log/ctx.set from both hooks are folded in.
+let private executeWithPost
+    (filePath: string)
+    (dir: string)
+    (envName: string option)
+    (postRel: string option)
+    (preLogs: string list)
+    (preVars: Map<string, string>)
+    (vars: Map<string, string>)
+    (resolved: NapFile)
+    : Async<NapResult> =
+    async {
+        let! response = executeRequest resolved.Request
+        let assertionResults = evaluateAssertions resolved.Assertions response
+        let assertionsPassed = assertionResults |> List.forall (fun r -> r.Passed)
+        Logger.info $"Assertions: {assertionResults |> List.filter (fun r -> r.Passed) |> List.length}/{assertionResults.Length} passed"
+
+        let! post =
+            match postRel with
+            | Some rel ->
+                async {
+                    let! p = runHook ScriptContext.Post dir rel vars envName resolved.Request (Some response)
+                    return Some p
+                }
+            | None -> async { return None }
+
+        let postPassed = post |> Option.forall (fun p -> p.Passed)
+        let postLogs = post |> Option.map (fun p -> p.Log) |> Option.defaultValue []
+        let postVars = post |> Option.map (fun p -> p.SetVars) |> Option.defaultValue Map.empty
+        let postError = post |> Option.bind (fun p -> if p.Passed then None else p.Error)
+
+        return
+            { File = filePath
+              Request = resolved.Request
+              Response = Some response
+              Assertions = assertionResults
+              Passed = assertionsPassed && postPassed
+              Error = postError
+              Log = preLogs @ postLogs
+              SetVars = mergeVars preVars postVars }
+    }
+
+/// Run a single .nap file end-to-end (optional [script] pre/post hooks included).
 let runNapFile (filePath: string) (vars: Map<string, string>) (envName: string option) : Async<NapResult> =
     async {
         Logger.info $"File: {filePath}"
@@ -294,43 +381,51 @@ let runNapFile (filePath: string) (vars: Map<string, string>) (envName: string o
                   Assertions = []
                   Passed = false
                   Error = Some $"Parse error: {msg}"
-                  Log = [] }
+                  Log = []
+                  SetVars = Map.empty }
         | Ok napFile ->
-            // Resolve variables
             let allVars = Environment.loadEnvironment dir envName vars napFile.Vars
             Logger.debug $"Resolved {allVars.Count} variables"
-            let resolved = Environment.resolveNapFile allVars napFile
 
-            try
-                let! response = executeRequest resolved.Request
-                let assertionResults = evaluateAssertions resolved.Assertions response
-                let passed = assertionResults |> List.filter (fun r -> r.Passed) |> List.length
-                let total = assertionResults.Length
-                Logger.info $"Assertions: {passed}/{total} passed"
+            // PRE hook (sees the about-to-be-sent request). Its ctx.set vars feed the request.
+            let! pre =
+                match napFile.Script.Pre with
+                | Some rel ->
+                    async {
+                        let req = (Environment.resolveNapFile allVars napFile).Request
+                        let! p = runHook ScriptContext.Pre dir rel allVars envName req None
+                        return Some p
+                    }
+                | None -> async { return None }
 
-                for a in assertionResults do
-                    let status = if a.Passed then "PASS" else "FAIL"
-                    Logger.debug $"Assertion {a.Assertion.Target}: {status}"
-
-                let allPassed = assertionResults |> List.forall (fun r -> r.Passed)
-
-                return
-                    { File = filePath
-                      Request = resolved.Request
-                      Response = Some response
-                      Assertions = assertionResults
-                      Passed = allPassed
-                      Error = None
-                      Log = [] }
-            with ex ->
-                Logger.error $"Request failed: {ex.Message}"
+            match pre with
+            | Some p when not p.Passed ->
+                Logger.error $"Pre-script failed for {filePath}"
 
                 return
-                    { File = filePath
-                      Request = resolved.Request
-                      Response = None
-                      Assertions = []
-                      Passed = false
-                      Error = Some $"Request failed: {ex.Message}"
-                      Log = [] }
+                    { (scriptBaseResult filePath) with
+                        File = filePath
+                        Error = p.Error
+                        Log = p.Log
+                        SetVars = p.SetVars }
+            | _ ->
+                let preVars = pre |> Option.map (fun p -> p.SetVars) |> Option.defaultValue Map.empty
+                let preLogs = pre |> Option.map (fun p -> p.Log) |> Option.defaultValue []
+                let mergedVars = mergeVars allVars preVars
+                let resolved = Environment.resolveNapFile mergedVars napFile
+
+                try
+                    return! executeWithPost filePath dir envName napFile.Script.Post preLogs preVars mergedVars resolved
+                with ex ->
+                    Logger.error $"Request failed: {ex.Message}"
+
+                    return
+                        { File = filePath
+                          Request = resolved.Request
+                          Response = None
+                          Assertions = []
+                          Passed = false
+                          Error = Some $"Request failed: {ex.Message}"
+                          Log = preLogs
+                          SetVars = preVars }
     }

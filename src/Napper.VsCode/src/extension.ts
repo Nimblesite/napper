@@ -27,10 +27,20 @@ import { registerContextMenuCommands } from './contextMenuCommands';
 import { registerAutoRun, registerWatchers } from './watchers';
 import { startLspClient, stopLspClient } from './lspClient';
 import { bundledBinaryPath, ensureExecutable } from './binaryUtils';
+import { resolveCliWithRetry, type CliResolutionAttempt } from './cliResolver';
 import {
+  ACTION_OPEN_SETTINGS,
+  ACTION_SHOW_LOG,
   CLI_BINARY_NAME,
   CLI_ERROR_PREFIX,
   CLI_INSTALL_COMPLETE_MSG,
+  CMD_OPEN_SETTINGS,
+  LOG_MSG_RESOLVING_CLI,
+  MSG_CLI_RESOLVE_FAILED,
+  SHIPWRIGHT_COMPONENT_ID,
+  SHIPWRIGHT_MAX_ATTEMPTS,
+  SHIPWRIGHT_PROBE_TIMEOUT_MS,
+  SHIPWRIGHT_RETRY_DELAY_MS,
   CMD_OPEN_RESPONSE,
   CMD_RUN_ALL,
   CMD_RUN_FILE,
@@ -108,19 +118,62 @@ const getCliPath = (): string => {
       outputChannel.appendLine(`  [${d.componentId}] ${d.resolution.status}: ${d.message}`);
     }
   },
-  runShipwright = async (): Promise<void> => {
-    logger.info('Resolving CLI via Shipwright...');
-    ensureExecutable(bundledBinaryPath(extensionContext.extensionPath));
+  delay = async (ms: number): Promise<void> => {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  },
+  // One Shipwright probe under an explicit deadline, with the library's own modal suppressed
+  // (showMessages: false) so retries are silent — we own the user-facing failure surface.
+  runShipwrightAttempt = async (timeoutMs: number): Promise<CliResolutionAttempt> => {
     const { activateDeploymentToolkit: deployToolkit } =
       await import('@nimblesite/shipwright-vscode');
     const result = await deployToolkit(extensionContext, {
       vscode: makeVscodeAdapter(),
       manifestPath: path.join(extensionContext.extensionPath, 'shipwright.json'),
+      showMessages: false,
+      timeoutMs,
     });
     logShipwrightResult(result);
-    if (result.ok) {
-      const napperDiag = result.diagnostics.find((d) => d.componentId === 'napper');
-      startCliAndLsp(napperDiag?.resolution.path ?? CLI_BINARY_NAME);
+    const diag = result.diagnostics.find((d) => d.componentId === SHIPWRIGHT_COMPONENT_ID);
+    return { ok: result.ok, path: diag?.resolution.path ?? undefined };
+  },
+  reportCliResolutionFailure = async (): Promise<void> => {
+    const choice = await vscode.window.showErrorMessage(
+      MSG_CLI_RESOLVE_FAILED,
+      { modal: false },
+      ACTION_OPEN_SETTINGS,
+      ACTION_SHOW_LOG,
+    );
+    if (choice === ACTION_OPEN_SETTINGS) {
+      await vscode.commands.executeCommand(
+        CMD_OPEN_SETTINGS,
+        `${CONFIG_SECTION}.${CONFIG_CLI_PATH}`,
+      );
+    } else if (choice === ACTION_SHOW_LOG) {
+      outputChannel.show(true);
+    }
+  },
+  // Implements [SWR-IDE-RESOLUTION]. Retry resolution before giving up: a single probe under
+  // a tight deadline bricked fresh Windows installs (first-run AV scan of the NativeAOT exe).
+  // On total failure, still fall back to a PATH `napper` (Scoop/Homebrew users) AND surface
+  // an actionable message — never silently die.
+  runShipwright = async (): Promise<void> => {
+    logger.info(LOG_MSG_RESOLVING_CLI);
+    ensureExecutable(bundledBinaryPath(extensionContext.extensionPath));
+    const resolution = await resolveCliWithRetry({
+      attempt: runShipwrightAttempt,
+      delay,
+      log: (message) => {
+        outputChannel.appendLine(message);
+      },
+      maxAttempts: SHIPWRIGHT_MAX_ATTEMPTS,
+      retryDelayMs: SHIPWRIGHT_RETRY_DELAY_MS,
+      timeoutMs: SHIPWRIGHT_PROBE_TIMEOUT_MS,
+    });
+    startCliAndLsp(resolution.path ?? CLI_BINARY_NAME);
+    if (resolution.path === undefined) {
+      await reportCliResolutionFailure();
     }
   },
   getWorkspacePath = (): string | undefined => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,

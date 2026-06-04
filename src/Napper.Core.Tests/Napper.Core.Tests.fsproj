@@ -16,6 +16,7 @@
     <Compile Include="ScriptEdgeCaseTests.fs" />
     <Compile Include="CsxScriptTests.fs" />
     <Compile Include="JsPyScriptTests.fs" />
+    <Compile Include="CtxScriptTests.fs" />
     <Compile Include="CliIntegrationTests.fs" />
     <Compile Include="HttpToNapConverterTests.fs" />
     <Compile Include="OpenApiGeneratorTests.fs" />
