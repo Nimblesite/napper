@@ -1,6 +1,6 @@
 {
   "name": "Napper",
-  "title": "Napper — CLI-First API Testing for VS Code, Zed & Any Editor",
+  "title": "Napper — CLI-First API Testing for VS Code, Zed and Any Editor",
   "description": "The developer-first HTTP testing tool from Nimblesite. Native CLI binaries, a VS Code extension, and a portable language server. As simple as curl for one-off requests, scales to full test suites with scripting in your language — JavaScript, Python, F#, or C#.",
   "url": "https://napperapi.dev",
   "author": "Christian Findlay",
@@ -8,9 +8,9 @@
   "themeColor": "#1B4965",
   "stylesheet": "/assets/css/styles.css",
   "github": "https://github.com/Nimblesite/napper",
-  "ogImage": "/assets/images/logo.png",
-  "ogImageWidth": "800",
-  "ogImageHeight": "800",
+  "ogImage": "/assets/images/screenshot-playlist.png",
+  "ogImageWidth": "3128",
+  "ogImageHeight": "2122",
   "keywords": "API testing, HTTP client, VS Code extension, Zed extension, language server, LSP, JavaScript scripting, Python scripting, F# scripting, C# scripting, Postman alternative, Bruno alternative, CLI testing, REST API, test automation, http file converter, dothttp migration",
   "company": {
     "name": "Nimblesite",
