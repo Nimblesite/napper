@@ -108,3 +108,5 @@ scripts/logs/
 scripts/.too_many_cooks/
 
 __pycache__/
+
+.playwright-mcp/
