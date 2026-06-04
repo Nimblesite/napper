@@ -202,77 +202,74 @@ let evaluateAssertions (assertions: Assertion list) (response: NapResponse) : As
     assertions
     |> List.map (fun assertion -> resolveTarget response assertion.Target |> evaluateOp assertion)
 
-/// Determine the dotnet CLI arguments for a script file
-let private scriptArgs (scriptPath: string) : string =
-    if scriptPath.EndsWith ".csx" then
-        $"script \"{scriptPath}\""
-    else
-        $"fsi \"{scriptPath}\""
-
-/// Run a script (.fsx or .csx) and capture its output
+/// Run a script (.fsx, .csx, .js, .mjs, .cjs, .py) and capture its output
+/// Dispatch table lives in [script-dispatch] (ScriptDispatch module) — the single source of truth.
 let runScript (scriptPath: string) : Async<NapResult> =
     async {
         Logger.info $"Script start: {scriptPath}"
-        let psi = ProcessStartInfo()
-        psi.FileName <- "dotnet"
-        psi.Arguments <- scriptArgs scriptPath
-        psi.WorkingDirectory <- System.IO.Path.GetDirectoryName(scriptPath)
-        psi.RedirectStandardOutput <- true
-        psi.RedirectStandardError <- true
-        psi.UseShellExecute <- false
-        psi.CreateNoWindow <- true
 
-        let sw = Stopwatch.StartNew()
+        let baseResult =
+            { File = scriptPath
+              Request =
+                { Method = GET
+                  Url = ""
+                  Headers = Map.empty
+                  Body = None }
+              Response = None
+              Assertions = []
+              Passed = false
+              Error = None
+              Log = [] }
 
-        try
-            use proc = Process.Start(psi)
-            let! stdout = proc.StandardOutput.ReadToEndAsync() |> Async.AwaitTask
-            let! stderr = proc.StandardError.ReadToEndAsync() |> Async.AwaitTask
-            do! proc.WaitForExitAsync() |> Async.AwaitTask
-            sw.Stop()
+        match ScriptDispatch.resolve scriptPath with
+        | Error msg ->
+            Logger.error $"Script dispatch failed: {msg}"
+            return { baseResult with Error = Some msg }
+        | Ok(exe, args) ->
+            let psi = ProcessStartInfo()
+            psi.FileName <- exe
+            psi.Arguments <- args
+            psi.WorkingDirectory <- System.IO.Path.GetDirectoryName(scriptPath)
+            psi.RedirectStandardOutput <- true
+            psi.RedirectStandardError <- true
+            psi.UseShellExecute <- false
+            psi.CreateNoWindow <- true
 
-            let logLines =
-                stdout.Split('\n')
-                |> Array.map (fun l -> l.TrimEnd('\r'))
-                |> Array.filter (fun l -> l.Length > 0)
-                |> Array.toList
+            let sw = Stopwatch.StartNew()
 
-            let passed = proc.ExitCode = 0
-            Logger.info $"Script exit code: {proc.ExitCode}"
+            try
+                use proc = Process.Start(psi)
+                let! stdout = proc.StandardOutput.ReadToEndAsync() |> Async.AwaitTask
+                let! stderr = proc.StandardError.ReadToEndAsync() |> Async.AwaitTask
+                do! proc.WaitForExitAsync() |> Async.AwaitTask
+                sw.Stop()
 
-            let error =
-                if passed then None
-                elif stderr.Length > 0 then Some stderr
-                else Some $"Script exited with code {proc.ExitCode}"
+                let logLines =
+                    stdout.Split('\n')
+                    |> Array.map (fun l -> l.TrimEnd('\r'))
+                    |> Array.filter (fun l -> l.Length > 0)
+                    |> Array.toList
 
-            return
-                { File = scriptPath
-                  Request =
-                    { Method = GET
-                      Url = ""
-                      Headers = Map.empty
-                      Body = None }
-                  Response = None
-                  Assertions = []
-                  Passed = passed
-                  Error = error
-                  Log = logLines }
-        with ex ->
-            sw.Stop()
-            Logger.error $"Script failed: {ex.Message}"
+                let passed = proc.ExitCode = 0
+                Logger.info $"Script exit code: {proc.ExitCode}"
 
-            return
-                { File = scriptPath
-                  Request =
-                    { Method = GET
-                      Url = ""
-                      Headers = Map.empty
-                      Body = None }
-                  Response = None
-                  Assertions = []
-                  Passed = false
-                  Error = Some $"Script failed to start: {ex.Message}"
-                  Log = [] }
+                let error =
+                    if passed then None
+                    elif stderr.Length > 0 then Some stderr
+                    else Some $"Script exited with code {proc.ExitCode}"
+
+                return
+                    { baseResult with
+                        Passed = passed
+                        Error = error
+                        Log = logLines }
+            with ex ->
+                sw.Stop()
+                Logger.error $"Script failed: {ex.Message}"
+
+                return
+                    { baseResult with
+                        Error = Some $"Could not start runtime '{exe}' for {scriptPath}: {ex.Message}" }
     }
 
 /// Run a single .nap file end-to-end

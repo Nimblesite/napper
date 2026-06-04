@@ -11,6 +11,7 @@
     <Compile Include="HttpMethodExtensions.fs" />
     <Compile Include="OpenApiTypes.fs" />
     <Compile Include="Logger.fs" />
+    <Compile Include="ScriptDispatch.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Environment.fs" />
     <Compile Include="Runner.fs" />
