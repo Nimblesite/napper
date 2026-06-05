@@ -171,7 +171,7 @@ let ``--var handles equals in value`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let exitCode, _, _ = runCli "run test.nap --var token=abc==def --output json" dir
         Assert.Equal(0, exitCode)
     finally
@@ -184,7 +184,7 @@ let ``flags before file path work`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let exitCode, _, _ = runCli "run --output json test.nap" dir
         Assert.Equal(0, exitCode)
     finally
@@ -197,7 +197,7 @@ let ``json output is valid JSON`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap --output json" dir
         let doc = System.Text.Json.JsonDocument.Parse(stdout)
         Assert.True(doc.RootElement.TryGetProperty("file") |> fst)
@@ -209,7 +209,7 @@ let ``junit output is valid XML`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap --output junit" dir
         Assert.Contains("<?xml", stdout)
         Assert.Contains("testsuites", stdout)
@@ -221,7 +221,7 @@ let ``ndjson output gives one line per result`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap --output ndjson" dir
         let lines = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries)
         Assert.Equal(1, lines.Length)
@@ -235,7 +235,7 @@ let ``pretty output is default`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap" dir
         Assert.Contains("PASS", stdout)
     finally

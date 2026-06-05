@@ -41,10 +41,13 @@ let private resultAt (stdout: string) (index: int) : JsonElement =
     JsonDocument.Parse(stdout).RootElement[index]
 
 let private logText (el: JsonElement) : string =
-    let log = el.GetProperty("log")
-
-    seq { for i in 0 .. log.GetArrayLength() - 1 -> log[i].GetString() }
-    |> String.concat "\n"
+    // Tolerate error-shaped results that carry no "log" field: return "" so a Contains
+    // assertion fails with the expected string rather than throwing KeyNotFoundException.
+    match el.TryGetProperty("log") with
+    | true, log when log.ValueKind = JsonValueKind.Array ->
+        seq { for i in 0 .. log.GetArrayLength() - 1 -> log[i].GetString() }
+        |> String.concat "\n"
+    | _ -> ""
 
 let private errorText (el: JsonElement) : string =
     match el.TryGetProperty("error") with
@@ -137,18 +140,19 @@ let ``JS post-hook can read ctx.response status and json`` () =
         write
             dir
             "get.nap"
-            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./check.js\n"
+            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./check.js\n")
 
         write
             dir
             "check.js"
-            "if (ctx.response.status !== 200) ctx.fail('bad status');\nctx.log('post-ok id=' + ctx.response.json.id);"
+            "if (ctx.response.status !== 200) ctx.fail('bad status');\nctx.log('post-ok id=' + ctx.response.json.id + ' dur=' + ctx.response.durationMs);"
 
         let exitCode, stdout, _ = runCli "run get.nap --output json" dir
         let r = firstResult stdout
         Assert.Equal(0, exitCode)
         Assert.True(r.GetProperty("passed").GetBoolean(), $"should pass. error={errorText r}")
         Assert.Contains("post-ok id=1", logText r)
+        Assert.Matches(@"dur=\d+", logText r) // ctx.response.durationMs is a real number
     finally
         cleanupDir dir
 
@@ -160,7 +164,7 @@ let ``JS post-hook ctx.fail fails an otherwise-passing request`` () =
         write
             dir
             "get.nap"
-            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./reject.js\n"
+            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./reject.js\n")
 
         write dir "reject.js" "ctx.fail('POSTHOOK-FAIL-JS');"
         let exitCode, stdout, _ = runCli "run get.nap --output json" dir
@@ -180,18 +184,19 @@ let ``PY post-hook can read ctx.response status and json`` () =
         write
             dir
             "get.nap"
-            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./check.py\n"
+            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./check.py\n")
 
         write
             dir
             "check.py"
-            "if ctx.response.status != 200:\n    ctx.fail('bad status')\nctx.log('post-ok id=' + str(ctx.response.json['id']))"
+            "if ctx.response.status != 200:\n    ctx.fail('bad status')\nctx.log('post-ok id=' + str(ctx.response.json['id']) + ' dur=' + str(ctx.response.duration_ms))"
 
         let exitCode, stdout, _ = runCli "run get.nap --output json" dir
         let r = firstResult stdout
         Assert.Equal(0, exitCode)
         Assert.True(r.GetProperty("passed").GetBoolean(), $"should pass. error={errorText r}")
         Assert.Contains("post-ok id=1", logText r)
+        Assert.Matches(@"dur=\d+", logText r) // ctx.response.duration_ms is a real number
     finally
         cleanupDir dir
 
@@ -207,7 +212,7 @@ let ``CSX post-hook nonzero exit fails an otherwise-passing request`` () =
         write
             dir
             "get.nap"
-            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost = ./reject.csx\n"
+            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost = ./reject.csx\n")
 
         write dir "reject.csx" "Console.WriteLine(\"csx post hook ran\");\nEnvironment.Exit(1);"
         let exitCode, stdout, _ = runCli "run get.nap --output json" dir
@@ -229,7 +234,7 @@ let ``JS ctx.set makes a variable visible to a downstream nap step`` () =
         write
             dir
             "use.nap"
-            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n"
+            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n")
 
         write dir "suite.naplist" "[steps]\nseed.js\nuse.nap\n"
         let exitCode, stdout, _ = runCli "run suite.naplist --output json" dir
@@ -257,7 +262,7 @@ let ``PY ctx.set makes a variable visible to a downstream nap step`` () =
         write
             dir
             "use.nap"
-            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n"
+            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n")
 
         write dir "suite.naplist" "[steps]\nseed.py\nuse.nap\n"
         let exitCode, stdout, _ = runCli "run suite.naplist --output json" dir

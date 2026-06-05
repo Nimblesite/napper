@@ -195,12 +195,9 @@ let ``Non-existent script path fails`` () =
 [<Fact>]
 let ``Script can make HTTP request`` () =
     let script =
-        """
-open System.Net.Http
-let client = new HttpClient()
-let response = client.GetAsync("https://httpbin.org/get") |> Async.AwaitTask |> Async.RunSynchronously
-printfn "Status: %d" (int response.StatusCode)
-"""
+        "\nopen System.Net.Http\nlet client = new HttpClient()\nlet response = client.GetAsync(\""
+        + LocalHttpServer.baseUrl
+        + "/get\") |> Async.AwaitTask |> Async.RunSynchronously\nprintfn \"Status: %d\" (int response.StatusCode)\n"
 
     let path = createTempScript script
 

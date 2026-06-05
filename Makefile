@@ -166,6 +166,13 @@ package-vsix: clean build
 # test-fsharp: F#-only test subset (consumed by CI's F# coverage step).
 test-fsharp: generate-types _test_fsharp
 
+# mutation: mutation-test the F# scripting engine. Stryker.NET does not support F#
+# (it throws "Language not supported: Fsharp"), so this runs a curated mutant catalog —
+# each mutant must be KILLED by a CtxScriptTests test, or the run fails. See
+# scripts/mutation-test.fsx. Requires the script runtimes (node, python3, dotnet script).
+mutation: generate-types
+	dotnet fsi scripts/mutation-test.fsx
+
 # generate-types: regenerate Napper.Core ADTs from the typeDiagram source of truth.
 # Types.td is canonical and checked in; Types.Generated.fs is gitignored and
 # rebuilt here. The preamble adds the namespace and the one host-type bridge

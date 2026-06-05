@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Compile Include="TestHelpers.fs" />
+    <Compile Include="LocalHttpServer.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="HttpMethodTests.fs" />
     <Compile Include="CurlGeneratorTests.fs" />

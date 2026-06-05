@@ -422,7 +422,7 @@ let runNapFile (filePath: string) (vars: Map<string, string>) (envName: string o
                 let resolved = Environment.resolveNapFile mergedVars napFile
 
                 try
-                    return! executeWithPost filePath dir envName None preLogs preVars mergedVars resolved
+                    return! executeWithPost filePath dir envName napFile.Script.Post preLogs preVars mergedVars resolved
                 with ex ->
                     Logger.error $"Request failed: {ex.Message}"
 

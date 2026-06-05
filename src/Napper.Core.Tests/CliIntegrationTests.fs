@@ -128,7 +128,7 @@ let ``CLI run shorthand GET against jsonplaceholder`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://jsonplaceholder.typicode.com/posts/1")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/posts/1")
         let exitCode, stdout, _ = runCli "run test.nap --output json" dir
         Assert.Equal(0, exitCode)
         let doc = System.Text.Json.JsonDocument.Parse(stdout)
@@ -143,7 +143,7 @@ let ``CLI run with assertions that pass`` () =
 
     try
         let content =
-            "[request]\nmethod = GET\nurl = https://httpbin.org/get\n\n[assert]\nstatus = 200\n"
+            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/get\n\n[assert]\nstatus = 200\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --output json" dir
@@ -159,7 +159,7 @@ let ``CLI run with failing assertion returns exit code 1`` () =
 
     try
         let content =
-            "[request]\nmethod = GET\nurl = https://httpbin.org/get\n\n[assert]\nstatus = 404\n"
+            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/get\n\n[assert]\nstatus = 404\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --output json" dir
@@ -198,7 +198,7 @@ let ``CLI run with json output is valid JSON`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap --output json" dir
         let doc = System.Text.Json.JsonDocument.Parse(stdout)
         Assert.True(doc.RootElement.TryGetProperty("file") |> fst)
@@ -210,7 +210,7 @@ let ``CLI run with junit output is valid XML`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap --output junit" dir
         Assert.Contains("<?xml", stdout)
         Assert.Contains("testsuites", stdout)
@@ -222,7 +222,7 @@ let ``CLI run with pretty output shows status`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap" dir
         Assert.Contains("PASS", stdout)
     finally
@@ -235,8 +235,8 @@ let ``CLI run directory executes all nap files`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET https://httpbin.org/get")
-        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
+        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let exitCode, stdout, _ = runCli $"run {dir} --output json" dir
         Assert.Equal(0, exitCode)
         let doc = System.Text.Json.JsonDocument.Parse(stdout)
@@ -263,7 +263,7 @@ let ``CLI run with --var substitutes variable`` () =
 
     try
         let content =
-            "[request]\nmethod = GET\nurl = https://httpbin.org/status/{{code}}\n\n[assert]\nstatus = {{code}}\n"
+            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/status/{{code}}\n\n[assert]\nstatus = {{code}}\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --var code=200 --output json" dir
@@ -283,7 +283,7 @@ let ``CLI run with --env loads named environment`` () =
         File.WriteAllText(Path.Combine(dir, ".napenv.staging"), "statusCode = \"200\"")
 
         let content =
-            "[request]\nmethod = GET\nurl = https://httpbin.org/status/{{statusCode}}\n\n[assert]\nstatus = {{statusCode}}\n"
+            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/status/{{statusCode}}\n\n[assert]\nstatus = {{statusCode}}\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --env staging --output json" dir
@@ -300,8 +300,8 @@ let ``CLI run naplist executes all steps`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET https://httpbin.org/get")
-        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
+        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         File.WriteAllText(Path.Combine(dir, "suite.naplist"), "[steps]\na.nap\nb.nap\n")
         let exitCode, stdout, _ = runCli "run suite.naplist --output json" dir
         Assert.Equal(0, exitCode)
@@ -315,8 +315,8 @@ let ``CLI run naplist with ndjson streams results`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET https://httpbin.org/get")
-        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
+        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         File.WriteAllText(Path.Combine(dir, "suite.naplist"), "[steps]\na.nap\nb.nap\n")
         let exitCode, stdout, _ = runCli "run suite.naplist --output ndjson" dir
         let lines = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries)
@@ -337,7 +337,7 @@ let ``CLI run naplist with script step`` () =
 
     try
         File.WriteAllText(Path.Combine(dir, "setup.fsx"), "printfn \"[setup] ready\"")
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         File.WriteAllText(Path.Combine(dir, "suite.naplist"), "[steps]\nsetup.fsx\ntest.nap\n")
         let exitCode, stdout, _ = runCliSlow "run suite.naplist --output json" dir
         Assert.Equal(0, exitCode)
@@ -371,7 +371,7 @@ let ``CLI run naplist with CSX script step`` () =
 
     try
         File.WriteAllText(Path.Combine(dir, "setup.csx"), "Console.WriteLine(\"[csx-setup] ready\");")
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://jsonplaceholder.typicode.com/posts/1")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/posts/1")
         File.WriteAllText(Path.Combine(dir, "suite.naplist"), "[steps]\nsetup.csx\ntest.nap\n")
         let exitCode, stdout, _ = runCliSlow "run suite.naplist --output json" dir
         Assert.Equal(0, exitCode)
@@ -404,7 +404,7 @@ let ``CLI run naplist with mixed FSX and CSX scripts`` () =
 
     try
         File.WriteAllText(Path.Combine(dir, "setup.fsx"), "printfn \"[fsx] setup done\"")
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://jsonplaceholder.typicode.com/posts/1")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/posts/1")
         File.WriteAllText(Path.Combine(dir, "teardown.csx"), "Console.WriteLine(\"[csx] teardown done\");")
         File.WriteAllText(Path.Combine(dir, "suite.naplist"), "[steps]\nsetup.fsx\ntest.nap\nteardown.csx\n")
         let exitCode, stdout, _ = runCliSlow "run suite.naplist --output json" dir
@@ -448,7 +448,7 @@ let ``CLI run POST with JSON body`` () =
         let content =
             "[request]\n"
             + "method = POST\n"
-            + "url = https://httpbin.org/post\n\n"
+            + "url = " + LocalHttpServer.baseUrl + "/post\n\n"
             + "[request.headers]\n"
             + "Content-Type = application/json\n\n"
             + "[request.body]\n"
@@ -479,7 +479,7 @@ let ``CLI run nested naplist`` () =
     Directory.CreateDirectory(subdir) |> ignore
 
     try
-        File.WriteAllText(Path.Combine(subdir, "inner.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(subdir, "inner.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         File.WriteAllText(Path.Combine(subdir, "inner.naplist"), "[steps]\ninner.nap\n")
         File.WriteAllText(Path.Combine(dir, "outer.naplist"), "[steps]\nsub/inner.naplist\n")
         let exitCode, stdout, _ = runCli "run outer.naplist --output json" dir

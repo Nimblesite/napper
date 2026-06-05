@@ -201,12 +201,9 @@ let ``Non-existent CSX script path fails`` () =
 [<Fact>]
 let ``CSX script can make HTTP request`` () =
     let script =
-        """
-using System.Net.Http;
-var client = new HttpClient();
-var response = await client.GetAsync("https://jsonplaceholder.typicode.com/posts/1");
-Console.WriteLine($"Status: {(int)response.StatusCode}");
-"""
+        "\nusing System.Net.Http;\nvar client = new HttpClient();\nvar response = await client.GetAsync(\""
+        + LocalHttpServer.baseUrl
+        + "/posts/1\");\nConsole.WriteLine($\"Status: {(int)response.StatusCode}\");\n"
 
     let path = createTempCsx script
 
