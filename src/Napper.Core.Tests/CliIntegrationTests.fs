@@ -143,7 +143,9 @@ let ``CLI run with assertions that pass`` () =
 
     try
         let content =
-            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/get\n\n[assert]\nstatus = 200\n"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 200\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --output json" dir
@@ -159,7 +161,9 @@ let ``CLI run with failing assertion returns exit code 1`` () =
 
     try
         let content =
-            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/get\n\n[assert]\nstatus = 404\n"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 404\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --output json" dir
@@ -263,7 +267,9 @@ let ``CLI run with --var substitutes variable`` () =
 
     try
         let content =
-            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/status/{{code}}\n\n[assert]\nstatus = {{code}}\n"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/status/{{code}}\n\n[assert]\nstatus = {{code}}\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --var code=200 --output json" dir
@@ -283,7 +289,9 @@ let ``CLI run with --env loads named environment`` () =
         File.WriteAllText(Path.Combine(dir, ".napenv.staging"), "statusCode = \"200\"")
 
         let content =
-            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/status/{{statusCode}}\n\n[assert]\nstatus = {{statusCode}}\n"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/status/{{statusCode}}\n\n[assert]\nstatus = {{statusCode}}\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --env staging --output json" dir
@@ -448,7 +456,9 @@ let ``CLI run POST with JSON body`` () =
         let content =
             "[request]\n"
             + "method = POST\n"
-            + "url = " + LocalHttpServer.baseUrl + "/post\n\n"
+            + "url = "
+            + LocalHttpServer.baseUrl
+            + "/post\n\n"
             + "[request.headers]\n"
             + "Content-Type = application/json\n\n"
             + "[request.body]\n"

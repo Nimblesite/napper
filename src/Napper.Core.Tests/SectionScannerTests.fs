@@ -37,7 +37,9 @@ let ``scanNapSections only treats line zero as a shorthand request`` () =
 
 [<Fact>]
 let ``scanNapSections recognizes dotted request subsections`` () =
-    let content = "[request]\nGET x\n[request.headers]\nAccept: */*\n[request.body]\nbody"
+    let content =
+        "[request]\nGET x\n[request.headers]\nAccept: */*\n[request.body]\nbody"
+
     let names = scanNapSections content |> List.map (fun s -> s.Name)
     Assert.Contains("request.headers", names)
     Assert.Contains("request.body", names)

@@ -1,20 +1,20 @@
 # Nap File Formats
 
-Specifications for `.nap`, `.napenv`, and `.naplist` file formats. These are shared between the CLI and all IDE extensions.
+Specifications for the `.nap`, `.napenv`, and `.naplist` file formats, shared by the CLI and every IDE extension. The parsed shapes are declared in [`Types.td`](../../src/Napper.Core/Types.td) (typeDiagram).
 
 ---
 
-## `nap-file` — `.nap` Request File
+## [NAP-FILE] `.nap` request file
 
 Each `.nap` file defines one **request** plus its optional **setup**, **assertions**, and **script reference**.
 
-### `nap-minimal` — Minimal example
+### [NAP-MINIMAL] Minimal example
 
 ```nap
 GET https://api.example.com/users
 ```
 
-### `nap-full` — Full anatomy
+### [NAP-FULL] Full anatomy
 
 ```nap
 # Optional metadata block
@@ -23,7 +23,7 @@ name        = "Get user by ID"
 description = "Fetches a single user and asserts shape"
 tags        = ["users", "smoke"]
 
-# Optional variables (can be overridden by environment)
+# Optional variables (overridable by environment)
 [vars]
 userId = "42"
 
@@ -36,49 +36,65 @@ url     = https://api.example.com/users/{{userId}}
 Authorization = Bearer {{token}}
 Accept        = application/json
 
-# Optional: request body (for POST/PUT/PATCH)
+# Optional request body (POST/PUT/PATCH)
 # [request.body]
 # content-type = application/json
 # """
 # { "name": "Alice" }
 # """
 
-# Optional: built-in assertions (no scripting required)
+# Optional built-in assertions (no scripting required)
 [assert]
 status  = 200
 body.id = {{userId}}
 body.name exists
 
-# Optional: reference an external script for complex assertions or setup
+# Optional external script for complex assertions or setup
 [script]
-pre  = ./scripts/auth.fsx      # runs before the request
+pre  = ./scripts/auth.fsx            # runs before the request
 post = ./scripts/validate-user.fsx   # runs after the response
 ```
 
-### `nap-design` — Key design decisions
+The blocks, each a parsed unit:
+
+| Block | Spec ID | Purpose |
+|-------|---------|---------|
+| `[meta]` | `[NAP-META]` | name, description, tags |
+| `[vars]` | `[NAP-VARS]` | per-file variables (lowest precedence in [ENV-RESOLUTION]) |
+| `[request]` | `[NAP-REQUEST]` | method + url (required) |
+| `[request.headers]` | `[NAP-HEADERS]` | header key/value pairs |
+| `[request.body]` | `[NAP-BODY]` | content-type + body (POST/PUT/PATCH) |
+| `[assert]` | `[NAP-ASSERT]` | declarative assertions |
+| `[script]` | `[NAP-SCRIPT]` | pre/post script references ([SCRIPT-DISPATCH](./SCRIPTING-SPEC.md)) |
+
+### [NAP-DESIGN] Key design decisions
 
 - **TOML-inspired syntax** — familiar, unambiguous, easy to parse.
-- **`{{variable}}`** interpolation (`env-interpolation`) throughout — variables resolved from env files, CLI flags, or parent playlist scope.
-- **`[assert]` block** — declarative assertions that cover ~80% of cases without scripting:
-  - `assert-status` — `status = 200` — HTTP status code
-  - `assert-equals` — `body.path = value` — JSONPath equality
-  - `assert-exists` — `body.path exists` — presence check
-  - `assert-matches` — `body.path matches "pattern"` — glob pattern match
-  - `assert-contains` — `headers.Content-Type contains "json"` — substring check
-  - `assert-lt` — `duration < 500ms` — less-than comparison
-  - `assert-gt` — `body.count > 0` — greater-than comparison
-- **`[script]` block** — references external script files for pre/post hooks in any supported language: F# (`.fsx`), C# (`.csx`), JavaScript (`.js`), or Python (`.py`). Dispatch is by extension (see `script-dispatch`).
-- `nap-comments` — Comments with `#`.
+- **`{{variable}}` interpolation** ([ENV-INTERPOLATION]) throughout — resolved from env files, CLI flags, or parent playlist scope.
+- **`[assert]` block** — declarative assertions covering ~80% of cases without scripting:
 
-#### `http-methods` — Supported HTTP Methods
+  | Operator | Spec ID | Example |
+  |----------|---------|---------|
+  | status | `[ASSERT-STATUS]` | `status = 200` |
+  | equals | `[ASSERT-EQUALS]` | `body.path = value` (JSONPath equality) |
+  | exists | `[ASSERT-EXISTS]` | `body.path exists` |
+  | matches | `[ASSERT-MATCHES]` | `body.path matches "pattern"` (glob) |
+  | contains | `[ASSERT-CONTAINS]` | `headers.Content-Type contains "json"` |
+  | less-than | `[ASSERT-LT]` | `duration < 500ms` |
+  | greater-than | `[ASSERT-GT]` | `body.count > 0` |
 
-GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
+- **`[script]` block** — references external script files for pre/post hooks in any supported language; dispatch is by extension ([SCRIPT-DISPATCH](./SCRIPTING-SPEC.md)).
+- **[NAP-COMMENTS]** — comments start with `#`.
+
+### [NAP-METHODS] Supported HTTP methods
+
+`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`.
 
 ---
 
-## `env-file` — `.napenv` Environment File
+## [ENV-FILE] `.napenv` environment file
 
-Environment files are TOML files that define variable sets for different deployment targets.
+Environment files are TOML files defining variable sets per deployment target.
 
 ```toml
 # .napenv (base — checked into git, no secrets)
@@ -97,47 +113,50 @@ baseUrl = "https://staging.api.example.com"
 token   = "staging-token"
 ```
 
-### `env-resolution` — Variable resolution order (highest wins)
+### [ENV-RESOLUTION] Variable resolution order (highest wins)
 
-1. CLI `--var key=value` flags (`cli-var`)
-2. `env-local` — `.napenv.local`
-3. `env-named` — Named environment file (e.g. `.napenv.staging`)
-4. `env-base` — Base `.napenv`
-5. `nap-vars` — `[vars]` block in the `.nap` file
+1. `[CLI-VAR]` — CLI `--var key=value` flags ([CLI-VAR](./CLI-SPEC.md))
+2. `[ENV-LOCAL]` — `.napenv.local`
+3. `[ENV-NAMED]` — named environment file (e.g. `.napenv.staging`)
+4. `[ENV-BASE]` — base `.napenv`
+5. `[NAP-VARS]` — `[vars]` block in the `.nap` file
+
+### [ENV-INTERPOLATION] Variable interpolation
+
+`{{variable}}` tokens in any `.nap`/`.naplist` value are replaced with the resolved value from [ENV-RESOLUTION]. Unresolved variables surface as diagnostics in the IDE ([LSP-DIAGNOSTICS](./LSP-SPEC.md)).
 
 ---
 
-## `collection-folder` — Collections: Folder-Based
+## [COLLECTION-FOLDER] Collections — folder-based
 
 A folder of `.nap` files is implicitly a **collection**. Subfolders are sub-collections.
 
-```
-my-api/
-├── .napenv
-├── .napenv.local          # gitignored
-├── auth/
-│   ├── 01_login.nap
-│   └── 02_refresh-token.nap
-├── users/
-│   ├── 01_get-user.nap
-│   ├── 02_create-user.nap
-│   └── 03_delete-user.nap
-└── smoke.naplist
+```mermaid
+graph TD
+  root["my-api/"] --> env[".napenv"]
+  root --> envlocal[".napenv.local — gitignored"]
+  root --> auth["auth/"]
+  root --> users["users/"]
+  root --> smoke["smoke.naplist"]
+  auth --> a1["01_login.nap"]
+  auth --> a2["02_refresh-token.nap"]
+  users --> u1["01_get-user.nap"]
+  users --> u2["02_create-user.nap"]
+  users --> u3["03_delete-user.nap"]
 ```
 
-`collection-sort` — Execution order within a folder: **filename sort** (use numeric prefixes `01_`, `02_` to control order).
+**[COLLECTION-SORT]** — execution order within a folder is **filename sort** (use numeric prefixes `01_`, `02_` to control order).
 
 ---
 
-## `naplist-file` — `.naplist` Playlist File
+## [NAPLIST-FILE] `.naplist` playlist file
 
-A `.naplist` file is an explicit ordered list of steps. Steps can reference:
-- `naplist-nap-step` — Individual `.nap` files (by relative path)
-- `naplist-folder-step` — Folders (run all `.nap` files in that folder, sorted)
-- `naplist-nested` — Other `.naplist` files (nested playlists — fully recursive)
-- `naplist-script-step` — script files in any supported language (`.fsx`, `.csx`, `.js`, `.py`) (`script-dispatch`)
+A `.naplist` is an explicit ordered list of steps ([NAPLIST-STEPS]). Steps reference:
 
-### Example `smoke.naplist`
+- `[NAPLIST-NAP-STEP]` — individual `.nap` files (by relative path)
+- `[NAPLIST-FOLDER-STEP]` — folders (run all `.nap` files in the folder, sorted)
+- `[NAPLIST-NESTED]` — other `.naplist` files (fully recursive)
+- `[NAPLIST-SCRIPT-STEP]` — script files in any supported language ([SCRIPT-DISPATCH](./SCRIPTING-SPEC.md))
 
 ```naplist
 [meta]
@@ -151,13 +170,19 @@ timeout = "5000"
 ./auth/01_login.nap
 ./auth/02_refresh-token.nap
 ./users/01_get-user.nap
-
-# Include another playlist
-./regression/core.naplist
+./regression/core.naplist   # nested playlist
 ```
 
-### `naplist-var-scope` — Variable scoping in playlists
+### [NAPLIST-VAR-SCOPE] Variable scoping in playlists
 
-- A `[vars]` block (`naplist-vars`) in a `.naplist` sets variables for all steps in that playlist.
-- Scripts can use `ctx.Set` (`script-context`) to pass variables **forward** to subsequent steps in the same playlist.
-- Nested `.naplist` files (`naplist-nested`) inherit the parent's variable scope unless they override.
+- A `[NAPLIST-VARS]` block (`[vars]`) sets variables for all steps in that playlist.
+- Scripts can use `ctx.set` ([SCRIPT-CONTEXT](./SCRIPTING-SPEC.md)) to pass variables **forward** to subsequent steps in the same playlist.
+- Nested `.naplist` files ([NAPLIST-NESTED]) inherit the parent's variable scope unless they override it.
+
+---
+
+## Related specs
+
+- [CLI Spec](./CLI-SPEC.md) — commands and flags
+- [Scripting](./SCRIPTING-SPEC.md) — `[script]` hooks and the context protocol
+- [LSP Specification](./LSP-SPEC.md) — diagnostics, completions, and hover over these formats

@@ -1,38 +1,30 @@
 # Nap CLI Specification
 
-> **Nap** (Network API Protocol) — a CLI-first, test-oriented alternative to Postman, Bruno, `.http` files, and curl.
+> **Nap** (Network API Protocol) — a CLI-first, test-oriented alternative to Postman, Bruno, `.http` files, and curl. The CLI is the product; every editor integration shells out to it.
+
+Spec-ID convention: every section is tagged `[GROUP-TOPIC]`. Code and tests reference these IDs in comments (`// Implements [CLI-RUN]`). Cross-references to other sections use the bare `[ID]` (greppable); links to other spec files use `[ID](./FILE.md)`.
 
 ---
 
-## Vision
+## [CLI-VISION] Vision
 
-Nap is a developer-first HTTP testing tool. It is as simple as curl for one-off requests, but scales to full test suites with reusable components, scripted assertions, and CI integration. It is not a GUI-first tool with a CLI bolted on — the CLI is the product.
+Nap is a developer-first HTTP testing tool: as terse as curl for a one-off request, but it scales to full test suites with reusable components, scripted assertions, and CI integration. It is not a GUI with a CLI bolted on.
 
----
+## [CLI-PRINCIPLES] Core principles
 
-## Core Principles
-
-1. **Files are the source of truth.** All requests, tests, and playlists are plain files. Git-friendly by default.
-2. **Simple things are simple.** A single HTTP call should look almost as terse as curl.
-3. **Tests are reusable components.** A `.nap` file (`nap-file`) is a reusable unit. It can be composed into playlists (`naplist-file`) without modification.
-4. **Scripting is opt-in, external, and language-agnostic.** Scripts live in standalone files referenced by name — F# (`.fsx`), C# (`.csx`), JavaScript (`.js`), or Python (`.py`) (`script-fsx`, `script-csx`, `script-js`, `script-py`). Every language sees the same `ctx`/`nap` surface (`script-protocol`). Simple assertions need no scripting at all.
-5. **No lock-in.** The format is plain text. Scripts are standard files in standard languages run by their standard runtimes — no proprietary sandbox. Results emit standard formats.
+1. **Files are the source of truth.** Requests, tests, and playlists are plain files. Git-friendly by default.
+2. **Simple things stay simple.** A single HTTP call looks almost as terse as curl.
+3. **Tests are reusable components.** A `.nap` file is a reusable unit; it composes into playlists (`.naplist`) without modification.
+4. **Scripting is opt-in, external, and language-agnostic.** Scripts live in standalone files referenced by name — F#, C#, JavaScript, or Python. Every language sees the same `ctx`/`nap` surface. Simple assertions need no scripting. See [SCRIPTING-SPEC](./SCRIPTING-SPEC.md).
+5. **No lock-in.** Plain-text format; scripts run on their standard runtimes; results emit standard formats.
 
 ---
 
-## Installation
+## [CLI-INSTALL] Installation
 
-**The primary channels are native-binary — end users never need .NET installed.** `napper` is a
-self-contained NativeAOT binary. The VS Code extension bundles the matching per-platform binary
-inside the VSIX ([`vscode-cli-acquisition`](./IDE-EXTENSION-SPEC.md#vscode-cli-acquisition)), so
-installing the extension needs no separate CLI install. CLI users pick a channel below.
+The primary channels are **native-binary** — end users never need .NET. `napper` is a self-contained NativeAOT binary ([CLI-AOT-MIGRATION]). The VS Code extension bundles the matching per-platform binary inside the VSIX ([VSCODE-CLI-ACQUIRE](./IDE-EXTENSION-SPEC.md)), so installing the extension needs no separate CLI install. The VS Code extension never resolves the CLI via the NuGet `dotnet tool` channel ([SWR-IDE-RESOLUTION]); it only uses the bundled native binary.
 
-A `dotnet tool` NuGet package remains available as a **secondary, optional** channel for .NET
-developers who prefer it — it is the only channel that needs the .NET SDK, and its release job is
-best-effort/non-blocking. The VS Code extension never resolves the CLI via `dotnet-tool`
-([SWR-IDE-RESOLUTION]); it only uses the bundled native binary.
-
-### `cli-install-script` — install script (macOS / Linux / Windows)
+### [CLI-INSTALL-SCRIPT] Install script (macOS / Linux / Windows)
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.sh | bash
@@ -40,26 +32,25 @@ curl -fsSL https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/inst
 irm https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.ps1 | iex
 ```
 
-Downloads the native binary for the host platform from the GitHub Release and verifies its
-SHA-256 against `checksums-sha256.txt`.
+Downloads the host-platform binary from the GitHub Release and verifies its SHA-256 against `checksums-sha256.txt`. Implemented by `scripts/install.sh` / `scripts/install.ps1`.
 
-### `cli-install-homebrew` — Homebrew tap (macOS / Linux)
+### [CLI-INSTALL-HOMEBREW] Homebrew tap (macOS / Linux)
 
 ```sh
 brew tap Nimblesite/tap && brew install napper
 ```
 
-Tracks latest only. Published by [`update-homebrew`](../../.github/workflows/release.yml) on every release.
+Tracks latest only. Published by the `update-homebrew` job in `.github/workflows/release.yml` on every release.
 
-### `cli-install-scoop` — Scoop bucket (Windows)
+### [CLI-INSTALL-SCOOP] Scoop bucket (Windows)
 
 ```sh
 scoop bucket add Nimblesite https://github.com/Nimblesite/scoop-bucket && scoop install napper
 ```
 
-Tracks latest only. Published by [`update-scoop`](../../.github/workflows/release.yml) on every release.
+Tracks latest only. Published by the `update-scoop` job in `.github/workflows/release.yml` on every release.
 
-### `cli-install-dotnet-tool` — dotnet tool (secondary, optional)
+### [CLI-INSTALL-DOTNET-TOOL] dotnet tool (secondary, optional)
 
 ```sh
 dotnet tool install -g napper                    # latest
@@ -67,109 +58,88 @@ dotnet tool install -g napper --version 0.12.0   # exact version
 dotnet tool update  -g napper                    # update
 ```
 
-For .NET developers who prefer it. This is the **only** channel that needs the **.NET 10 SDK**; all
-other channels need no .NET. Published best-effort by the non-blocking
-[`publish-nuget`](../../.github/workflows/release.yml) job — a NuGet failure never blocks a release,
-and the VS Code extension never resolves the CLI this way ([SWR-IDE-RESOLUTION]).
+For .NET developers who prefer it. This is the **only** channel that needs the **.NET 10 SDK**; all other channels need no .NET. Published best-effort by the non-blocking `publish-nuget` job — a NuGet failure never blocks a release, and the VS Code extension never resolves the CLI this way ([SWR-IDE-RESOLUTION]).
 
-### `cli-runtime-dependency` — Runtime dependency
+### [CLI-RUNTIME-DEPENDENCY] Runtime dependency
 
-**None.** `napper` is published with **NativeAOT** (`-p:PublishAot=true`, see
-[`cli-aot-migration`](#cli-aot-migration)) as a single statically-linked native binary per RID.
-End users need neither the .NET runtime nor the SDK to install or run it. .NET is a build-time
-dependency only. (Script *hooks* — `.fsx`/`.csx`/`.js`/`.py` — still need their own language
-runtime, but that is the script author's choice and never a dependency of `napper` itself;
-see `script-runtime`.)
+**None.** `napper` ships as a single statically-linked NativeAOT binary per RID ([CLI-AOT-MIGRATION]). End users need neither the .NET runtime nor the SDK. .NET is a build-time dependency only. (Script *hooks* still need their own language runtime — that is the script author's choice, never a dependency of `napper` itself; see [SCRIPT-RUNTIME](./SCRIPTING-SPEC.md).)
 
-### `cli-aot-migration` — NativeAOT (landed)
+### [CLI-AOT-MIGRATION] NativeAOT (landed)
 
-`napper` ships as a NativeAOT binary (`PublishAot=true`): a single statically-linked native
-binary per RID with zero runtime dependencies, ~5–10 MB, ~10 ms cold start. Primary distribution is
-the native binary — Brew / Scoop / install script / VSIX-bundled. A secondary, optional `dotnet tool`
-NuGet package ([`cli-install-dotnet-tool`](#cli-install-dotnet-tool)) is published best-effort for
-.NET users. The VSIX install flow needs no .NET SDK prerequisite.
+`napper` ships as a NativeAOT binary (`-p:PublishAot=true`): one statically-linked native binary per RID, zero runtime dependencies, ~5–10 MB, ~10 ms cold start. Primary distribution is the native binary — Brew / Scoop / install script / VSIX-bundled. The secondary `dotnet tool` ([CLI-INSTALL-DOTNET-TOOL]) is best-effort.
 
-**AOT constraints** (enforced): no reflection-based serialization — `printf`, quotations, and
-reflection fail at publish time; all third-party deps must be AOT-compatible. Verified by the
-black-box e2e suite running the real native binary, and by the release `Verify binary version
-contract` step.
-
-Tracked in [CLI-PLAN.md](../plans/CLI-PLAN.md).
+**AOT constraints (enforced):** no reflection-based serialization — `printf`, quotations, and reflection fail at publish time; all third-party deps must be AOT-compatible. Verified by the black-box e2e suite running the real native binary and by the release "Verify binary version contract" step.
 
 ---
 
-## Usage
+## [CLI-USAGE] Usage
 
-### `cli-run` — Run Command
+### [CLI-RUN] Run command
 
 ```sh
-# Run a single request (simplest case — as easy as curl)
-napper run ./users/get-user.nap
-
-# Run a single request with inline variable override
-napper run ./users/get-user.nap --var userId=99
-
-# Run a collection (folder)
-napper run ./users/
-
-# Run a playlist
-napper run ./smoke.naplist
-
-# Specify environment
-napper run ./smoke.naplist --env staging
+napper run ./users/get-user.nap                 # single request — as easy as curl
+napper run ./users/get-user.nap --var userId=99 # with an inline variable override
+napper run ./users/                             # a collection (folder)
+napper run ./smoke.naplist                      # a playlist
+napper run ./smoke.naplist --env staging        # with an environment
 ```
 
-### `cli-check` — Validate Syntax
+### [CLI-CHECK] Validate syntax
 
 ```sh
-# Validate syntax without running
-napper check ./smoke.naplist
+napper check ./smoke.naplist   # parse and validate without running
 ```
 
-### `cli-generate` — Generate from OpenAPI
+### [CLI-GENERATE] Generate from OpenAPI
 
 ```sh
-# Generate .nap files from an OpenAPI spec
 napper generate openapi ./petstore.json --output-dir ./petstore/
 ```
 
-See [CLI OpenAPI Generation](./CLI-OPENAPI-GENERATION.md) for full details.
+See [OpenAPI Generation (CLI)](./CLI-OPENAPI-GENERATION.md) for full details.
 
-### `cli-lsp` — Language Server
+### [CLI-CONVERT] Convert .http files
 
 ```sh
-# Start the Nap language server (LSP 3.17 over stdio)
-napper lsp
+napper convert http ./requests.http --output-dir ./nap-requests/
 ```
 
-`napper lsp` runs the language server in the same process as the CLI. **The LSP and CLI are one binary** ([`lsp-one-binary`](./LSP-SPEC.md#lsp-one-binary)) — there is no separate `napper-lsp`. IDE extensions spawn `napper lsp` as a child process and communicate via JSON-RPC over stdin/stdout. While `lsp` is the active subcommand, the process MUST NOT write anything to stdout outside LSP framing — all logs go to stderr or to a file. See [LSP Specification](./LSP-SPEC.md) for capabilities and protocol details.
+Converts Microsoft / JetBrains `.http` files to `.nap`. See [HTTP Files](./HTTP-FILES-SPEC.md).
+
+### [CLI-LSP] Language server
+
+```sh
+napper lsp   # start the Nap language server (LSP 3.17 over stdio)
+```
+
+`napper lsp` runs the language server in the same process as the CLI. **The LSP and CLI are one binary** ([LSP-ONE-BINARY](./LSP-SPEC.md)) — there is no separate `napper-lsp`. IDE extensions spawn `napper lsp` and communicate via JSON-RPC over stdin/stdout. While `lsp` is the active subcommand the process MUST NOT write to stdout outside LSP framing — all logs go to stderr or a file. See [LSP Specification](./LSP-SPEC.md).
 
 ---
 
-## CLI Flags
+## [CLI-FLAGS] CLI flags
 
 | Flag | Spec ID | Description |
 |------|---------|-------------|
-| `--env <name>` | `cli-env` | Load environment variables from `.napenv.<name>` (`env-named`) |
-| `--var <key=value>` | `cli-var` | Override a variable (repeatable). Highest priority in `env-resolution` |
-| `--output <format>` | `cli-output` | Output format: `output-pretty` (default), `output-junit`, `output-json`, `output-ndjson` |
-| `--output-dir <dir>` | `cli-output-dir` | Destination directory for `cli-generate` |
-| `--verbose` | `cli-verbose` | Enable debug-level logging |
+| `--env <name>` | `[CLI-ENV]` | Load environment variables from `.napenv.<name>` ([ENV-NAMED](./FILE-FORMATS-SPEC.md)) |
+| `--var <key=value>` | `[CLI-VAR]` | Override a variable (repeatable). Highest priority in [ENV-RESOLUTION](./FILE-FORMATS-SPEC.md) |
+| `--output <format>` | `[CLI-OUTPUT]` | Output format: `[OUTPUT-PRETTY]` (default), `[OUTPUT-JUNIT]`, `[OUTPUT-JSON]`, `[OUTPUT-NDJSON]` |
+| `--output-dir <dir>` | `[CLI-OUTPUT-DIR]` | Destination directory for `[CLI-GENERATE]` / `[CLI-CONVERT]` |
+| `--verbose` | `[CLI-VERBOSE]` | Enable debug-level logging |
 
 ---
 
-## `cli-output` — Output Formats
+## [CLI-OUTPUT] Output formats
 
-| Format | Spec ID | Description |
-|--------|---------|-------------|
-| `pretty` | `output-pretty` | Human-readable console output with ANSI colors (default) |
-| `junit` | `output-junit` | JUnit XML for CI/CD integration |
-| `json` | `output-json` | Single JSON object per result |
-| `ndjson` | `output-ndjson` | Newline-delimited JSON for streaming |
+| Value | Spec ID | Description |
+|-------|---------|-------------|
+| `pretty` | `[OUTPUT-PRETTY]` | Human-readable console output with ANSI colors (default) |
+| `junit` | `[OUTPUT-JUNIT]` | JUnit XML for CI integration |
+| `json` | `[OUTPUT-JSON]` | One JSON object/array per result |
+| `ndjson` | `[OUTPUT-NDJSON]` | Newline-delimited JSON for streaming |
 
 ---
 
-## `cli-exit-codes` — Exit Codes
+## [CLI-EXIT-CODES] Exit codes
 
 | Code | Meaning |
 |------|---------|
@@ -179,11 +149,11 @@ napper lsp
 
 ---
 
-## Related Specs
+## Related specs
 
-- [File Formats](./FILE-FORMATS-SPEC.md) — `.nap`, `.napenv`, `.naplist` format specifications
-- [Scripting](./SCRIPTING-SPEC.md) — language-agnostic scripting model (F#, C#, JavaScript, Python), NapContext, NapRunner, the context protocol
-- [CLI Plan](../plans/CLI-PLAN.md) — Parser, project layout, implementation phases
-- [LSP Specification](./LSP-SPEC.md) — `napper lsp` subcommand: protocol, capabilities, transport
-- [LSP Plan](../plans/LSP-PLAN.md) — LSP implementation phases (same `napper` binary)
-- [OpenAPI Generation (CLI)](./CLI-OPENAPI-GENERATION.md) — Test suite generation from OpenAPI specs
+- [File Formats](./FILE-FORMATS-SPEC.md) — `.nap`, `.napenv`, `.naplist` formats
+- [Scripting](./SCRIPTING-SPEC.md) — language-agnostic scripting model, `NapContext`, the context protocol
+- [LSP Specification](./LSP-SPEC.md) — the `napper lsp` subcommand
+- [OpenAPI Generation (CLI)](./CLI-OPENAPI-GENERATION.md) — test-suite generation from OpenAPI specs
+- [HTTP Files](./HTTP-FILES-SPEC.md) — `.http` conversion
+- [CLI Plan](../plans/CLI-PLAN.md) — parser, project layout, implementation phases

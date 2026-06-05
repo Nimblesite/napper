@@ -140,7 +140,9 @@ let ``JS post-hook can read ctx.response status and json`` () =
         write
             dir
             "get.nap"
-            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./check.js\n")
+            ("[request]\nmethod = GET\nurl = "
+             + LocalHttpServer.baseUrl
+             + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./check.js\n")
 
         write
             dir
@@ -164,7 +166,9 @@ let ``JS post-hook ctx.fail fails an otherwise-passing request`` () =
         write
             dir
             "get.nap"
-            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./reject.js\n")
+            ("[request]\nmethod = GET\nurl = "
+             + LocalHttpServer.baseUrl
+             + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./reject.js\n")
 
         write dir "reject.js" "ctx.fail('POSTHOOK-FAIL-JS');"
         let exitCode, stdout, _ = runCli "run get.nap --output json" dir
@@ -184,7 +188,9 @@ let ``PY post-hook can read ctx.response status and json`` () =
         write
             dir
             "get.nap"
-            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./check.py\n")
+            ("[request]\nmethod = GET\nurl = "
+             + LocalHttpServer.baseUrl
+             + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./check.py\n")
 
         write
             dir
@@ -200,6 +206,29 @@ let ``PY post-hook can read ctx.response status and json`` () =
     finally
         cleanupDir dir
 
+// ─────────────────────────── [script] pre-hook reads ctx.request ───────────────────────────
+
+[<Fact>]
+let ``JS pre-hook can read ctx.request method and url`` () =
+    let dir = createTempDir ()
+
+    try
+        write
+            dir
+            "get.nap"
+            ("[request]\nmethod = GET\nurl = "
+             + LocalHttpServer.baseUrl
+             + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npre =./probe-req.js\n")
+
+        write dir "probe-req.js" "ctx.log('req ' + ctx.request.method + ' ' + ctx.request.url);"
+        let exitCode, stdout, _ = runCli "run get.nap --output json" dir
+        let r = firstResult stdout
+        Assert.Equal(0, exitCode)
+        Assert.True(r.GetProperty("passed").GetBoolean(), $"should pass. error={errorText r}")
+        Assert.Contains("req GET " + LocalHttpServer.baseUrl + "/posts/1", logText r)
+    finally
+        cleanupDir dir
+
 // ─────────────── [script] post-hook executes for .NET too (exit-code contract) ───────────────
 // ctx injection is JS/Python-only today, but the hook EXECUTION path is language-agnostic:
 // a .csx post-hook that exits non-zero must fail an otherwise-passing request.
@@ -212,7 +241,9 @@ let ``CSX post-hook nonzero exit fails an otherwise-passing request`` () =
         write
             dir
             "get.nap"
-            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost = ./reject.csx\n")
+            ("[request]\nmethod = GET\nurl = "
+             + LocalHttpServer.baseUrl
+             + "/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost = ./reject.csx\n")
 
         write dir "reject.csx" "Console.WriteLine(\"csx post hook ran\");\nEnvironment.Exit(1);"
         let exitCode, stdout, _ = runCli "run get.nap --output json" dir
@@ -234,7 +265,9 @@ let ``JS ctx.set makes a variable visible to a downstream nap step`` () =
         write
             dir
             "use.nap"
-            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n")
+            ("[request]\nmethod = GET\nurl = "
+             + LocalHttpServer.baseUrl
+             + "/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n")
 
         write dir "suite.naplist" "[steps]\nseed.js\nuse.nap\n"
         let exitCode, stdout, _ = runCli "run suite.naplist --output json" dir
@@ -262,7 +295,9 @@ let ``PY ctx.set makes a variable visible to a downstream nap step`` () =
         write
             dir
             "use.nap"
-            ("[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n")
+            ("[request]\nmethod = GET\nurl = "
+             + LocalHttpServer.baseUrl
+             + "/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n")
 
         write dir "suite.naplist" "[steps]\nseed.py\nuse.nap\n"
         let exitCode, stdout, _ = runCli "run suite.naplist --output json" dir

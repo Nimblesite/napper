@@ -42,7 +42,9 @@ let ``runNapFile full format GET with assertions`` () =
 
     try
         let nap =
-            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/get\n\n[assert]\nstatus = 200\nbody.url exists"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 200\nbody.url exists"
 
         let filePath = writeNapFile dir "full.nap" nap
         let result = Runner.runNapFile filePath Map.empty None |> Async.RunSynchronously
@@ -60,7 +62,9 @@ let ``runNapFile POST with body`` () =
 
     try
         let nap =
-            "[request]\nmethod = POST\nurl = " + LocalHttpServer.baseUrl + "/post\n\n[request.headers]\nContent-Type = application/json\n\n[request.body]\ncontent-type = application/json\n\"\"\"\n{\"key\": \"value\"}\n\"\"\"\n\n[assert]\nstatus = 200"
+            "[request]\nmethod = POST\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/post\n\n[request.headers]\nContent-Type = application/json\n\n[request.body]\ncontent-type = application/json\n\"\"\"\n{\"key\": \"value\"}\n\"\"\"\n\n[assert]\nstatus = 200"
 
         let filePath = writeNapFile dir "post.nap" nap
         let result = Runner.runNapFile filePath Map.empty None |> Async.RunSynchronously
@@ -77,7 +81,9 @@ let ``runNapFile wrong status assertion fails`` () =
 
     try
         let nap =
-            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/get\n\n[assert]\nstatus = 404"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 404"
 
         let filePath = writeNapFile dir "fail.nap" nap
         let result = Runner.runNapFile filePath Map.empty None |> Async.RunSynchronously
@@ -97,7 +103,9 @@ let ``runNapFile substitutes CLI variables`` () =
 
     try
         let nap =
-            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/status/{{code}}\n\n[assert]\nstatus = {{code}}"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/status/{{code}}\n\n[assert]\nstatus = {{code}}"
 
         let filePath = writeNapFile dir "vars.nap" nap
         let vars = Map.ofList [ "code", "200" ]
@@ -146,7 +154,9 @@ let ``runNapFile loads vars from napenv`` () =
         File.WriteAllText(Path.Combine(dir, ".napenv"), "code = 200\n")
 
         let nap =
-            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/status/{{code}}\n\n[assert]\nstatus = {{code}}"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/status/{{code}}\n\n[assert]\nstatus = {{code}}"
 
         let filePath = writeNapFile dir "env.nap" nap
         let result = Runner.runNapFile filePath Map.empty None |> Async.RunSynchronously
@@ -162,7 +172,9 @@ let ``runNapFile contains assertion on header`` () =
 
     try
         let nap =
-            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/get\n\n[assert]\nstatus = 200\nheaders.Content-Type contains json"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 200\nheaders.Content-Type contains json"
 
         let filePath = writeNapFile dir "hdr.nap" nap
         let result = Runner.runNapFile filePath Map.empty None |> Async.RunSynchronously
@@ -178,7 +190,9 @@ let ``runNapFile duration less than assertion`` () =
 
     try
         let nap =
-            "[request]\nmethod = GET\nurl = " + LocalHttpServer.baseUrl + "/get\n\n[assert]\nstatus = 200\nduration < 30000ms"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 200\nduration < 30000ms"
 
         let filePath = writeNapFile dir "dur.nap" nap
         let result = Runner.runNapFile filePath Map.empty None |> Async.RunSynchronously

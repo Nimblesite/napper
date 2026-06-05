@@ -66,7 +66,14 @@ let catalog =
         Replace = "Log = splitStdout stdout"
         Occurrences = 1
         KilledBy = "FullyQualifiedName~CtxScriptTests.JS step can read"
-        Desc = "ctx.log lines are dropped from the result" } ]
+        Desc = "ctx.log lines are dropped from the result" }
+      { Id = "request-method"
+        File = "src/Napper.Core/ScriptContext.fs"
+        Find = "w.WriteString(\"method\", req.Method.Name)"
+        Replace = "w.WriteString(\"method\", \"X\")"
+        Occurrences = 1
+        KilledBy = "FullyQualifiedName~CtxScriptTests.JS pre-hook can read ctx.request"
+        Desc = "ctx.request.method is corrupted" } ]
 
 // ─── Process helpers (ArgumentList: no shell-quoting of test filters with spaces) ──────
 
@@ -87,7 +94,13 @@ let private buildCli () =
     exec "dotnet" [ "build"; "src/Napper.Cli/Napper.Cli.fsproj"; "-c"; "Debug"; "--nologo" ]
 
 let private runKillingTest (filter: string) =
-    exec "dotnet" [ "test"; "src/Napper.Core.Tests/Napper.Core.Tests.fsproj"; "--filter"; filter; "--nologo" ]
+    exec
+        "dotnet"
+        [ "test"
+          "src/Napper.Core.Tests/Napper.Core.Tests.fsproj"
+          "--filter"
+          filter
+          "--nologo" ]
 
 // ─── Crash-safe file mutation (snapshot to <file>.mutbak, always restore) ───────────────
 
@@ -168,10 +181,7 @@ let results =
         printfn "%s" label
         m, outcome)
 
-let killed =
-    results
-    |> List.filter (fun (_, o) -> o <> Survived)
-    |> List.length
+let killed = results |> List.filter (fun (_, o) -> o <> Survived) |> List.length
 
 let total = results.Length
 let score = float killed / float total * 100.0
@@ -181,7 +191,10 @@ let survivors = results |> List.filter (fun (_, o) -> o = Survived)
 
 if not (List.isEmpty survivors) then
     printfn "\nSURVIVED mutants (tests do NOT enforce these behaviours):"
-    survivors |> List.iter (fun (m, _) -> printfn "  - %s: %s (expected kill by: %s)" m.Id m.Desc m.KilledBy)
+
+    survivors
+    |> List.iter (fun (m, _) -> printfn "  - %s: %s (expected kill by: %s)" m.Id m.Desc m.KilledBy)
+
     exit 1
 else
     printfn "All mutants killed — every catalogued behaviour is enforced by a test."

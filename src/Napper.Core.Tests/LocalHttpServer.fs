@@ -33,8 +33,7 @@ let private StatusPrefix = "/status/"
 [<Literal>]
 let private PostsPrefix = "/posts/"
 
-let private serialize (payload: obj) : string =
-    JsonSerializer.Serialize(payload)
+let private serialize (payload: obj) : string = JsonSerializer.Serialize(payload)
 
 /// Echo request headers as a plain string map (httpbin returns the inbound headers).
 let private headerMap (req: HttpListenerRequest) : Dictionary<string, string> =
@@ -146,20 +145,36 @@ let private freePort () : int =
     probe.Stop()
     port
 
+[<Literal>]
+let private AcceptorCount = 24
+
+/// One acceptor: block on GetContext and handle inline, forever. Runs on a DEDICATED
+/// thread (not the thread pool) because the full suite saturates the pool with
+/// subprocess WaitForExit calls — a starved pool would delay accepts and surface as
+/// dropped/refused connections, i.e. flaky request failures.
+let private acceptLoop (listener: HttpListener) () : unit =
+    let mutable running = true
+
+    while running do
+        try
+            handle (listener.GetContext())
+        with
+        | :? HttpListenerException -> running <- false
+        | :? ObjectDisposedException -> running <- false
+        | _ -> ()
+
 let private startServer () : string =
     let port = freePort ()
     let listener = new HttpListener()
     listener.Prefixes.Add($"http://127.0.0.1:{port}/")
     listener.Start()
 
-    let rec loop () =
-        async {
-            let! ctx = listener.GetContextAsync() |> Async.AwaitTask
-            async { handle ctx } |> Async.Start
-            return! loop ()
-        }
+    for i in 1..AcceptorCount do
+        let t = System.Threading.Thread(System.Threading.ThreadStart(acceptLoop listener))
+        t.IsBackground <- true
+        t.Name <- $"local-http-acceptor-{i}"
+        t.Start()
 
-    loop () |> Async.Start
     $"http://127.0.0.1:{port}"
 
 /// Base URL (no trailing slash). Forces the listener to start on first reference.
