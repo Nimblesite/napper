@@ -9,7 +9,20 @@ Scripts are external files referenced by relative path from the `[script]` secti
 - `script-js` — JavaScript scripts (`.js` / `.mjs`) executed via Node.js
 - `script-py` — Python scripts (`.py`) executed via Python 3
 
-Every language sees the **same** `ctx` (request/response context) and `nap` (orchestration runner) surface, defined once by the language-agnostic context protocol (`script-protocol`) and exposed through a thin per-language client library (`script-sdk`). There is no "preferred" language — `.fsx` and `.csx` are genuinely nice, but a JavaScript or Python shop never has to touch .NET to script Napper.
+There is no "preferred" language — `.fsx` and `.csx` are genuinely nice, but a JavaScript or Python shop never has to touch .NET to script Napper.
+
+> **Implementation status.** This spec describes the full intended design. What ships today vs. what is planned:
+>
+> | Capability | Status |
+> |---|---|
+> | Script steps + `[script]` pre/post hook execution, dispatched by extension (`script-dispatch`, `script-fsx`, `script-csx`, `script-js`, `script-py`) | **Shipped** — pass/fail by process exit code; stdout captured |
+> | Injected `ctx` in **JavaScript & Python** (`script-context`): `env`, `vars`, `request`, `response`, `set`, `fail`, `log` | **Shipped** — injected as a global; `ctx.set` threads to downstream steps |
+> | Context protocol (`script-protocol-in` / `script-protocol-out`) over `NAPPER_CONTEXT` / `NAPPER_RESULT` temp files | **Shipped** |
+> | `ctx` for **F# / C#** | **Planned** — F#/C# scripts run as exit-code steps/hooks; no `ctx` is injected yet |
+> | `nap` / `runner` orchestration (`script-orchestration`, `script-runner`): `run`, `runList`, `vars`, `NAPPER_BIN` | **Planned** — not implemented |
+> | Published SDK packages (`@nimblesite/napper`, PyPI `napper`) and `import`-based access (`script-sdk`) | **Planned** — `ctx` is injected as a global today; there is no `import` and no published package |
+>
+> Anything marked **Planned** is not yet available. The verified behaviour is exercised by `CtxScriptTests` (black-box, through the CLI).
 
 ---
 

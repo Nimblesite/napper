@@ -332,7 +332,9 @@ let private executeWithPost
         let! response = executeRequest resolved.Request
         let assertionResults = evaluateAssertions resolved.Assertions response
         let assertionsPassed = assertionResults |> List.forall (fun r -> r.Passed)
-        Logger.info $"Assertions: {assertionResults |> List.filter (fun r -> r.Passed) |> List.length}/{assertionResults.Length} passed"
+
+        Logger.info
+            $"Assertions: {assertionResults |> List.filter (fun r -> r.Passed) |> List.length}/{assertionResults.Length} passed"
 
         let! post =
             match postRel with
@@ -345,7 +347,10 @@ let private executeWithPost
 
         let postPassed = post |> Option.forall (fun p -> p.Passed)
         let postLogs = post |> Option.map (fun p -> p.Log) |> Option.defaultValue []
-        let postVars = post |> Option.map (fun p -> p.SetVars) |> Option.defaultValue Map.empty
+
+        let postVars =
+            post |> Option.map (fun p -> p.SetVars) |> Option.defaultValue Map.empty
+
         let postError = post |> Option.bind (fun p -> if p.Passed then None else p.Error)
 
         return
@@ -409,7 +414,9 @@ let runNapFile (filePath: string) (vars: Map<string, string>) (envName: string o
                         Log = p.Log
                         SetVars = p.SetVars }
             | _ ->
-                let preVars = pre |> Option.map (fun p -> p.SetVars) |> Option.defaultValue Map.empty
+                let preVars =
+                    pre |> Option.map (fun p -> p.SetVars) |> Option.defaultValue Map.empty
+
                 let preLogs = pre |> Option.map (fun p -> p.Log) |> Option.defaultValue []
                 let mergedVars = mergeVars allVars preVars
                 let resolved = Environment.resolveNapFile mergedVars napFile

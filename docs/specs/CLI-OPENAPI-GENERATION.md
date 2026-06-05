@@ -59,7 +59,8 @@ generated   = true
 userId = "REPLACE_ME"
 
 [request]
-GET {{baseUrl}}/users/{{userId}}
+method = GET
+url = {{baseUrl}}/users/{{userId}}
 
 [request.headers]
 Authorization = Bearer {{token}}
@@ -172,7 +173,8 @@ generated   = true
 userId = "nonexistent-id"
 
 [request]
-GET {{baseUrl}}/users/{{userId}}
+method = GET
+url = {{baseUrl}}/users/{{userId}}
 
 [assert]
 status = 404

@@ -8,6 +8,8 @@
     <Compile Include="TestHelpers.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="HttpMethodTests.fs" />
+    <Compile Include="CurlGeneratorTests.fs" />
+    <Compile Include="SectionScannerTests.fs" />
     <Compile Include="ParserEdgeCaseTests.fs" />
     <Compile Include="AssertionEdgeCaseTests.fs" />
     <Compile Include="EnvironmentEdgeCaseTests.fs" />

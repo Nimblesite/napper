@@ -19,9 +19,13 @@ open Xunit
 let private runCli args cwd =
     TestHelpers.runCliWithTimeout TestHelpers.ScriptTimeoutMs args cwd
 
-let private createTempDir () = TestHelpers.createTempDir "nap-ctx-test"
+let private createTempDir () =
+    TestHelpers.createTempDir "nap-ctx-test"
+
 let private cleanupDir dir = TestHelpers.cleanupDir dir
-let private write (dir: string) (name: string) (content: string) = File.WriteAllText(Path.Combine(dir, name), content)
+
+let private write (dir: string) (name: string) (content: string) =
+    File.WriteAllText(Path.Combine(dir, name), content)
 
 /// Parse a `--output json` document and return the first result element
 /// (single results are objects; playlists are arrays — normalise to the element we want).
@@ -33,7 +37,8 @@ let private firstResult (stdout: string) : JsonElement =
     else
         root
 
-let private resultAt (stdout: string) (index: int) : JsonElement = JsonDocument.Parse(stdout).RootElement[index]
+let private resultAt (stdout: string) (index: int) : JsonElement =
+    JsonDocument.Parse(stdout).RootElement[index]
 
 let private logText (el: JsonElement) : string =
     let log = el.GetProperty("log")
@@ -55,7 +60,10 @@ let ``JS step can read ctx.env and ctx.vars and write ctx.log`` () =
     try
         write dir "probe.js" "ctx.log('env=' + ctx.env + ' marker=' + ctx.vars.marker);"
         write dir "suite.naplist" "[steps]\nprobe.js\n"
-        let exitCode, stdout, _ = runCli "run suite.naplist --output json --env staging --var marker=CTXVAR123" dir
+
+        let exitCode, stdout, _ =
+            runCli "run suite.naplist --output json --env staging --var marker=CTXVAR123" dir
+
         let r = firstResult stdout
         Assert.Equal(0, exitCode)
         Assert.True(r.GetProperty("passed").GetBoolean(), $"step should pass. error={errorText r}")
@@ -70,7 +78,10 @@ let ``PY step can read ctx.env and ctx.vars and write ctx.log`` () =
     try
         write dir "probe.py" "ctx.log('env=' + ctx.env + ' marker=' + ctx.vars['marker'])"
         write dir "suite.naplist" "[steps]\nprobe.py\n"
-        let exitCode, stdout, _ = runCli "run suite.naplist --output json --env staging --var marker=CTXVAR123" dir
+
+        let exitCode, stdout, _ =
+            runCli "run suite.naplist --output json --env staging --var marker=CTXVAR123" dir
+
         let r = firstResult stdout
         Assert.Equal(0, exitCode)
         Assert.True(r.GetProperty("passed").GetBoolean(), $"step should pass. error={errorText r}")
@@ -126,7 +137,7 @@ let ``JS post-hook can read ctx.response status and json`` () =
         write
             dir
             "get.nap"
-            "[request]\nGET https://jsonplaceholder.typicode.com/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost = ./check.js\n"
+            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./check.js\n"
 
         write
             dir
@@ -149,7 +160,7 @@ let ``JS post-hook ctx.fail fails an otherwise-passing request`` () =
         write
             dir
             "get.nap"
-            "[request]\nGET https://jsonplaceholder.typicode.com/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost = ./reject.js\n"
+            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./reject.js\n"
 
         write dir "reject.js" "ctx.fail('POSTHOOK-FAIL-JS');"
         let exitCode, stdout, _ = runCli "run get.nap --output json" dir
@@ -169,7 +180,7 @@ let ``PY post-hook can read ctx.response status and json`` () =
         write
             dir
             "get.nap"
-            "[request]\nGET https://jsonplaceholder.typicode.com/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost = ./check.py\n"
+            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost =./check.py\n"
 
         write
             dir
@@ -181,6 +192,28 @@ let ``PY post-hook can read ctx.response status and json`` () =
         Assert.Equal(0, exitCode)
         Assert.True(r.GetProperty("passed").GetBoolean(), $"should pass. error={errorText r}")
         Assert.Contains("post-ok id=1", logText r)
+    finally
+        cleanupDir dir
+
+// ─────────────── [script] post-hook executes for .NET too (exit-code contract) ───────────────
+// ctx injection is JS/Python-only today, but the hook EXECUTION path is language-agnostic:
+// a .csx post-hook that exits non-zero must fail an otherwise-passing request.
+
+[<Fact>]
+let ``CSX post-hook nonzero exit fails an otherwise-passing request`` () =
+    let dir = createTempDir ()
+
+    try
+        write
+            dir
+            "get.nap"
+            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/1\n\n[assert]\nstatus = 200\n\n[script]\npost = ./reject.csx\n"
+
+        write dir "reject.csx" "Console.WriteLine(\"csx post hook ran\");\nEnvironment.Exit(1);"
+        let exitCode, stdout, _ = runCli "run get.nap --output json" dir
+        let r = firstResult stdout
+        Assert.Equal(1, exitCode)
+        Assert.False(r.GetProperty("passed").GetBoolean())
     finally
         cleanupDir dir
 
@@ -196,7 +229,7 @@ let ``JS ctx.set makes a variable visible to a downstream nap step`` () =
         write
             dir
             "use.nap"
-            "[request]\nGET https://jsonplaceholder.typicode.com/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n"
+            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n"
 
         write dir "suite.naplist" "[steps]\nseed.js\nuse.nap\n"
         let exitCode, stdout, _ = runCli "run suite.naplist --output json" dir
@@ -204,7 +237,12 @@ let ``JS ctx.set makes a variable visible to a downstream nap step`` () =
         let seedR = resultAt stdout 0
         let useR = resultAt stdout 1
         Assert.True(seedR.GetProperty("passed").GetBoolean())
-        Assert.True(useR.GetProperty("passed").GetBoolean(), $"downstream step should see seededId. error={errorText useR}")
+
+        Assert.True(
+            useR.GetProperty("passed").GetBoolean(),
+            $"downstream step should see seededId. error={errorText useR}"
+        )
+
         Assert.Equal(200, useR.GetProperty("statusCode").GetInt32())
     finally
         cleanupDir dir
@@ -219,7 +257,7 @@ let ``PY ctx.set makes a variable visible to a downstream nap step`` () =
         write
             dir
             "use.nap"
-            "[request]\nGET https://jsonplaceholder.typicode.com/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n"
+            "[request]\nmethod = GET\nurl = https://jsonplaceholder.typicode.com/posts/{{seededId}}\n\n[assert]\nstatus = 200\nbody.id = {{seededId}}\n"
 
         write dir "suite.naplist" "[steps]\nseed.py\nuse.nap\n"
         let exitCode, stdout, _ = runCli "run suite.naplist --output json" dir
@@ -227,7 +265,12 @@ let ``PY ctx.set makes a variable visible to a downstream nap step`` () =
         let seedR = resultAt stdout 0
         let useR = resultAt stdout 1
         Assert.True(seedR.GetProperty("passed").GetBoolean())
-        Assert.True(useR.GetProperty("passed").GetBoolean(), $"downstream step should see seededId. error={errorText useR}")
+
+        Assert.True(
+            useR.GetProperty("passed").GetBoolean(),
+            $"downstream step should see seededId. error={errorText useR}"
+        )
+
         Assert.Equal(200, useR.GetProperty("statusCode").GetInt32())
     finally
         cleanupDir dir

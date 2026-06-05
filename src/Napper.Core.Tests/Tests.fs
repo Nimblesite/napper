@@ -425,7 +425,8 @@ let ``JSON output includes log field for script results`` () =
           Assertions = []
           Passed = true
           Error = None
-          Log = [ "[setup] Seeded data"; "[setup] Done" ] }
+          Log = [ "[setup] Seeded data"; "[setup] Done" ]
+          SetVars = Map.empty }
 
     let json = Output.formatJson result
     let doc = System.Text.Json.JsonDocument.Parse(json)
@@ -462,7 +463,8 @@ let ``JSON output omits log field when empty`` () =
           Assertions = []
           Passed = true
           Error = None
-          Log = [] }
+          Log = []
+          SetVars = Map.empty }
 
     let json = Output.formatJson result
     let doc = System.Text.Json.JsonDocument.Parse(json)
@@ -500,7 +502,8 @@ let ``JUnit output is valid XML`` () =
                 Actual = "200" } ]
           Passed = true
           Error = None
-          Log = [] }
+          Log = []
+          SetVars = Map.empty }
 
     let xml = Output.formatJUnit [ result ]
     Assert.Contains("<?xml", xml)
@@ -529,7 +532,8 @@ let ``JSON output is parseable`` () =
           Assertions = []
           Passed = true
           Error = None
-          Log = [] }
+          Log = []
+          SetVars = Map.empty }
 
     let json = Output.formatJson result
     let doc = System.Text.Json.JsonDocument.Parse(json)

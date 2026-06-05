@@ -10,7 +10,7 @@ eleventyNavigation:
 
 # .naplist Playlists (spec: naplist-file)
 
-A `.naplist` file defines an ordered sequence of steps to execute. Steps can be `.nap` files, folders, other playlists, or F#/C# scripts.
+A `.naplist` file defines an ordered sequence of steps to execute. Steps can be `.nap` files, folders, other playlists, or scripts in JavaScript, Python, F#, or C#.
 
 ## Basic format (spec: naplist-meta, naplist-steps)
 
@@ -83,7 +83,7 @@ Nesting is recursive — playlists can reference other playlists.
 
 ### Scripts (spec: naplist-script-step)
 
-Run an orchestration script in any supported language — a single playlist can mix them:
+Run a script in any supported language — dispatch is by extension, so a single playlist can mix them freely:
 
 ```
 ./scripts/seed-data.js
@@ -92,11 +92,11 @@ Run an orchestration script in any supported language — a single playlist can 
 ./scripts/setup.csx
 ```
 
-Scripts can use the injected `nap` runner (`NapRunner`) to run requests and playlists programmatically. See the [Scripting Overview](/docs/scripting/), or the [JavaScript](/docs/javascript-scripting/), [Python](/docs/python-scripting/), [F#](/docs/fsharp-scripting/), and [C#](/docs/csharp-scripting/) guides.
+Each script runs as a step and passes or fails by exit code; its stdout is captured into the run output. In **JavaScript and Python**, an injected `ctx` object lets a step set variables for later steps and fail the run with a message. See the [Scripting Overview](/docs/scripting/), or the [JavaScript](/docs/javascript-scripting/), [Python](/docs/python-scripting/), [F#](/docs/fsharp-scripting/), and [C#](/docs/csharp-scripting/) guides.
 
 ## Variables (spec: naplist-var-scope)
 
-Variables defined in `[vars]` are available to all steps. Steps can also set variables for downstream steps using scripts in any supported language (`ctx.set` / `nap.vars`).
+Variables defined in `[vars]` are available to all steps. A JavaScript or Python step can also set a variable for downstream steps with `ctx.set(key, value)`.
 
 ## Running playlists
 

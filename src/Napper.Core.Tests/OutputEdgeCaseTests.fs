@@ -24,7 +24,8 @@ let private makeResult file passed statusCode body assertions error log : NapRes
       Assertions = assertions
       Passed = passed
       Error = error
-      Log = log }
+      Log = log
+      SetVars = Map.empty }
 
 let private passedAssertion target expected : AssertionResult =
     { Assertion =

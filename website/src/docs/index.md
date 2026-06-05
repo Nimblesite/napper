@@ -10,7 +10,7 @@ eleventyNavigation:
 
 # Introduction
 
-![Screenshot: Napper VS Code extension showing the request explorer panel, syntax-highlighted .nap file, and response viewer with JSON body and assertion results](introduction-overview.png)
+![Screenshot: Napper VS Code extension showing the request explorer panel, syntax-highlighted .nap file, and response viewer with JSON body and assertion results](/assets/images/docs/introduction-overview.png)
 
 **Napper** is a free, open-source, CLI-first API testing tool for anyone testing APIs. It integrates natively with VS Code and Zed, and works in any editor through a portable language server. It is a modern alternative to Postman, Bruno, `.http` files, and curl.
 
@@ -48,7 +48,8 @@ Add headers, bodies, assertions, and environment variables (spec: nap-full):
 name = Create user
 
 [request]
-POST {{baseUrl}}/users
+method = POST
+url = {{baseUrl}}/users
 
 [request.headers]
 Content-Type = application/json
@@ -84,7 +85,7 @@ The converter maps variables to `.napenv` files, preserves request names, and co
 
 Napper is not a GUI-first tool with a CLI bolted on. The CLI is the primary interface. The VS Code extension operates on the same files and provides the same features in your editor. This means your API tests work the same way locally and in CI/CD, with no import/export step.
 
-![Screenshot: Napper CLI running a .naplist test suite, displaying coloured pass/fail output for each assertion across multiple endpoints](introduction-cli-output.png)
+![Screenshot: Napper CLI running a .naplist test suite, displaying coloured pass/fail output for each assertion across multiple endpoints](/assets/images/docs/introduction-cli-output.png)
 
 ## Next steps
 

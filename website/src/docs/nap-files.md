@@ -33,7 +33,8 @@ tags = users, smoke
 userId = 1
 
 [request]
-GET {{baseUrl}}/users/{{userId}}
+method = GET
+url = {{baseUrl}}/users/{{userId}}
 
 [request.headers]
 Authorization = Bearer {{token}}
@@ -47,7 +48,7 @@ body.email exists
 duration < 1000ms
 
 [script]
-post = ./scripts/log-response.fsx
+post = ./scripts/log-response.js
 ```
 {% endraw %}
 
@@ -74,13 +75,17 @@ baseUrl = https://api.example.com
 
 ### `[request]` (spec: nap-request)
 
-The HTTP method and URL. This is the only required part of a `.nap` file.
+The HTTP method and URL. This is the only required part of a `.nap` file — give the `method` and `url` as separate keys:
 
 {% raw %}
 ```
-GET {{baseUrl}}/users/{{userId}}
+[request]
+method = GET
+url = {{baseUrl}}/users/{{userId}}
 ```
 {% endraw %}
+
+(The one-line `GET https://...` shown under [Minimal format](#minimal-format-spec-nap-minimal) is shorthand for a whole file with no other sections.)
 
 Supported methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` (spec: http-methods).
 
@@ -116,15 +121,15 @@ Declarative assertions on the response. See [Assertions](/docs/assertions/) for 
 
 ### `[script]` (spec: nap-script)
 
-References to F# or C# scripts that run before or after the request.
+References to scripts that run before (`pre`) or after (`post`) the request. Scripts can be JavaScript, Python, F#, or C# — dispatch is by extension, and a hook fails its request step if the script exits non-zero.
 
 ```
 [script]
-pre = ./scripts/setup.fsx
-post = ./scripts/validate.csx
+pre = ./scripts/setup.js
+post = ./scripts/validate.py
 ```
 
-See [F# Scripting](/docs/fsharp-scripting/) and [C# Scripting](/docs/csharp-scripting/) for details.
+In JavaScript and Python, a `post` hook can read the response and chain values through the injected `ctx` object. See the [Scripting Overview](/docs/scripting/) and the [JavaScript](/docs/javascript-scripting/), [Python](/docs/python-scripting/), [F#](/docs/fsharp-scripting/), and [C#](/docs/csharp-scripting/) guides.
 
 ## Variable interpolation (spec: env-interpolation)
 
@@ -143,5 +148,6 @@ Lines starting with `#` are comments:
 ```
 # This is a comment
 [request]
-GET https://api.example.com/health
+method = GET
+url = https://api.example.com/health
 ```

@@ -70,8 +70,10 @@ let private phaseName =
 
 let private writeMap (w: Utf8JsonWriter) (name: string) (map: Map<string, string>) =
     w.WriteStartObject(name)
+
     for kv in map do
         w.WriteString(kv.Key, kv.Value)
+
     w.WriteEndObject()
 
 let private writeRequest (w: Utf8JsonWriter) (req: NapRequest) =
@@ -274,7 +276,10 @@ let private quote (p: string) = "\"" + p + "\""
 /// the NAPPER_CONTEXT/NAPPER_RESULT env vars (the SDK for them lands in a later phase).
 let prepare (inv: Invocation) (scriptPath: string) (exe: string) (args: string) : LaunchPlan =
     let stamp = Guid.NewGuid().ToString("N")
-    let tmp (name: string) = Path.Combine(Path.GetTempPath(), $"nap-ctx-{stamp}-{name}")
+
+    let tmp (name: string) =
+        Path.Combine(Path.GetTempPath(), $"nap-ctx-{stamp}-{name}")
+
     let contextPath = tmp "context.json"
     let resultPath = tmp "result.json"
     writeContextFile inv contextPath

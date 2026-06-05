@@ -152,58 +152,80 @@ let private mergeVars (playlist: NapPlaylist) (cliVars: Map<string, string>) : M
 
     v
 
-/// Collect results from playlist steps recursively
+/// Collect results from playlist steps recursively, threading ctx.set vars forward.
+/// Each step's NapResult.SetVars is merged into the variable scope seen by every later step,
+/// so a script's `ctx.set(k, v)` reaches downstream .nap steps (naplist-var-scope, script-protocol-out).
 let rec private collectSteps
     (steps: PlaylistStep list)
     (vars: Map<string, string>)
     (baseDir: string)
     (env: string option)
-    : NapResult list =
-    steps
-    |> List.collect (fun step ->
-        let full p =
-            Path.GetFullPath(Path.Combine(baseDir, p))
+    : NapResult list * Map<string, string> =
+    let full p =
+        Path.GetFullPath(Path.Combine(baseDir, p))
 
+    (([], vars), steps)
+    ||> List.fold (fun (acc, v) step ->
         match step with
-        | NapFileStep p -> [ Runner.runNapFile (full p) vars env |> Async.RunSynchronously ]
+        | NapFileStep p ->
+            let r = Runner.runNapFile (full p) v env |> Async.RunSynchronously
+            acc @ [ r ], Runner.mergeVars v r.SetVars
+        | ScriptStep p ->
+            let r = Runner.runScriptStep v env (full p) |> Async.RunSynchronously
+            acc @ [ r ], Runner.mergeVars v r.SetVars
         | FolderRef p ->
-            Directory.GetFiles(full p, "*.nap")
-            |> Array.sort
-            |> Array.map (fun f -> Runner.runNapFile f vars env |> Async.RunSynchronously)
-            |> Array.toList
+            ((acc, v), Directory.GetFiles(full p, "*.nap") |> Array.sort)
+            ||> Array.fold (fun (a, vv) f ->
+                let r = Runner.runNapFile f vv env |> Async.RunSynchronously
+                a @ [ r ], Runner.mergeVars vv r.SetVars)
         | PlaylistRef p ->
             let fp = full p
 
             match File.ReadAllText(fp) |> Parser.parseNapList with
-            | Result.Ok nested -> collectSteps nested.Steps vars (Path.GetDirectoryName fp) env
-            | Result.Error _ -> []
-        | ScriptStep p -> [ Runner.runScript (full p) |> Async.RunSynchronously ])
+            | Result.Ok nested ->
+                let nestedResults, nestedVars =
+                    collectSteps nested.Steps v (Path.GetDirectoryName fp) env
 
-/// Stream playlist steps as ndjson, return whether all passed
+                acc @ nestedResults, nestedVars
+            | Result.Error _ -> acc, v)
+
+/// Stream playlist steps as ndjson, threading ctx.set vars forward; returns whether all passed.
+/// Stops at the first failing step (matching the prior forall behaviour).
 let rec private streamSteps
     (steps: PlaylistStep list)
     (vars: Map<string, string>)
     (baseDir: string)
     (env: string option)
-    : bool =
-    steps
-    |> List.forall (fun step ->
-        let full p =
-            Path.GetFullPath(Path.Combine(baseDir, p))
+    : bool * Map<string, string> =
+    let full p =
+        Path.GetFullPath(Path.Combine(baseDir, p))
 
-        match step with
-        | NapFileStep p -> Runner.runNapFile (full p) vars env |> Async.RunSynchronously |> printNdjson
-        | FolderRef p ->
-            Directory.GetFiles(full p, "*.nap")
-            |> Array.sort
-            |> Array.forall (fun f -> Runner.runNapFile f vars env |> Async.RunSynchronously |> printNdjson)
-        | PlaylistRef p ->
-            let fp = full p
+    ((true, vars), steps)
+    ||> List.fold (fun (ok, v) step ->
+        if not ok then
+            (false, v)
+        else
+            match step with
+            | NapFileStep p ->
+                let r = Runner.runNapFile (full p) v env |> Async.RunSynchronously
+                printNdjson r, Runner.mergeVars v r.SetVars
+            | ScriptStep p ->
+                let r = Runner.runScriptStep v env (full p) |> Async.RunSynchronously
+                printNdjson r, Runner.mergeVars v r.SetVars
+            | FolderRef p ->
+                ((ok, v), Directory.GetFiles(full p, "*.nap") |> Array.sort)
+                ||> Array.fold (fun (o, vv) f ->
+                    if not o then
+                        (false, vv)
+                    else
+                        let r = Runner.runNapFile f vv env |> Async.RunSynchronously
+                        printNdjson r, Runner.mergeVars vv r.SetVars)
+            | PlaylistRef p ->
+                let fp = full p
 
-            match File.ReadAllText(fp) |> Parser.parseNapList with
-            | Result.Ok nested -> streamSteps nested.Steps vars (Path.GetDirectoryName fp) env
-            | Result.Error _ -> false
-        | ScriptStep p -> Runner.runScript (full p) |> Async.RunSynchronously |> printNdjson)
+                match File.ReadAllText(fp) |> Parser.parseNapList with
+                | Result.Ok nested -> streamSteps nested.Steps v (Path.GetDirectoryName fp) env
+                | Result.Error _ -> false, v)
 
 /// Run a .naplist playlist
 let private runPlaylist (args: CliArgs) (filePath: string) : int =
@@ -221,8 +243,12 @@ let private runPlaylist (args: CliArgs) (filePath: string) : int =
         let vars = mergeVars playlist args.Vars
 
         match args.Output with
-        | "ndjson" -> if streamSteps playlist.Steps vars dir env then 0 else 1
-        | _ -> collectSteps playlist.Steps vars dir env |> formatAndExit args.Output
+        | "ndjson" ->
+            if streamSteps playlist.Steps vars dir env |> fst then
+                0
+            else
+                1
+        | _ -> collectSteps playlist.Steps vars dir env |> fst |> formatAndExit args.Output
 
 /// Run a single .nap file
 let private runSingleNap (args: CliArgs) (filePath: string) : int =

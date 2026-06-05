@@ -1,0 +1,7 @@
+[meta]
+name = "ctx demo (Python)"
+description = "seed.py sets postId via ctx.set; get-post-py.nap consumes it and validates with a Python post hook"
+
+[steps]
+./seed.py
+./get-post-py.nap

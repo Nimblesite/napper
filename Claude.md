@@ -21,7 +21,7 @@
 - **Keep files under 450 LOC and functions under 20 LOC**
 - **No commented-out code** - Delete it
 - **No placeholders** - If incomplete, leave LOUD compilation error with TODO
-- **Spec IDs are hierarchical, descriptive, and non-numeric.** Every spec section MUST have a unique ID in the format `[GROUP-TOPIC]` or `[GROUP-TOPIC-DETAIL]` (e.g., `[CLI-PARSE-NAP]`, `[LSP-COMPLETION-VARS]`, `[HTTP-REQ-HEADERS]`). The first word is the **group** — all sections in the same group MUST be adjacent in the spec's TOC. NEVER use sequential numbers like `[SPEC-001]`. All code, tests, and design docs that implement a spec section MUST reference its ID in a comment (e.g., `// Implements [LSP-COMPLETION-VARS]`).
+- **Spec IDs are uniquem hierarchical, descriptive, and non-numeric.** Every spec section MUST have a unique ID in the format `[GROUP-TOPIC]` or `[GROUP-TOPIC-DETAIL]` (e.g., `[CLI-PARSE-NAP]`, `[LSP-COMPLETION-VARS]`, `[HTTP-REQ-HEADERS]`). The first word is the **group** — all sections in the same group MUST be adjacent in the spec's TOC. NEVER use sequential numbers like `[SPEC-001]`. All code, tests, and design docs that implement a spec section MUST reference its ID in a comment (e.g., `// Implements [LSP-COMPLETION-VARS]`).
 
 ### Rust
 - Keep files under 500 LOC

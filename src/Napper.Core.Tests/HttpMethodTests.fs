@@ -30,3 +30,20 @@ let ``HEAD.ToNetMethod returns HttpMethod.Head`` () =
 [<Fact>]
 let ``OPTIONS.ToNetMethod returns HttpMethod.Options`` () =
     Assert.Equal(System.Net.Http.HttpMethod.Options, OPTIONS.ToNetMethod())
+
+// .Name is the single source of truth for verb rendering across CLI, curl, and LSP.
+// Covers every branch of HttpMethodExtensions.Name (Implements [http-methods]).
+[<Fact>]
+let ``Name returns the uppercase verb for every method`` () =
+    Assert.Equal("GET", GET.Name)
+    Assert.Equal("POST", POST.Name)
+    Assert.Equal("PUT", PUT.Name)
+    Assert.Equal("PATCH", PATCH.Name)
+    Assert.Equal("DELETE", DELETE.Name)
+    Assert.Equal("HEAD", HEAD.Name)
+    Assert.Equal("OPTIONS", OPTIONS.Name)
+
+[<Fact>]
+let ``Name and ToNetMethod agree on the verb string for every method`` () =
+    for m in [ GET; POST; PUT; PATCH; DELETE; HEAD; OPTIONS ] do
+        Assert.Equal(m.ToNetMethod().Method, m.Name)
