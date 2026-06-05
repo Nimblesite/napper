@@ -24,7 +24,7 @@ let private runCli args cwd =
 let private writeNap (dir: string) (content: string) : unit =
     File.WriteAllText(Path.Combine(dir, "real.nap"), content)
 
-// ─── Real GET against jsonplaceholder ───────────────────────── Spec: cli-run, nap-assert
+// ─── Real GET against jsonplaceholder ───────────────────────── Spec: [CLI-RUN], [NAP-ASSERT]
 
 [<Fact>]
 let ``REAL jsonplaceholder GET returns post 1 with the documented shape`` () =
@@ -57,7 +57,7 @@ let ``REAL jsonplaceholder GET returns post 1 with the documented shape`` () =
     finally
         TestHelpers.cleanupDir dir
 
-// ─── Real POST against jsonplaceholder ──────────────────────── Spec: cli-run, nap-body
+// ─── Real POST against jsonplaceholder ──────────────────────── Spec: [CLI-RUN], [NAP-BODY]
 
 [<Fact>]
 let ``REAL jsonplaceholder POST creates a resource and echoes it`` () =

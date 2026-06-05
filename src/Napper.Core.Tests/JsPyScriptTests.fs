@@ -23,7 +23,7 @@ let private cleanupScript (path: string) =
     if File.Exists(path) then
         File.Delete(path)
 
-// ─── JavaScript execution ───────────────── Spec: script-js
+// ─── JavaScript execution ───────────────── Spec: [SCRIPT-JS]
 
 [<Fact>]
 let ``JS script runs via node and captures output`` () =
@@ -87,7 +87,7 @@ let ``MJS module extension also runs via node`` () =
     finally
         cleanupScript path
 
-// ─── Python execution ───────────────────── Spec: script-py
+// ─── Python execution ───────────────────── Spec: [SCRIPT-PY]
 
 [<Fact>]
 let ``PY script runs via python3 and captures output`` () =
@@ -142,7 +142,7 @@ let ``PY script with raised exception fails`` () =
     finally
         cleanupScript path
 
-// ─── Step classification ────────────────── Spec: naplist-script-step, script-dispatch
+// ─── Step classification ────────────────── Spec: [NAPLIST-SCRIPT-STEP], [SCRIPT-DISPATCH]
 
 let private stepsOf (naplist: string) : PlaylistStep list =
     match Parser.parseNapList naplist with
@@ -163,7 +163,7 @@ let ``Naplist classifies js py mjs cjs as ScriptStep not NapFileStep`` () =
     Assert.Equal<PlaylistStep>(ScriptStep "./f.csx", steps[5])
     Assert.Equal<PlaylistStep>(NapFileStep "./g.nap", steps[6])
 
-// ─── Dispatch table ─────────────────────── Spec: script-dispatch, script-runtime
+// ─── Dispatch table ─────────────────────── Spec: [SCRIPT-DISPATCH], [SCRIPT-RUNTIME]
 
 [<Fact>]
 let ``Dispatch resolves each extension to the correct runtime`` () =

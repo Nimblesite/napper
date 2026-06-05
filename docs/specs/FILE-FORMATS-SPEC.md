@@ -158,6 +158,8 @@ A `.naplist` is an explicit ordered list of steps ([NAPLIST-STEPS]). Steps refer
 - `[NAPLIST-NESTED]` — other `.naplist` files (fully recursive)
 - `[NAPLIST-SCRIPT-STEP]` — script files in any supported language ([SCRIPT-DISPATCH](./SCRIPTING-SPEC.md))
 
+A playlist also carries a `[NAPLIST-META]` block (`[meta]`: name, default `env`) and a `[NAPLIST-VARS]` block (`[vars]`).
+
 ```naplist
 [meta]
 name = "Smoke Test Suite"

@@ -1,3 +1,4 @@
+// Tests [OPENAPI-COMMANDS]
 module OpenApiCliTests
 // Tests [OPENAPI-GENERATE], [OPENAPI-OAS3], [OPENAPI-TAG-DIRS], [OPENAPI-AUTH], [OPENAPI-BASEURL], [OPENAPI-NAPENV-GEN], [OPENAPI-NAPLIST-GEN], [OPENAPI-PARAMS], [OPENAPI-BODY-GEN], [OPENAPI-NAP-GEN]
 
@@ -79,7 +80,7 @@ let private generateFromUrl (url: string) : Napper.Core.OpenApiGenerator.Generat
     | Ok result -> result
     | Error msg -> failwith $"Expected Ok but got Error: {msg}"
 
-// --- E2E: F# API directly (no CLI process) --- Spec: openapi-generate, openapi-oas3
+// --- E2E: F# API directly (no CLI process) --- Spec: [OPENAPI-GENERATE], [OPENAPI-OAS3]
 
 [<Fact>]
 let ``OpenApiGenerator.generate succeeds with live Petstore spec`` () =
@@ -193,7 +194,7 @@ let ``OpenApiGenerator.generate produces request bodies for POST endpoints with 
             Assert.Contains(SectionRequestHeaders, f.Content)
     | Error msg -> Assert.Fail($"Expected Ok but got Error: {msg}")
 
-// --- E2E: Beeceptor URL proves URL content drives output --- Spec: openapi-nap-gen, openapi-baseurl, openapi-auth, openapi-naplist-gen
+// --- E2E: Beeceptor URL proves URL content drives output --- Spec: [OPENAPI-NAP-GEN], [OPENAPI-BASEURL], [OPENAPI-AUTH], [OPENAPI-NAPLIST-GEN]
 
 [<Fact>]
 let ``Beeceptor URL generates exactly 11 nap files`` () =

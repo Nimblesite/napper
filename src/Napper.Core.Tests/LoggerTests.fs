@@ -88,3 +88,16 @@ type LoggerTests() =
         Assert.Contains("line one", content)
         Assert.Contains("line two", content)
         Assert.Contains("line three", content)
+
+    [<Fact>]
+    member _.``close with no active writer is a no-op and logging is dropped``() =
+        // No init here: the writer is None. close() must hit its None branch without
+        // throwing, and a subsequent log must produce NO file (log's None branch).
+        Logger.close ()
+        Logger.close ()
+        let dir = AppContext.BaseDirectory
+        let before = Directory.GetFiles(dir, "napper-*.log").Length
+        Logger.info "dropped — no active writer"
+        Logger.warn "also dropped"
+        let after = Directory.GetFiles(dir, "napper-*.log").Length
+        Assert.Equal(before, after)

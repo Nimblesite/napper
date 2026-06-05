@@ -102,7 +102,7 @@ let private multiMethodSpec =
   }
 }"""
 
-// --- Error handling --- Spec: openapi-generate
+// --- Error handling --- Spec: [OPENAPI-GENERATE]
 
 [<Fact>]
 let ``Rejects invalid JSON`` () =
@@ -128,7 +128,7 @@ let ``Rejects null input`` () =
     | Error _ -> ()
     | Ok _ -> failwith "Expected error"
 
-// --- OpenAPI 3.x --- Spec: openapi-oas3, openapi-nap-gen, openapi-naplist-gen, openapi-napenv-gen, openapi-baseurl, openapi-meta-flag
+// --- OpenAPI 3.x --- Spec: [OPENAPI-OAS3], [OPENAPI-NAP-GEN], [OPENAPI-NAPLIST-GEN], [OPENAPI-NAPENV-GEN], [OPENAPI-BASEURL], [OPENAPI-META-FLAG]
 
 [<Fact>]
 let ``OAS3 generates correct number of nap files`` () =
@@ -187,7 +187,7 @@ let ``OAS3 generated flag in meta`` () =
     let content = (unwrap minimalOas3 |> firstFile).Content
     Assert.Contains("generated = true", content)
 
-// --- Swagger 2.x --- Spec: openapi-swagger2, openapi-baseurl
+// --- Swagger 2.x --- Spec: [OPENAPI-SWAGGER2], [OPENAPI-BASEURL]
 
 [<Fact>]
 let ``Swagger2 extracts base URL from host and basePath`` () =
@@ -202,7 +202,7 @@ let ``Swagger2 generates nap file`` () =
     Assert.Contains("method = GET", content)
     Assert.Contains("url = {{baseUrl}}/items", content)
 
-// --- Multiple endpoints --- Spec: openapi-nap-gen, openapi-params, openapi-assert-gen
+// --- Multiple endpoints --- Spec: [OPENAPI-NAP-GEN], [OPENAPI-PARAMS], [OPENAPI-ASSERT-GEN]
 
 [<Fact>]
 let ``Generates one nap file per operation`` () =
@@ -247,7 +247,7 @@ let ``Uses operationId for file name`` () =
 
     Assert.True(opIdFile.IsSome, "must use operationId in filename")
 
-// --- Request bodies --- Spec: openapi-body-gen, nap-headers, nap-body
+// --- Request bodies --- Spec: [OPENAPI-BODY-GEN], [NAP-HEADERS], [NAP-BODY]
 
 [<Fact>]
 let ``POST includes Content-Type and Accept headers`` () =
@@ -269,7 +269,7 @@ let ``POST generates request body from schema`` () =
     Assert.Contains("[request.body]", postFile.Content)
     Assert.Contains("\"\"\"", postFile.Content)
 
-// --- Vars block --- Spec: openapi-params, nap-vars
+// --- Vars block --- Spec: [OPENAPI-PARAMS], [NAP-VARS]
 
 [<Fact>]
 let ``Path with params generates vars section`` () =
@@ -305,7 +305,7 @@ let ``Multiple path params each get a var entry`` () =
     Assert.Contains("orgId = \"REPLACE_ME\"", content)
     Assert.Contains("userId = \"REPLACE_ME\"", content)
 
-// --- Response body assertions --- Spec: openapi-assert-gen, nap-assert
+// --- Response body assertions --- Spec: [OPENAPI-ASSERT-GEN], [NAP-ASSERT]
 
 [<Fact>]
 let ``OAS3 response schema generates body field assertions`` () =
@@ -352,7 +352,7 @@ let ``No body assertions when response has no schema`` () =
     let content = (unwrap minimalOas3 |> firstFile).Content
     Assert.DoesNotContain("body.", content)
 
-// --- Tag-based folders --- Spec: openapi-tag-dirs
+// --- Tag-based folders --- Spec: [OPENAPI-TAG-DIRS]
 
 let private taggedSpec =
     """
@@ -426,7 +426,7 @@ let ``Playlist references files with subdirectory paths`` () =
     Assert.Contains("./users/", gen.Playlist.Content)
     Assert.Contains("./pets/", gen.Playlist.Content)
 
-// --- Query parameters --- Spec: openapi-query-params, nap-request, nap-vars
+// --- Query parameters --- Spec: [OPENAPI-QUERY-PARAMS], [NAP-REQUEST], [NAP-VARS]
 
 [<Fact>]
 let ``Query params appended to URL`` () =
@@ -476,7 +476,7 @@ let ``Query params added to vars section`` () =
     Assert.Contains("[vars]", content)
     Assert.Contains("q = \"REPLACE_ME\"", content)
 
-// --- Auth schemes --- Spec: openapi-auth, nap-headers
+// --- Auth schemes --- Spec: [OPENAPI-AUTH], [NAP-HEADERS]
 
 [<Fact>]
 let ``Bearer auth adds Authorization header`` () =
@@ -593,7 +593,7 @@ let ``Basic auth adds Authorization header with Basic prefix`` () =
     Assert.Contains("[vars]", content)
     Assert.Contains("basicAuth = \"REPLACE_ME\"", content)
 
-// --- Body content verification --- Spec: openapi-body-gen, nap-body
+// --- Body content verification --- Spec: [OPENAPI-BODY-GEN], [NAP-BODY]
 
 [<Fact>]
 let ``POST body contains actual JSON from schema`` () =
@@ -647,7 +647,7 @@ let ``Nested object schema generates nested JSON body`` () =
     Assert.Contains("\"street\"", content)
     Assert.Contains("\"city\"", content)
 
-// --- All path param endpoints must have vars --- Spec: openapi-params, nap-vars
+// --- All path param endpoints must have vars --- Spec: [OPENAPI-PARAMS], [NAP-VARS]
 
 [<Fact>]
 let ``Every endpoint with path params has vars section`` () =
@@ -662,7 +662,7 @@ let ``Every endpoint with path params has vars section`` () =
         Assert.Contains("[vars]", f.Content)
         Assert.Contains("petId = \"REPLACE_ME\"", f.Content)
 
-// --- Complete .nap file format validation --- Spec: nap-file, nap-meta, nap-request, nap-assert
+// --- Complete .nap file format validation --- Spec: [NAP-FILE], [NAP-META], [NAP-REQUEST], [NAP-ASSERT]
 
 [<Fact>]
 let ``Generated nap file has correct section ordering`` () =
@@ -690,7 +690,7 @@ let ``POST nap file has full section chain`` () =
     Assert.True(bodyIdx > headersIdx, "[request.body] must come after [request.headers]")
     Assert.True(assertIdx > bodyIdx, "[assert] must come after [request.body]")
 
-// --- Playlist format validation --- Spec: naplist-file
+// --- Playlist format validation --- Spec: [NAPLIST-FILE]
 
 [<Fact>]
 let ``Playlist has meta section with API title`` () =
@@ -706,7 +706,7 @@ let ``Playlist steps reference files with relative paths`` () =
     for f in gen.NapFiles do
         Assert.Contains($"./{f.FileName}", gen.Playlist.Content)
 
-// --- Environment file format --- Spec: env-file
+// --- Environment file format --- Spec: [ENV-FILE]
 
 [<Fact>]
 let ``Environment file has baseUrl key-value pair`` () =
@@ -714,9 +714,9 @@ let ``Environment file has baseUrl key-value pair`` () =
     Assert.Equal(".napenv", gen.Environment.FileName)
     Assert.Contains("baseUrl = https://api.test.com/v1", gen.Environment.Content)
 
-// --- Base URL fallback --- Spec: openapi-baseurl
+// --- Base URL fallback --- Spec: [OPENAPI-BASEURL]
 
-// --- Generated files must be parseable --- Spec: openapi-nap-gen, nap-file
+// --- Generated files must be parseable --- Spec: [OPENAPI-NAP-GEN], [NAP-FILE]
 
 [<Fact>]
 let ``Generated nap files are parseable by the nap parser`` () =
@@ -771,3 +771,149 @@ let ``Falls back to default URL when no servers or host`` () =
 
     let gen = unwrap spec
     Assert.Contains("https://api.example.com", gen.Environment.Content)
+
+// ─── Request-body schema example generation ─── Spec: openapi-body-gen
+
+[<Fact>]
+let ``generate emits example values for every JSON schema type in a request body`` () =
+    // Drives writeByType through string/number/integer/boolean/array(no items)/object/untyped.
+    let spec =
+        """
+{
+  "openapi": "3.0.0",
+  "info": { "title": "Body API" },
+  "paths": {
+    "/things": {
+      "post": {
+        "summary": "Create thing",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "count": { "type": "integer" },
+                  "ratio": { "type": "number" },
+                  "active": { "type": "boolean" },
+                  "tags": { "type": "array" },
+                  "meta": { "type": "object", "properties": { "k": { "type": "string" } } },
+                  "untyped": {}
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Created" } }
+      }
+    }
+  }
+}"""
+
+    let gen = unwrap spec
+    let content = (firstFile gen).Content
+    Assert.Contains("[request.body]", content)
+    Assert.Contains("\"name\": \"example\"", content) // string -> SchemaExampleString
+    Assert.Contains("\"ratio\": 0", content) // number -> 0
+    Assert.Contains("\"active\": true", content) // boolean -> true
+    Assert.Contains("\"tags\": []", content) // array with no items -> empty array
+
+[<Fact>]
+let ``generate uses an inline request-body example when present`` () =
+    let spec =
+        """
+{
+  "openapi": "3.0.0",
+  "info": { "title": "Example API" },
+  "paths": {
+    "/things": {
+      "post": {
+        "summary": "Create",
+        "requestBody": {
+          "content": { "application/json": { "example": { "hello": "world" } } }
+        },
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  }
+}"""
+
+    let gen = unwrap spec
+    Assert.Contains("hello", (firstFile gen).Content)
+
+// ─── Meta name fallback ─────────────────────── Spec: openapi-meta-flag, nap-meta
+
+[<Fact>]
+let ``generate falls back to a path-derived name when summary and operationId are absent`` () =
+    let spec =
+        """
+{
+  "openapi": "3.0.0",
+  "info": { "title": "Fallback API" },
+  "paths": {
+    "/widgets": { "get": { "responses": { "200": { "description": "OK" } } } }
+  }
+}"""
+
+    let gen = unwrap spec
+    // No summary, no operationId -> name derived from method+path slug "get-widgets".
+    Assert.Contains("get-widgets", (firstFile gen).Content)
+
+// ─── Auth: unsupported http scheme yields no auth header ── Spec: openapi-auth
+
+[<Fact>]
+let ``generate ignores an http security scheme that is neither bearer nor basic`` () =
+    let spec =
+        """
+{
+  "openapi": "3.0.0",
+  "info": { "title": "Digest API" },
+  "components": { "securitySchemes": { "d": { "type": "http", "scheme": "digest" } } },
+  "security": [ { "d": [] } ],
+  "paths": { "/secure": { "get": { "responses": { "200": { "description": "OK" } } } } }
+}"""
+
+    let gen = unwrap spec
+    // digest is unsupported -> no Authorization header is generated.
+    Assert.DoesNotContain("Authorization", (firstFile gen).Content)
+
+// ─── Padding width for large specs ──────────── Spec: openapi-nap-gen
+
+[<Fact>]
+let ``generate pads file indexes to three digits for 100+ endpoints`` () =
+    let paths =
+        [ for i in 1..100 ->
+              sprintf "\"/r%d\": { \"get\": { \"responses\": { \"200\": { \"description\": \"OK\" } } } }" i ]
+        |> String.concat ","
+
+    let spec =
+        sprintf "{ \"openapi\": \"3.0.0\", \"info\": { \"title\": \"Big API\" }, \"paths\": { %s } }" paths
+
+    let gen = unwrap spec
+    Assert.Equal(100, gen.NapFiles.Length)
+    // total >= 100 -> three-digit zero-padded prefixes (e.g. 001_...).
+    Assert.True(
+        gen.NapFiles |> List.exists (fun f -> f.FileName.Contains "001_"),
+        "expected a 3-digit padded index like 001_"
+    )
+
+// ─── Title slug fallback + parse errors ─────── Spec: openapi-naplist-gen, openapi-error-gen
+
+[<Fact>]
+let ``generate falls back to api-tests when the title slugifies to empty`` () =
+    let spec =
+        """
+{
+  "openapi": "3.0.0",
+  "info": { "title": "/" },
+  "paths": { "/x": { "get": { "responses": { "200": { "description": "OK" } } } } }
+}"""
+
+    let gen = unwrap spec
+    Assert.Contains("api-tests", gen.Playlist.FileName)
+
+[<Fact>]
+let ``generate returns an error for unparseable input`` () =
+    match generate "{ this is not a valid openapi document" with
+    | Ok _ -> failwith "expected a parse error"
+    | Error _ -> ()

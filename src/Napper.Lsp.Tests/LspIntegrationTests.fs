@@ -1,3 +1,4 @@
+// Tests [CLI-LSP], [LSP-DISTRIBUTION]
 // Tests [LSP-ONE-BINARY], [LSP-DISCOVERY], [LSP-TRANSPORT]
 /// Integration tests for napper-lsp.
 /// Every test launches the real binary and talks JSON-RPC over stdio —

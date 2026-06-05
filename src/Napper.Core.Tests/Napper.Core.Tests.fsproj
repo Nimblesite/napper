@@ -17,6 +17,7 @@
     <Compile Include="OutputEdgeCaseTests.fs" />
     <Compile Include="CliArgTests.fs" />
     <Compile Include="ScriptEdgeCaseTests.fs" />
+    <Compile Include="ScriptContextTests.fs" />
     <Compile Include="CsxScriptTests.fs" />
     <Compile Include="JsPyScriptTests.fs" />
     <Compile Include="CtxScriptTests.fs" />

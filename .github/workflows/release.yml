@@ -1,3 +1,4 @@
+# Implements [CLI-INSTALL-HOMEBREW], [CLI-INSTALL-SCOOP], [CLI-INSTALL-DOTNET-TOOL]
 name: Release
 
 # Tag-triggered Shipwright release. Implements [SWR-REL-WORKFLOW], [SWR-REL-GITHUB].

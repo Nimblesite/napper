@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing for the PURE, host-free TypeScript layer only. The mutation suite (npm run test:mutation) is plain mocha with NO VS Code extension host, so each mutant is cheap to verify and the slow e2e/extension-host suite is deliberately NOT mutated. Scope is the two decoupled logic modules with the strongest branch behaviour: htmlUtils (escaping + JSON/HTML builders) and cliResolver (CLI retry policy). StringLiteral mutations are excluded: these modules emit HTML whose exact class names and markup no test asserts, so string mutants are cosmetic noise, not signal — the gate is on the conditional/boolean/arithmetic/logical branch behaviour instead.",
+  "packageManager": "npm",
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "npm run test:mutation"
+  },
+  "coverageAnalysis": "off",
+  "ignorePatterns": [".vscode-test", "out", "dist", "coverage", "bin", ".stryker-tmp"],
+  "mutate": ["src/htmlUtils.ts", "src/cliResolver.ts"],
+  "mutator": {
+    "excludedMutations": ["StringLiteral"]
+  },
+  "reporters": ["clear-text", "html", "progress"],
+  "htmlReporter": {
+    "fileName": "coverage/mutation/index.html"
+  },
+  "clearTextReporter": {
+    "allowColor": false,
+    "maxTestsToLog": 0
+  },
+  "thresholds": {
+    "high": 90,
+    "low": 80,
+    "break": 80
+  },
+  "timeoutMS": 60000,
+  "concurrency": 4,
+  "tempDirName": ".stryker-tmp"
+}

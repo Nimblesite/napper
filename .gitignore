@@ -57,6 +57,7 @@ coverage.out
 coverage-summary.json
 TestResults/
 mutants.out/
+.stryker-tmp/
 
 # =============================================================================
 # F# / .NET

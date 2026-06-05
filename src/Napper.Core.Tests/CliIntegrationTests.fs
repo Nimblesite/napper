@@ -16,7 +16,7 @@ let private createTempDir () =
 
 let private cleanupDir dir = TestHelpers.cleanupDir dir
 
-// ─── Help command ────────────────────────── Spec: cli-exit-codes
+// ─── Help command ────────────────────────── Spec: [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``CLI help returns exit code 0`` () =
@@ -42,7 +42,7 @@ let ``CLI --help returns exit code 0`` () =
     finally
         cleanupDir dir
 
-// ─── Check command ───────────────────────── Spec: cli-check, nap-minimal, nap-full, naplist-file, cli-exit-codes
+// ─── Check command ───────────────────────── Spec: [CLI-CHECK], [NAP-MINIMAL], [NAP-FULL], [NAPLIST-FILE], [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``CLI check valid shorthand nap file`` () =
@@ -117,7 +117,7 @@ let ``CLI check with no file returns exit code 2`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: single file ────────────── Spec: cli-run, nap-minimal, nap-assert, cli-exit-codes
+// ─── Run command: single file ────────────── Spec: [CLI-RUN], [NAP-MINIMAL], [NAP-ASSERT], [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``CLI run shorthand GET against jsonplaceholder`` () =
@@ -191,7 +191,7 @@ let ``CLI run with no file returns exit code 2`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: output formats ─────────── Spec: cli-output, output-json, output-junit, output-pretty
+// ─── Run command: output formats ─────────── Spec: [CLI-OUTPUT], [OUTPUT-JSON], [OUTPUT-JUNIT], [OUTPUT-PRETTY]
 
 [<Fact>]
 let ``CLI run with json output is valid JSON`` () =
@@ -228,7 +228,7 @@ let ``CLI run with pretty output shows status`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: directory ──────────────── Spec: cli-run, collection-folder
+// ─── Run command: directory ──────────────── Spec: [CLI-RUN], [COLLECTION-FOLDER], [COLLECTION-SORT]
 
 [<Fact>]
 let ``CLI run directory executes all nap files`` () =
@@ -255,7 +255,7 @@ let ``CLI run empty directory returns exit code 2`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: --var flag ─────────────── Spec: cli-var, env-interpolation
+// ─── Run command: --var flag ─────────────── Spec: [CLI-VAR], [ENV-INTERPOLATION]
 
 [<Fact>]
 let ``CLI run with --var substitutes variable`` () =
@@ -275,7 +275,7 @@ let ``CLI run with --var substitutes variable`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: --env flag ─────────────── Spec: cli-env, env-named, env-resolution
+// ─── Run command: --env flag ─────────────── Spec: [CLI-ENV], [ENV-NAMED], [ENV-RESOLUTION]
 
 [<Fact>]
 let ``CLI run with --env loads named environment`` () =
@@ -297,7 +297,7 @@ let ``CLI run with --env loads named environment`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: playlist ───────────────── Spec: naplist-file, naplist-steps, output-ndjson
+// ─── Run command: playlist ───────────────── Spec: [NAPLIST-FILE], [NAPLIST-STEPS], [OUTPUT-NDJSON]
 
 [<Fact>]
 let ``CLI run naplist executes all steps`` () =
@@ -333,7 +333,7 @@ let ``CLI run naplist with ndjson streams results`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: script step ────────────── Spec: naplist-script-step, script-fsx
+// ─── Run command: script step ────────────── Spec: [NAPLIST-SCRIPT-STEP], [SCRIPT-FSX]
 
 [<Fact>]
 let ``CLI run naplist with script step`` () =
@@ -367,7 +367,7 @@ let ``CLI run naplist with failing script returns exit code 1`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: C# script step ─────────── Spec: naplist-script-step, script-csx
+// ─── Run command: C# script step ─────────── Spec: [NAPLIST-SCRIPT-STEP], [SCRIPT-CSX]
 
 [<Fact>]
 let ``CLI run naplist with CSX script step`` () =
@@ -400,7 +400,7 @@ let ``CLI run naplist with failing CSX script returns exit code 1`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: mixed F# + C# script steps Spec: script-fsx, script-csx, script-dispatch
+// ─── Run command: mixed F# + C# script steps Spec: [SCRIPT-FSX], [SCRIPT-CSX], [SCRIPT-DISPATCH]
 
 [<Fact>]
 let ``CLI run naplist with mixed FSX and CSX scripts`` () =
@@ -428,7 +428,7 @@ let ``CLI run naplist with mixed FSX and CSX scripts`` () =
     finally
         cleanupDir dir
 
-// ─── Unknown command ─────────────────────── Spec: cli-exit-codes
+// ─── Unknown command ─────────────────────── Spec: [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``CLI unknown command returns exit code 2`` () =
@@ -441,7 +441,7 @@ let ``CLI unknown command returns exit code 2`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: POST with body ─────────── Spec: cli-run, nap-body, nap-request, nap-headers
+// ─── Run command: POST with body ─────────── Spec: [CLI-RUN], [NAP-BODY], [NAP-REQUEST], [NAP-HEADERS]
 
 [<Fact>]
 let ``CLI run POST with JSON body`` () =
@@ -476,7 +476,7 @@ let ``CLI run POST with JSON body`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: nested playlists ───────── Spec: naplist-nested
+// ─── Run command: nested playlists ───────── Spec: [NAPLIST-NESTED]
 
 [<Fact>]
 let ``CLI run nested naplist`` () =

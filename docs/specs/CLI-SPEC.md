@@ -2,7 +2,7 @@
 
 > **Nap** (Network API Protocol) — a CLI-first, test-oriented alternative to Postman, Bruno, `.http` files, and curl. The CLI is the product; every editor integration shells out to it.
 
-Spec-ID convention: every section is tagged `[GROUP-TOPIC]`. Code and tests reference these IDs in comments (`// Implements [CLI-RUN]`). Cross-references to other sections use the bare `[ID]` (greppable); links to other spec files use `[ID](./FILE.md)`.
+Spec-ID convention: every section heading carries a `GROUP-TOPIC` slug in brackets (uppercase, hyphenated). Code and tests reference it in comments — e.g. `// Implements [CLI-RUN]`. In-file cross-references use the bare bracketed slug (greppable); cross-file references link the file, e.g. [CLI-RUN](./CLI-SPEC.md).
 
 ---
 
@@ -23,6 +23,8 @@ Nap is a developer-first HTTP testing tool: as terse as curl for a one-off reque
 ## [CLI-INSTALL] Installation
 
 The primary channels are **native-binary** — end users never need .NET. `napper` is a self-contained NativeAOT binary ([CLI-AOT-MIGRATION]). The VS Code extension bundles the matching per-platform binary inside the VSIX ([VSCODE-CLI-ACQUIRE](./IDE-EXTENSION-SPEC.md)), so installing the extension needs no separate CLI install. The VS Code extension never resolves the CLI via the NuGet `dotnet tool` channel ([SWR-IDE-RESOLUTION]); it only uses the bundled native binary.
+
+The install channels below are release infrastructure (`scripts/install.*`, `.github/workflows/release.yml`) verified end-to-end by the release pipeline; they have no unit tests.
 
 ### [CLI-INSTALL-SCRIPT] Install script (macOS / Linux / Windows)
 

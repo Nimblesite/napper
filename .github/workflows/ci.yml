@@ -340,3 +340,29 @@ jobs:
       - name: Build
         working-directory: website
         run: npx eleventy
+
+  mutation-ts:
+    name: Mutation (TypeScript, pure layer)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/Napper.VsCode/package-lock.json
+
+      - name: Install dependencies
+        working-directory: src/Napper.VsCode
+        run: npm ci
+
+      # StrykerJS over the host-free unit suite ONLY (htmlUtils escaping/builders +
+      # cliResolver retry policy). The slow vscode-test/e2e extension-host layer is
+      # intentionally NOT mutated — that would be far too slow. Runs in ~2 min and breaks
+      # below the 80% mutation-score threshold in src/Napper.VsCode/stryker.conf.json.
+      - name: Mutation test pure TypeScript modules
+        working-directory: src/Napper.VsCode
+        run: npm run mutation

@@ -1,3 +1,4 @@
+<!-- Implements [CLI-AOT-MIGRATION], [CLI-RUNTIME-DEPENDENCY] -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>

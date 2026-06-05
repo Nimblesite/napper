@@ -1,3 +1,4 @@
+// Implements [LSP-FILE-TYPES]
 // Implements [LSP-ONE-BINARY], [LSP-TRANSPORT], [LSP-CUSTOM], [LSP-SYMBOLS], [LSP-ERROR-HANDLING], [LSP-DISCOVERY], [LSP-DEDUP]
 // AOT-safe LSP server. Native AOT cannot use reflection-based serialization, so
 // this file talks JSON-RPC over stdio using only the System.Text.Json DOM

@@ -4,7 +4,7 @@ module ParserEdgeCaseTests
 open Xunit
 open Napper.Core
 
-// ─── Shorthand: all HTTP methods ─────────── Spec: nap-minimal, http-methods
+// ─── Shorthand: all HTTP methods ─────────── Spec: [NAP-MINIMAL], [NAP-METHODS]
 
 [<Fact>]
 let ``Parse shorthand PUT`` () =
@@ -69,7 +69,7 @@ let ``Shorthand has empty meta and no assertions`` () =
         Assert.Equal(None, nap.Script.Post)
     | Error e -> failwith e
 
-// ─── Full format: meta variations ────────── Spec: nap-meta, nap-file
+// ─── Full format: meta variations ────────── Spec: [NAP-META], [NAP-FILE]
 
 [<Fact>]
 let ``Parse meta with description`` () =
@@ -133,7 +133,7 @@ url = https://example.com
     | Ok nap -> Assert.Equal(GET, nap.Request.Method)
     | Error e -> failwith e
 
-// ─── Full format: body variations ────────── Spec: nap-body
+// ─── Full format: body variations ────────── Spec: [NAP-BODY]
 
 [<Fact>]
 let ``Body without content-type defaults to application/json`` () =
@@ -189,7 +189,7 @@ url = https://example.com
     | Ok nap -> Assert.True(nap.Request.Body.IsNone)
     | Error e -> failwith e
 
-// ─── Full format: multiple sections combined Spec: nap-full, nap-meta, nap-vars, nap-request, nap-headers, nap-body, nap-assert, nap-script, nap-comments
+// ─── Full format: multiple sections combined Spec: [NAP-FULL], [NAP-META], [NAP-VARS], [NAP-REQUEST], [NAP-HEADERS], [NAP-BODY], [NAP-ASSERT], [NAP-SCRIPT], [NAP-COMMENTS]
 
 [<Fact>]
 let ``Full format with all sections`` () =
@@ -243,7 +243,7 @@ let ``Full format with all sections`` () =
         Assert.Equal(Some "./teardown.fsx", nap.Script.Post)
     | Error e -> failwith e
 
-// ─── Assertion operators ─────────────────── Spec: nap-assert, assert-status, assert-exists, assert-contains, assert-matches, assert-lt, assert-gt
+// ─── Assertion operators ─────────────────── Spec: [NAP-ASSERT], [ASSERT-STATUS], [ASSERT-EXISTS], [ASSERT-CONTAINS], [ASSERT-MATCHES], [ASSERT-LT], [ASSERT-GT]
 
 [<Fact>]
 let ``Parse all assertion operators`` () =
@@ -293,7 +293,7 @@ body.count > 10
         )
     | Error e -> failwith e
 
-// ─── Naplist variations ──────────────────── Spec: naplist-file, naplist-meta, naplist-vars, naplist-steps, naplist-nap-step, naplist-folder-step, naplist-script-step
+// ─── Naplist variations ──────────────────── Spec: [NAPLIST-FILE], [NAPLIST-META], [NAPLIST-VARS], [NAPLIST-STEPS], [NAPLIST-NAP-STEP], [NAPLIST-FOLDER-STEP], [NAPLIST-SCRIPT-STEP]
 
 [<Fact>]
 let ``Naplist with folder refs`` () =
@@ -417,7 +417,7 @@ name = "Empty"
     | Ok pl -> Assert.Empty(pl.Steps)
     | Error e -> failwith e
 
-// ─── Parse errors ────────────────────────── Spec: nap-file
+// ─── Parse errors ────────────────────────── Spec: [NAP-FILE]
 
 [<Fact>]
 let ``Parse error on completely invalid input`` () =
@@ -435,4 +435,88 @@ url = "https://example.com/path with spaces"
 
     match Parser.parseNapFile input with
     | Ok nap -> Assert.Equal("https://example.com/path with spaces", nap.Request.Url)
+    | Error e -> failwith e
+
+// ─── parseNapList: meta keys + step defaulting ── Spec: [NAPLIST-META], [NAPLIST-STEPS], [NAPLIST-NAP-STEP]
+
+[<Fact>]
+let ``parseNapList reads description and env from the meta section`` () =
+    let input =
+        "[meta]\nname = \"Suite\"\ndescription = \"end to end run\"\nenv = staging\n\n[steps]\na.nap\nb.nap\n"
+
+    match Parser.parseNapList input with
+    | Ok pl ->
+        Assert.Equal(Some "Suite", pl.Meta.Name)
+        Assert.Equal(Some "end to end run", pl.Meta.Description)
+        Assert.Equal(Some "staging", pl.Env)
+        Assert.Equal(2, pl.Steps.Length)
+    | Error e -> failwith e
+
+[<Fact>]
+let ``parseNapList ignores an unknown meta key`` () =
+    let input = "[meta]\nname = \"S\"\nbogus = whatever\n\n[steps]\na.nap\n"
+
+    match Parser.parseNapList input with
+    | Ok pl ->
+        Assert.Equal(Some "S", pl.Meta.Name)
+        Assert.Equal(None, pl.Meta.Description)
+    | Error e -> failwith e
+
+[<Fact>]
+let ``parseNapList defaults a dotted non-nap step to a nap-file step`` () =
+    // "data.txt" is not .nap/.naplist/a script, and it CONTAINS a dot (so not a folder) —
+    // it must fall through to the default NapFileStep arm.
+    match Parser.parseNapList "[steps]\ndata.txt\n" with
+    | Ok pl ->
+        Assert.Equal(1, pl.Steps.Length)
+        Assert.Equal(NapFileStep "data.txt", pl.Steps[0])
+    | Error e -> failwith e
+
+[<Fact>]
+let ``parseNapList treats a dotless step as a folder reference`` () =
+    match Parser.parseNapList "[steps]\nsmoke\n" with
+    | Ok pl -> Assert.Equal(FolderRef "smoke", pl.Steps[0])
+    | Error e -> failwith e
+
+[<Fact>]
+let ``parseNapFile on null input returns an error instead of throwing`` () =
+    // Guards the try/with around the parser entry point.
+    match Parser.parseNapFile null with
+    | Ok _ -> failwith "expected an error for null input"
+    | Error _ -> ()
+
+// ─── Full [request] block: every method + error arms ── Spec: nap-full, nap-request, http-methods
+
+[<Fact>]
+let ``parseNapFile full format parses PUT PATCH DELETE HEAD OPTIONS`` () =
+    let cases =
+        [ ("PUT", PUT)
+          ("PATCH", PATCH)
+          ("DELETE", DELETE)
+          ("HEAD", HEAD)
+          ("OPTIONS", OPTIONS) ]
+
+    for verb, expected in cases do
+        let input = "[request]\nmethod = " + verb + "\nurl = https://example.com\n"
+
+        match Parser.parseNapFile input with
+        | Ok nap -> Assert.Equal(expected, nap.Request.Method)
+        | Error e -> failwith $"{verb}: {e}"
+
+[<Fact>]
+let ``parseNapFile full format with an unknown method returns an error`` () =
+    match Parser.parseNapFile "[request]\nmethod = TELEPORT\nurl = https://example.com\n" with
+    | Ok _ -> failwith "expected an error for an unknown HTTP method"
+    | Error _ -> ()
+
+[<Fact>]
+let ``parseNapFile full format missing url returns an error`` () =
+    match Parser.parseNapFile "[request]\nmethod = GET\n" with
+    | Ok _ -> failwith "expected an error for a missing url"
+    | Error _ -> ()
+
+[<Fact>]
+let ``parseNapFile full format defaults to GET when method is omitted`` () =
+    match Parser.parseNapFile "[request]\nurl = https://example.com\n" with
+    | Ok nap -> Assert.Equal(GET, nap.Request.Method)
     | Error e -> failwith e

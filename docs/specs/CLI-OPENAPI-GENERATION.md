@@ -128,7 +128,7 @@ Intended: for each documented 4xx/5xx response, generate an extra `.nap` that in
 
 ### [OPENAPI-REF] `$ref` resolution
 
-> **Status: Implemented (via library).** `$ref` pointers — `#/components/schemas/...` (OAS3), `#/definitions/...` (Swagger 2), parameters, responses, and nested chains — are resolved by `Microsoft.OpenApi` during parsing before generation. There is no separate hand-rolled resolver.
+> **Status: Implemented (via library).** `$ref` pointers — `#/components/schemas/...` (OAS3), `#/definitions/...` (Swagger 2), parameters, responses, and nested chains — are resolved by `Microsoft.OpenApi` during parsing before generation. There is no separate hand-rolled resolver, and no dedicated `$ref` test fixture — current generator fixtures inline their schemas.
 
 ### [OPENAPI-META-FLAG] Generated file metadata
 

@@ -3,7 +3,7 @@
 # =============================================================================
 # agent-pmo:74cf183
 
-.PHONY: build test lint fmt clean ci setup package-vsix test-fsharp build-zed stamp generate-types
+.PHONY: build test lint fmt clean ci setup package-vsix test-fsharp build-zed stamp generate-types mutation mutation-ts
 
 # --- Cross-platform support ---
 ifeq ($(OS),Windows_NT)
@@ -172,6 +172,14 @@ test-fsharp: generate-types _test_fsharp
 # scripts/mutation-test.fsx. Requires the script runtimes (node, python3, dotnet script).
 mutation: generate-types
 	dotnet fsi scripts/mutation-test.fsx
+
+# mutation-ts: mutation-test the PURE, host-free TypeScript modules (htmlUtils escaping +
+# JSON/HTML builders, cliResolver retry policy) with StrykerJS. Runs ONLY the fast unit
+# suite (npm run test:mutation — plain mocha, no VS Code extension host), so it stays quick;
+# the slow e2e/extension-host layer is deliberately NOT mutated. Gate breaks below 80%.
+# See src/Napper.VsCode/stryker.conf.json.
+mutation-ts:
+	cd src/Napper.VsCode && npm ci && npm run mutation
 
 # generate-types: regenerate Napper.Core ADTs from the typeDiagram source of truth.
 # Types.td is canonical and checked in; Types.Generated.fs is gitignored and

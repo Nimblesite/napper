@@ -19,7 +19,7 @@ let private cleanupScript (path: string) =
     if File.Exists(path) then
         File.Delete(path)
 
-// ─── Passing C# scripts ─────────────────── Spec: script-csx
+// ─── Passing C# scripts ─────────────────── Spec: [SCRIPT-CSX]
 
 [<Fact>]
 let ``CSX script with single output line`` () =
@@ -87,7 +87,7 @@ let ``CSX result has correct file path`` () =
     finally
         cleanupScript path
 
-// ─── Failing C# scripts ─────────────────── Spec: script-csx
+// ─── Failing C# scripts ─────────────────── Spec: [SCRIPT-CSX]
 
 [<Fact>]
 let ``CSX script with compilation error fails`` () =
@@ -135,7 +135,7 @@ let ``CSX script with runtime exception fails`` () =
     finally
         cleanupScript path
 
-// ─── C# scripts doing actual work ────────── Spec: script-csx
+// ─── C# scripts doing actual work ────────── Spec: [SCRIPT-CSX]
 
 [<Fact>]
 let ``CSX script can do computation and print result`` () =
@@ -187,7 +187,7 @@ let ``CSX script can write and read temp file`` () =
         if File.Exists(tempFile) then
             File.Delete(tempFile)
 
-// ─── Non-existent C# script ─────────────── Spec: script-csx
+// ─── Non-existent C# script ─────────────── Spec: [SCRIPT-CSX]
 
 [<Fact>]
 let ``Non-existent CSX script path fails`` () =
@@ -196,7 +196,7 @@ let ``Non-existent CSX script path fails`` () =
     Assert.False(result.Passed)
     Assert.True(result.Error.IsSome)
 
-// ─── C# script with HTTP call ───────────── Spec: script-csx
+// ─── C# script with HTTP call ───────────── Spec: [SCRIPT-CSX]
 
 [<Fact>]
 let ``CSX script can make HTTP request`` () =
@@ -218,7 +218,7 @@ let ``CSX script can make HTTP request`` () =
     finally
         cleanupScript path
 
-// ─── C# script with async/await ─────────── Spec: script-csx
+// ─── C# script with async/await ─────────── Spec: [SCRIPT-CSX]
 
 [<Fact>]
 let ``CSX script with async await`` () =

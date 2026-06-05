@@ -275,3 +275,191 @@ let ``evaluateAssertions numeric comparison edge cases`` () =
     let results = Runner.evaluateAssertions assertions response
     Assert.False(results[0].Passed, "LessThan with non-numeric should fail")
     Assert.False(results[1].Passed, "GreaterThan with huge value should fail")
+
+// ─── evaluateAssertions: remaining branches ──────────────────
+
+[<Fact>]
+let ``evaluateAssertions descending into a non-object json path fails the target`` () =
+    // body.a is a NUMBER, so body.a.b cannot resolve — the traversal must hit the
+    // non-object arm and report the target missing (assertion fails, not throws).
+    let response: NapResponse =
+        { StatusCode = 200
+          Headers = Map.empty
+          Body = "{\"a\": 5}"
+          Duration = TimeSpan.FromMilliseconds 10.0 }
+
+    let results =
+        Runner.evaluateAssertions [ { Target = "body.a.b"; Op = Exists } ] response
+
+    Assert.Single(results) |> ignore
+    Assert.False(results[0].Passed)
+
+[<Fact>]
+let ``evaluateAssertions glob match honours the question-mark wildcard`` () =
+    let response: NapResponse =
+        { StatusCode = 200
+          Headers = Map.empty
+          Body = "{\"name\": \"cat\"}"
+          Duration = TimeSpan.FromMilliseconds 10.0 }
+
+    let results =
+        Runner.evaluateAssertions
+            [ { Target = "body.name"
+                Op = Matches "c?t" } // ? matches exactly one char
+              { Target = "body.name"
+                Op = Matches "c?" } ] // ? matches one, so "cat" must NOT match
+            response
+
+    Assert.True(results[0].Passed, "c?t should match cat")
+    Assert.False(results[1].Passed, "c? should not match cat")
+
+[<Fact>]
+let ``evaluateAssertions numeric comparison on a missing target fails`` () =
+    let response: NapResponse =
+        { StatusCode = 200
+          Headers = Map.empty
+          Body = "{}"
+          Duration = TimeSpan.FromMilliseconds 10.0 }
+
+    let results =
+        Runner.evaluateAssertions
+            [ { Target = "body.absent"
+                Op = LessThan "100" }
+              { Target = "body.absent"
+                Op = GreaterThan "1" } ]
+            response
+
+    Assert.False(results[0].Passed)
+    Assert.False(results[1].Passed)
+
+// ─── runScriptStep + [script] hook path (in-process) ─────────
+
+[<Fact>]
+let ``runScriptStep runs a script with the supplied variable scope`` () =
+    let dir = createTempDir ()
+
+    try
+        let scriptPath = writeNapFile dir "step.fsx" "printfn \"step ran\""
+
+        let result =
+            Runner.runScriptStep (Map.ofList [ ("x", "1") ]) (Some "staging") scriptPath
+            |> Async.RunSynchronously
+
+        Assert.True(result.Passed, $"script step should pass. Error: {result.Error}")
+        Assert.Contains("step ran", result.Log)
+    finally
+        cleanupDir dir
+
+[<Fact>]
+let ``runNapFile executes a passing post hook in-process`` () =
+    let dir = createTempDir ()
+
+    try
+        writeNapFile
+            dir
+            "check.js"
+            "if (ctx.response.status !== 200) ctx.fail('bad status');\nctx.log('post-ok ' + ctx.response.status);"
+        |> ignore
+
+        let nap =
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 200\n\n[script]\npost = ./check.js\n"
+
+        let filePath = writeNapFile dir "hook.nap" nap
+        let result = Runner.runNapFile filePath Map.empty None |> Async.RunSynchronously
+        Assert.True(result.Passed, $"post-hook nap should pass. Error: {result.Error}")
+        Assert.Equal(200, result.Response.Value.StatusCode)
+    finally
+        cleanupDir dir
+
+[<Fact>]
+let ``runNapFile post hook can fail an otherwise-passing request in-process`` () =
+    let dir = createTempDir ()
+
+    try
+        writeNapFile dir "reject.js" "ctx.fail('POSTHOOK-REJECT');" |> ignore
+
+        let nap =
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 200\n\n[script]\npost = ./reject.js\n"
+
+        let filePath = writeNapFile dir "hook.nap" nap
+        let result = Runner.runNapFile filePath Map.empty None |> Async.RunSynchronously
+        // HTTP 200 and the assertion passes, but the post hook rejects -> overall fail.
+        Assert.False(result.Passed)
+        Assert.True(result.Error.IsSome)
+    finally
+        cleanupDir dir
+
+// ─── runNapFile request building + pre hooks (in-process) ────
+
+[<Fact>]
+let ``runNapFile sends a non-content-type request header`` () =
+    let dir = createTempDir ()
+
+    try
+        // The /headers endpoint echoes inbound headers; a custom header exercises the
+        // TryAddWithoutValidation arm (Content-Type is special-cased and skipped there).
+        let nap =
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/headers\n\n[request.headers]\nX-Custom = abc123\n\n[assert]\nstatus = 200\nbody.headers.X-Custom contains abc123\n"
+
+        let filePath = writeNapFile dir "hdr.nap" nap
+        let result = Runner.runNapFile filePath Map.empty None |> Async.RunSynchronously
+        Assert.True(result.Passed, $"custom header should round-trip. Error: {result.Error}")
+        Assert.True(result.Assertions |> List.forall (fun a -> a.Passed))
+    finally
+        cleanupDir dir
+
+[<Fact>]
+let ``runNapFile runs a passing pre hook in-process`` () =
+    let dir = createTempDir ()
+
+    try
+        writeNapFile dir "pre.js" "ctx.log('pre saw ' + ctx.request.method);" |> ignore
+
+        let nap =
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 200\n\n[script]\npre = ./pre.js\n"
+
+        let filePath = writeNapFile dir "pre.nap" nap
+        let result = Runner.runNapFile filePath Map.empty None |> Async.RunSynchronously
+        Assert.True(result.Passed, $"pre-hook nap should pass. Error: {result.Error}")
+        Assert.Equal(200, result.Response.Value.StatusCode)
+    finally
+        cleanupDir dir
+
+[<Fact>]
+let ``runNapFile pre hook failure short-circuits before the request`` () =
+    let dir = createTempDir ()
+
+    try
+        writeNapFile dir "pre.js" "ctx.fail('PRE-REJECT-MARKER');" |> ignore
+
+        let nap =
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 200\n\n[script]\npre = ./pre.js\n"
+
+        let filePath = writeNapFile dir "pre.nap" nap
+        let result = Runner.runNapFile filePath Map.empty None |> Async.RunSynchronously
+        Assert.False(result.Passed)
+        Assert.True(result.Error.IsSome)
+    finally
+        cleanupDir dir
+
+[<Fact>]
+let ``runScript with an unsupported extension returns a dispatch error`` () =
+    let dir = createTempDir ()
+
+    try
+        let scriptPath = writeNapFile dir "weird.xyz" "echo hi"
+        let result = Runner.runScript scriptPath |> Async.RunSynchronously
+        Assert.False(result.Passed)
+        Assert.True(result.Error.IsSome)
+    finally
+        cleanupDir dir

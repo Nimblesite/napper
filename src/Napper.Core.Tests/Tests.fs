@@ -5,7 +5,7 @@ open System
 open Xunit
 open Napper.Core
 
-// ─── Parser: Shorthand ──────────────────────── Spec: nap-minimal, http-methods
+// ─── Parser: Shorthand ──────────────────────── Spec: [NAP-MINIMAL], [NAP-METHODS]
 
 [<Fact>]
 let ``Parse shorthand GET request`` () =
@@ -26,7 +26,7 @@ let ``Parse shorthand POST request`` () =
     | Result.Ok nap -> Assert.Equal(POST, nap.Request.Method)
     | Result.Error e -> failwith e
 
-// ─── Parser: Full format ──────────────────── Spec: nap-full, nap-meta, nap-request, nap-headers, nap-body, nap-assert, nap-vars, nap-script, nap-comments
+// ─── Parser: Full format ──────────────────── Spec: [NAP-FULL], [NAP-META], [NAP-REQUEST], [NAP-HEADERS], [NAP-BODY], [NAP-ASSERT], [NAP-VARS], [NAP-SCRIPT], [NAP-COMMENTS]
 
 [<Fact>]
 let ``Parse full format with meta and request`` () =
@@ -233,7 +233,7 @@ let ``Parse full format with headers and body`` () =
         Assert.True(nap.Request.Body.IsSome)
     | Result.Error e -> failwith e
 
-// ─── Parser: .naplist ─────────────────────── Spec: naplist-file, naplist-meta, naplist-vars, naplist-steps, naplist-nap-step, naplist-folder-step, naplist-script-step
+// ─── Parser: .naplist ─────────────────────── Spec: [NAPLIST-FILE], [NAPLIST-META], [NAPLIST-VARS], [NAPLIST-STEPS], [NAPLIST-NAP-STEP], [NAPLIST-FOLDER-STEP], [NAPLIST-SCRIPT-STEP]
 
 [<Fact>]
 let ``Parse naplist with steps`` () =
@@ -267,7 +267,7 @@ timeout = "5000"
         Assert.Equal(ScriptStep "./scripts/setup.fsx", playlist.Steps[3])
     | Result.Error e -> failwith e
 
-// ─── Environment ─────────────────────────── Spec: env-file, env-interpolation, env-resolution, cli-var
+// ─── Environment ─────────────────────────── Spec: [ENV-FILE], [ENV-INTERPOLATION], [ENV-RESOLUTION], [CLI-VAR]
 
 [<Fact>]
 let ``Parse env file`` () =
@@ -301,7 +301,7 @@ let ``CLI vars override file vars`` () =
     let result = Environment.loadEnvironment dir None cliVars fileVars
     Assert.Equal("cli-value", result["key"])
 
-// ─── Assertions ──────────────────────────── Spec: assert-status, assert-equals, assert-exists, assert-contains, assert-lt
+// ─── Assertions ──────────────────────────── Spec: [ASSERT-STATUS], [ASSERT-EQUALS], [ASSERT-EXISTS], [ASSERT-CONTAINS], [ASSERT-LT]
 
 [<Fact>]
 let ``Assert status equals`` () =
@@ -364,7 +364,7 @@ let ``Assert duration greater than`` () =
     let results = Runner.evaluateAssertions assertions response
     Assert.False(results[0].Passed)
 
-// ─── Script execution ────────────────────── Spec: script-fsx, script-runner
+// ─── Script execution ────────────────────── Spec: [SCRIPT-FSX]
 
 [<Fact>]
 let ``runScript executes fsx and captures stdout`` () =
@@ -475,7 +475,7 @@ let ``JSON output omits log field when empty`` () =
     Assert.True(root.TryGetProperty("headers") |> fst, "Should have headers for HTTP result")
     Assert.Equal(0, root.GetProperty("assertions").GetArrayLength())
 
-// ─── Output ──────────────────────────────── Spec: output-json, output-junit
+// ─── Output ──────────────────────────────── Spec: [OUTPUT-JSON], [OUTPUT-JUNIT]
 
 [<Fact>]
 let ``JUnit output is valid XML`` () =
