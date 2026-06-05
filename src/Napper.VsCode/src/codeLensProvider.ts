@@ -1,4 +1,4 @@
-// Specs: vscode-codelens, vscode-commands
+// Implements [VSCODE-CODELENS], [VSCODE-COMMANDS]
 // CodeLens provider for .nap and .naplist files
 // Shows "Run" and "Copy as curl" actions above key sections
 

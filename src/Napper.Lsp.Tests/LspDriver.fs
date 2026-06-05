@@ -1,4 +1,4 @@
-// Implements [LSP-TEST-DRIVER]
+// Test harness for [LSP-TRANSPORT], [LSP-CUSTOM]
 /// In-process driver for the real LSP server entry point `LspRunner.run`.
 ///
 /// VSCode and Zed launch `napper lsp` as a child process and speak JSON-RPC

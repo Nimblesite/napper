@@ -1,4 +1,4 @@
-// Specs: vscode-playlists
+// Implements [VSCODE-PLAYLISTS]
 // Standalone HTML report generator for playlist results
 // Pure function — no VS Code SDK dependency
 // Generates a beautiful, self-contained HTML file

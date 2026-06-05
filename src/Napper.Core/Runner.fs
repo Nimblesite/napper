@@ -1,7 +1,4 @@
-// Specs: cli-run, nap-assert, assert-status, assert-equals, assert-exists, assert-contains,
-//        assert-matches, assert-lt, assert-gt, script-fsx, script-csx, script-dispatch,
-//        env-interpolation, collection-folder, collection-sort, naplist-steps,
-//        naplist-nap-step, naplist-folder-step, naplist-nested, naplist-script-step, naplist-var-scope
+// Implements [CLI-RUN], [NAP-ASSERT], [ASSERT-STATUS], [ASSERT-EQUALS], [ASSERT-EXISTS], [ASSERT-CONTAINS], [ASSERT-MATCHES], [ASSERT-LT], [ASSERT-GT], [SCRIPT-FSX], [SCRIPT-CSX], [SCRIPT-DISPATCH], [ENV-INTERPOLATION], [COLLECTION-FOLDER], [COLLECTION-SORT], [NAPLIST-STEPS], [NAPLIST-NAP-STEP], [NAPLIST-FOLDER-STEP], [NAPLIST-NESTED], [NAPLIST-SCRIPT-STEP], [NAPLIST-VAR-SCOPE]
 module Napper.Core.Runner
 
 open System
@@ -223,10 +220,10 @@ let private splitStdout (stdout: string) : string list =
     |> Array.filter (fun l -> l.Length > 0)
     |> Array.toList
 
-/// Run a script (.fsx, .csx, .js, .mjs, .cjs, .py) with the [script-protocol] context injected.
-/// Dispatch lives in [script-dispatch]; the `ctx` object is wired in by [script-sdk] (ScriptContext).
+/// Run a script (.fsx, .csx, .js, .mjs, .cjs, .py) with the [SCRIPT-PROTOCOL] context injected.
+/// Dispatch lives in [SCRIPT-DISPATCH]; the `ctx` object is wired in by [SCRIPT-SDK] (ScriptContext).
 /// A script fails when it exits non-zero OR calls ctx.fail; its ctx.log lines and ctx.set vars
-/// are merged into the result. Implements [script-context], [script-protocol-in], [script-protocol-out].
+/// are merged into the result. Implements [SCRIPT-CONTEXT], [SCRIPT-PROTOCOL-IN], [SCRIPT-PROTOCOL-OUT].
 let private runScriptInternal (inv: ScriptContext.Invocation) (scriptPath: string) : Async<NapResult> =
     async {
         Logger.info $"Script start: {scriptPath}"
@@ -298,7 +295,7 @@ let mergeVars (a: Map<string, string>) (b: Map<string, string>) : Map<string, st
     Map.fold (fun acc k v -> Map.add k v acc) a b
 
 /// Run a `.nap` file's [script] pre/post hook, handing it the request (and, for post, the response) as `ctx`.
-/// Implements [script-pre], [script-post].
+/// Implements [SCRIPT-PRE], [SCRIPT-POST].
 let private runHook
     (phase: ScriptContext.Phase)
     (dir: string)

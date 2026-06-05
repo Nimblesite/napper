@@ -1,5 +1,5 @@
 module JsPyScriptTests
-// Specs: script-js, script-py, script-dispatch, script-runtime, naplist-script-step
+// Tests [SCRIPT-JS], [SCRIPT-PY], [SCRIPT-DISPATCH], [SCRIPT-RUNTIME], [NAPLIST-SCRIPT-STEP]
 //
 // Guards two regressions:
 //   1. Runner.runScript dispatched every non-.csx extension to `dotnet fsi`, so .js/.py died instantly.

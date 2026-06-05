@@ -1,7 +1,5 @@
 module DotHttp.Tests.ParserTests
-// Specs: http-shared, http-separator, http-method-line, http-headers, http-body,
-//        http-comments, http-vars, http-ms, http-jb, http-convert-detect,
-//        http-convert-parse, http-parser-project
+// Tests [HTTP-SHARED], [HTTP-SEPARATOR], [HTTP-METHOD-LINE], [HTTP-HEADERS], [HTTP-BODY], [HTTP-COMMENTS], [HTTP-VARS], [HTTP-MS], [HTTP-JB], [HTTP-CONVERT-DETECT], [HTTP-CONVERT-PARSE], [HTTP-PARSER-PROJECT]
 
 open Xunit
 open DotHttp

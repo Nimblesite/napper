@@ -1,6 +1,4 @@
-// Specs: nap-file, nap-minimal, nap-full, nap-meta, nap-vars, nap-request, nap-headers, nap-body,
-//        nap-assert, nap-script, nap-comments, http-methods, env-interpolation,
-//        naplist-file, naplist-meta, naplist-vars, naplist-steps
+// Implements [NAP-FILE], [NAP-MINIMAL], [NAP-FULL], [NAP-META], [NAP-VARS], [NAP-REQUEST], [NAP-HEADERS], [NAP-BODY], [NAP-ASSERT], [NAP-SCRIPT], [NAP-COMMENTS], [NAP-METHODS], [ENV-INTERPOLATION], [NAPLIST-FILE], [NAPLIST-META], [NAPLIST-VARS], [NAPLIST-STEPS]
 module Napper.Core.Parser
 
 open FParsec

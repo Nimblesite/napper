@@ -1,4 +1,4 @@
-// Specs: vscode-commands
+// Implements [VSCODE-COMMANDS]
 // Edit, HTTP convert, and OpenAPI import command registrations
 
 import * as vscode from 'vscode';

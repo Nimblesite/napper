@@ -1,5 +1,5 @@
 module ScriptEdgeCaseTests
-// Specs: script-fsx, script-runner
+// Tests [SCRIPT-FSX]
 
 open System
 open System.IO

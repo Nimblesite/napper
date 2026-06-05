@@ -1,6 +1,5 @@
 module CliArgTests
-// Specs: cli-run, cli-check, cli-var, cli-exit-codes, cli-output,
-//        output-json, output-junit, output-ndjson, output-pretty
+// Tests [CLI-RUN], [CLI-CHECK], [CLI-VAR], [CLI-EXIT-CODES], [CLI-OUTPUT], [OUTPUT-JSON], [OUTPUT-JUNIT], [OUTPUT-NDJSON], [OUTPUT-PRETTY]
 
 open System
 open System.IO

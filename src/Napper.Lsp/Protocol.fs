@@ -1,4 +1,4 @@
-// Implements [LSP-SERVER]
+// Implements [LSP-TRANSPORT]
 // JSON-RPC / LSP protocol constants — the single source of truth for every wire
 // string, error code, and enum value used by the AOT-safe LSP transport.
 namespace Napper.Lsp

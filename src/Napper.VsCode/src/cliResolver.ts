@@ -1,4 +1,4 @@
-// Implements [SWR-IDE-RESOLUTION]. Resilient, SDK-decoupled CLI resolution.
+// Implements [SWR-IDE-RESOLUTION], [VSCODE-CLI-ACQUIRE]. Resilient, SDK-decoupled CLI resolution.
 //
 // Shipwright probes the bundled binary with `napper --version` under a short deadline and
 // swallows EVERY failure into a non-ok result with no path ("no resolved source"). On a

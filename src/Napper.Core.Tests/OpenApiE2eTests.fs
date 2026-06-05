@@ -1,8 +1,5 @@
 module OpenApiE2eTests
-// Specs: cli-generate, cli-exit-codes, openapi-generate, openapi-nap-gen, openapi-tag-dirs,
-//        openapi-naplist-gen, openapi-napenv-gen, openapi-baseurl, openapi-params,
-//        openapi-body-gen, openapi-assert-gen, openapi-query-params, openapi-auth,
-//        openapi-meta-flag, nap-meta, nap-request, nap-body, nap-vars
+// Tests [CLI-GENERATE], [CLI-EXIT-CODES], [OPENAPI-GENERATE], [OPENAPI-NAP-GEN], [OPENAPI-TAG-DIRS], [OPENAPI-NAPLIST-GEN], [OPENAPI-NAPENV-GEN], [OPENAPI-BASEURL], [OPENAPI-PARAMS], [OPENAPI-BODY-GEN], [OPENAPI-ASSERT-GEN], [OPENAPI-QUERY-PARAMS], [OPENAPI-AUTH], [OPENAPI-META-FLAG], [NAP-META], [NAP-REQUEST], [NAP-BODY], [NAP-VARS]
 
 open System
 open System.IO

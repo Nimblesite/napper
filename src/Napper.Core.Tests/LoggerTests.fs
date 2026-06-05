@@ -1,3 +1,4 @@
+// Tests [CLI-VERBOSE]
 module LoggerTests
 
 open System

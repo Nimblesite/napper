@@ -1,7 +1,5 @@
 module OpenApiCliTests
-// Specs: openapi-generate, openapi-oas3, openapi-tag-dirs, openapi-auth,
-//        openapi-baseurl, openapi-napenv-gen, openapi-naplist-gen, openapi-params,
-//        openapi-body-gen, openapi-nap-gen
+// Tests [OPENAPI-GENERATE], [OPENAPI-OAS3], [OPENAPI-TAG-DIRS], [OPENAPI-AUTH], [OPENAPI-BASEURL], [OPENAPI-NAPENV-GEN], [OPENAPI-NAPLIST-GEN], [OPENAPI-PARAMS], [OPENAPI-BODY-GEN], [OPENAPI-NAP-GEN]
 
 open System
 open System.Net.Http

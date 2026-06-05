@@ -1,8 +1,5 @@
 module Tests
-// Specs: nap-minimal, nap-full, nap-meta, nap-vars, nap-request, nap-headers, nap-body,
-//        nap-assert, nap-script, nap-comments, http-methods, env-interpolation, env-file,
-//        env-resolution, cli-var, assert-status, assert-equals, assert-exists, assert-contains,
-//        assert-lt, script-fsx, output-json, output-junit
+// Tests [NAP-MINIMAL], [NAP-FULL], [NAP-META], [NAP-VARS], [NAP-REQUEST], [NAP-HEADERS], [NAP-BODY], [NAP-ASSERT], [NAP-SCRIPT], [NAP-COMMENTS], [NAP-METHODS], [ENV-INTERPOLATION], [ENV-FILE], [ENV-RESOLUTION], [CLI-VAR], [ASSERT-STATUS], [ASSERT-EQUALS], [ASSERT-EXISTS], [ASSERT-CONTAINS], [ASSERT-LT], [SCRIPT-FSX], [OUTPUT-JSON], [OUTPUT-JUNIT]
 
 open System
 open Xunit

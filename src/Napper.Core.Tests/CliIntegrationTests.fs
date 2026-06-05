@@ -1,9 +1,5 @@
 module CliIntegrationTests
-// Specs: cli-run, cli-check, cli-env, cli-var, cli-exit-codes, cli-output,
-//        nap-minimal, nap-full, nap-assert, nap-body, nap-request, http-methods,
-//        env-interpolation, env-named, env-resolution, collection-folder,
-//        naplist-file, naplist-steps, naplist-nested, naplist-script-step,
-//        script-fsx, script-csx, output-json, output-junit, output-pretty, output-ndjson
+// Tests [CLI-RUN], [CLI-CHECK], [CLI-ENV], [CLI-VAR], [CLI-EXIT-CODES], [CLI-OUTPUT], [NAP-MINIMAL], [NAP-FULL], [NAP-ASSERT], [NAP-BODY], [NAP-REQUEST], [NAP-METHODS], [ENV-INTERPOLATION], [ENV-NAMED], [ENV-RESOLUTION], [COLLECTION-FOLDER], [NAPLIST-FILE], [NAPLIST-STEPS], [NAPLIST-NESTED], [NAPLIST-SCRIPT-STEP], [SCRIPT-FSX], [SCRIPT-CSX], [OUTPUT-JSON], [OUTPUT-JUNIT], [OUTPUT-PRETTY], [OUTPUT-NDJSON]
 
 open System
 open System.IO

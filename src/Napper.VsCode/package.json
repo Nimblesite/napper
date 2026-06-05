@@ -341,6 +341,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@stryker-mutator/core": "^9.6.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.3.2",
     "@types/vscode": "^1.95.0",

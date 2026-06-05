@@ -1,4 +1,4 @@
-// Specs: cli-run, cli-check, cli-generate, cli-convert, cli-env, cli-var, cli-output, cli-output-dir, cli-verbose, cli-exit-codes
+// Implements [CLI-RUN], [CLI-CHECK], [CLI-GENERATE], [CLI-CONVERT], [CLI-ENV], [CLI-VAR], [CLI-OUTPUT], [CLI-OUTPUT-DIR], [CLI-VERBOSE], [CLI-EXIT-CODES]
 open System
 open System.IO
 open Napper.Core

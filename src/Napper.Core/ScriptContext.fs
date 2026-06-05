@@ -1,9 +1,9 @@
-// [script-protocol] Language-agnostic context protocol shared by every script runtime.
+// [SCRIPT-PROTOCOL] Language-agnostic context protocol shared by every script runtime.
 // Napper hands a script its context as JSON (path in NAPPER_CONTEXT) and reads back the
 // directives the script emitted (path in NAPPER_RESULT): variables it set, whether it
 // failed, a fail message, and any ctx.log lines. A tiny per-language SDK shim — injected
 // before the user script runs — turns that protocol into the documented `ctx` object.
-// Implements [script-protocol-in], [script-protocol-out], [script-context], [script-sdk].
+// Implements [SCRIPT-PROTOCOL-IN], [SCRIPT-PROTOCOL-OUT], [SCRIPT-CONTEXT], [SCRIPT-SDK].
 module Napper.Core.ScriptContext
 
 open System
@@ -66,7 +66,7 @@ let private phaseName =
     | Post -> "post"
     | Step -> "step"
 
-// ─── Inbound: write the context JSON ────────────────────────── [script-protocol-in]
+// ─── Inbound: write the context JSON ────────────────────────── [SCRIPT-PROTOCOL-IN]
 
 let private writeMap (w: Utf8JsonWriter) (name: string) (map: Map<string, string>) =
     w.WriteStartObject(name)
@@ -115,7 +115,7 @@ let private writeContextFile (inv: Invocation) (path: string) : unit =
     w.WriteEndObject()
     w.Flush()
 
-// ─── Outbound: read the directives JSON ─────────────────────── [script-protocol-out]
+// ─── Outbound: read the directives JSON ─────────────────────── [SCRIPT-PROTOCOL-OUT]
 
 let private readVars (root: JsonElement) : Map<string, string> =
     match root.TryGetProperty("vars") with
@@ -153,7 +153,7 @@ let readDirectives (path: string) : Directives =
     with _ ->
         emptyDirectives
 
-// ─── Per-language SDK shims (injected before the user script) ── [script-sdk]
+// ─── Per-language SDK shims (injected before the user script) ── [SCRIPT-SDK]
 // These are source files in the target language, so they are necessarily one literal
 // each — the single authoritative copy of every SDK lives here, bundled in the binary.
 
@@ -266,12 +266,12 @@ if len(sys.argv) > 1:
     runpy.run_path(_script, run_name='__main__')
 """
 
-// ─── Launch plan: inject the right shim by extension ────────── [script-sdk], [script-dispatch]
+// ─── Launch plan: inject the right shim by extension ────────── [SCRIPT-SDK], [SCRIPT-DISPATCH]
 
 let private quote (p: string) = "\"" + p + "\""
 
 /// Build the context file + SDK shim and return how to launch the runtime with `ctx`
-/// injected. `exe`/`args` are the bare dispatch from [script-dispatch]; JS prepends a
+/// injected. `exe`/`args` are the bare dispatch from [SCRIPT-DISPATCH]; JS prepends a
 /// `--require` preload, Python wraps the script in a bootstrap. Other runtimes still get
 /// the NAPPER_CONTEXT/NAPPER_RESULT env vars (the SDK for them lands in a later phase).
 let prepare (inv: Invocation) (scriptPath: string) (exe: string) (args: string) : LaunchPlan =

@@ -1,4 +1,4 @@
-// Specs: vscode-impl, vscode-commands, vscode-syntax, vscode-settings
+// Tests [VSCODE-IMPL], [VSCODE-COMMANDS], [VSCODE-SYNTAX], [VSCODE-SETTINGS]
 import * as assert from 'assert';
 import * as fs from 'fs';
 import {

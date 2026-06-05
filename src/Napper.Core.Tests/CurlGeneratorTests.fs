@@ -1,6 +1,6 @@
 module CurlGeneratorTests
 // Covers Napper.Core.CurlGenerator.toCurl — shared curl rendering for CLI + LSP.
-// Implements [http-methods] verb rendering and POSIX single-quote shell escaping.
+// Tests [NAP-METHODS], [LSP-CUSTOM] — curl verb rendering and POSIX single-quote shell escaping.
 
 open Xunit
 open Napper.Core

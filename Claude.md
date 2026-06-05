@@ -76,6 +76,29 @@
 - The test VSIX must call the actual, real CLI.
 - VSIX tests run in actual VS Code window
 
+### HTTP: Local Test Server vs Real-World Smoke Tests
+
+We test HTTP behaviour two ways, and BOTH are mandatory:
+
+- **Local test server (the workhorse).** Most HTTP tests MUST hit a rich, in-process
+  local HTTP server (`Napper.Core.Tests/LocalHttpServer.fs`, exposed as
+  `LocalHttpServer.baseUrl`), NOT a public API. It is **hermetic**: deterministic,
+  offline, and immune to outages. It MUST deliver a BROAD surface so tests can exercise
+  real behaviour — many status/error codes (`/status/{code}`), variable latency
+  (`/delay/{ms}`), several content types (`/json`, `/html`, `/xml`, `/bytes/{n}`),
+  method/header/body echoing (`/get`, `/post`, `/anything`), and rich nested payloads.
+  **Hammer this server as much as you like.** When behaviour you need to test isn't
+  covered, ADD an endpoint to the local server — never reach for a public API to get it.
+- **Real-world smoke tests (the truth check).** Each suite MUST ALSO make a SMALL number
+  of calls — **one or two per suite, per real API** (e.g. jsonplaceholder) — against the
+  genuine public service. These exist precisely so a real outage or contract break
+  **TANKS the suite** — that is the entire point of a real-world test; do not mock it
+  away. But **never pound the same public server**: one or two calls per suite per API,
+  no more. Cache only where a suite would otherwise repeat the same fetch.
+
+Rule of thumb: breadth and volume of HTTP assertions live on the local server; a thin,
+deliberate layer of real-network calls proves the tool actually works against the wild.
+
 ### Test First Process
 
 - Write test that fails because of bug/missing feature

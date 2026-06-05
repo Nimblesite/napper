@@ -1,3 +1,4 @@
+// Implements [HTTP-PARSER-PROJECT]
 namespace DotHttp
 
 /// Dialect of .http file

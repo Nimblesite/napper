@@ -1,5 +1,5 @@
 module CsxScriptTests
-// Specs: script-csx, script-runner
+// Tests [SCRIPT-CSX]
 
 open System
 open System.IO

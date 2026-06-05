@@ -1,4 +1,4 @@
-// Implements [LSP-TEST-WIRE]
+// Test harness for [LSP-TRANSPORT]
 /// Shared LSP / JSON-RPC wire helpers for the test assembly: the single
 /// location for every wire string constant, the framing codec, and the
 /// JSON-RPC envelope + param builders. Reused by BOTH the process-based client

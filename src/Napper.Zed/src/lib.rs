@@ -3,6 +3,7 @@
 //! Provides syntax highlighting (via Tree-sitter), runnables, slash commands,
 //! and a language server integration point for the Nap Language Server.
 
+// Implements [VSCODE-SYNTAX], [ZED-RUNNABLES], [ZED-SLASH-COMMANDS], [IDE-LSP]
 use std::{fs, path::Path};
 use zed_extension_api::{
     self as zed, process::Output, serde_json, Command, LanguageServerId, SlashCommand,
@@ -109,7 +110,7 @@ impl zed::Extension for NapExtension {
 }
 
 /// Resolve language server command by ID.
-/// Implements [LSP-ZED-CLIENT]: launches 'napper lsp' over stdio.
+/// Implements [IDE-LSP], [LSP-DISCOVERY]: launches 'napper lsp' over stdio.
 fn resolve_language_server(id: &str, napper_path: Option<String>) -> Result<Command, String> {
     if id != NAP_LSP_ID {
         return Err(format!("Unknown language server: {id}"));

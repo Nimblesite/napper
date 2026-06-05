@@ -1,4 +1,4 @@
-// Specs: vscode-openapi
+// Implements [VSCODE-OPENAPI]
 // OpenAPI spec download — fetches specs via HTTPS with redirect support
 // Pure function — no VS Code SDK dependency
 

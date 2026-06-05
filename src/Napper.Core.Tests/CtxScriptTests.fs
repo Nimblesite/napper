@@ -1,6 +1,5 @@
 module CtxScriptTests
-// Specs: script-context, script-protocol, script-protocol-in, script-protocol-out,
-//        script-pre, script-post, script-js, script-py, naplist-script-step, naplist-var-scope
+// Tests [SCRIPT-CONTEXT], [SCRIPT-PROTOCOL], [SCRIPT-PROTOCOL-IN], [SCRIPT-PROTOCOL-OUT], [SCRIPT-PRE], [SCRIPT-POST], [SCRIPT-JS], [SCRIPT-PY], [NAPLIST-SCRIPT-STEP], [NAPLIST-VAR-SCOPE]
 //
 // BLACK-BOX, through the real napper CLI (TestHelpers.runCli shells out to the built binary).
 // These tests encode the DOCUMENTED injected-`ctx` behaviour that had ZERO implementation:

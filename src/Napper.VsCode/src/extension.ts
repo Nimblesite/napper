@@ -1,4 +1,4 @@
-// Specs: vscode-impl, vscode-commands
+// Implements [VSCODE-IMPL], [VSCODE-COMMANDS]
 // Napper VSCode Extension — main entry point
 // Registers all providers, commands, and file watchers
 

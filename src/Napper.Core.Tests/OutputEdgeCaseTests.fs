@@ -1,5 +1,5 @@
 module OutputEdgeCaseTests
-// Specs: output-json, output-junit, output-pretty
+// Tests [OUTPUT-JSON], [OUTPUT-JUNIT], [OUTPUT-PRETTY]
 
 open System
 open Xunit

@@ -1,4 +1,4 @@
-// Specs: env-file, env-base, env-local, env-named, env-resolution, env-interpolation, cli-var
+// Implements [ENV-FILE], [ENV-BASE], [ENV-LOCAL], [ENV-NAMED], [ENV-RESOLUTION], [ENV-INTERPOLATION], [CLI-VAR]
 module Napper.Core.Environment
 
 open System

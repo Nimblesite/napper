@@ -1,4 +1,4 @@
-// Implements [http-methods].
+// Implements [NAP-METHODS].
 // Behavior augmenting the generated HttpMethod union (Types.Generated.fs, from Types.td).
 // typeDiagram models DATA only; these members are behavior and live here by hand —
 // never in the generated file (which `make generate-types` overwrites).

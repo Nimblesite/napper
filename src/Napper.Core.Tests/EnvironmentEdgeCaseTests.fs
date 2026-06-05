@@ -1,6 +1,5 @@
 module EnvironmentEdgeCaseTests
-// Specs: env-file, env-interpolation, env-resolution, env-base, env-named, env-local, cli-var,
-//        nap-request, nap-headers, nap-body, nap-assert, assert-lt, assert-gt, assert-exists
+// Tests [ENV-FILE], [ENV-INTERPOLATION], [ENV-RESOLUTION], [ENV-BASE], [ENV-NAMED], [ENV-LOCAL], [CLI-VAR], [NAP-REQUEST], [NAP-HEADERS], [NAP-BODY], [NAP-ASSERT], [ASSERT-LT], [ASSERT-GT], [ASSERT-EXISTS]
 
 open System.IO
 open Xunit

@@ -1,3 +1,4 @@
+// Tests [LSP-SYMBOLS]
 module SectionScannerTests
 // Covers Napper.Core.SectionScanner — section locations + step-path extraction.
 // Used by the LSP for document symbols/outline and by the runner to resolve naplist steps.

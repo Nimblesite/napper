@@ -1,4 +1,4 @@
-// Specs: vscode-playlists, vscode-layout
+// Implements [VSCODE-PLAYLISTS], [VSCODE-LAYOUT]
 // Playlist results webview panel — shows all step results from a .naplist run
 // Opens IMMEDIATELY with pending rows, updates progressively via postMessage
 

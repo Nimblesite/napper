@@ -1,20 +1,32 @@
 module LocalHttpServer
-// Hermetic, in-process HTTP server that impersonates the third-party services the
-// black-box tests used to hit (httpbin.org, jsonplaceholder.typicode.com). Those
-// services routinely flake/outage and abort the whole suite (stopOnFail), which is
-// why unrelated modules showed phantom-low coverage. This server serves the SAME
-// deterministic payloads with all the trimmings, on loopback, with zero network.
+// Rich, hermetic, in-process HTTP server — the workhorse for the BULK of black-box
+// tests. It deliberately offers a BROAD surface so tests can exercise the tool's
+// behaviour deterministically and offline: many status/error codes, several content
+// types, variable latency, echoing of method/headers/body, and sized payloads.
 //
-// Routes (mirroring the originals the tests depend on):
-//   GET  /get            -> 200 application/json  {url, args, headers, origin}   (httpbin)
-//   *    /post|/anything -> 200 application/json  {url, json, data, headers}     (httpbin)
-//   *    /status/{code}  -> {code} with empty body                                (httpbin)
-//   GET  /headers        -> 200 application/json  {headers}                       (httpbin)
-//   GET  /posts/{id}     -> 200 application/json  {userId,id,title,body}          (jsonplaceholder)
+// This is NOT a replacement for real-world tests. A SMALL number of real-world smoke
+// tests (see RealWorldSmokeTests.fs) still hit the genuine public APIs (jsonplaceholder
+// etc.) so a real outage or contract break tanks the suite — that is the whole point of
+// a real-world test. The rule is: hammer THIS local server as much as you like; make
+// only one or two calls per suite, per real API. See CLAUDE.md "Testing".
 //
-// `baseUrl` starts the listener on first access (module init is thread-safe) and
-// is reused for the whole test-host process lifetime. Black-box callers (the napper
-// CLI subprocess) and in-process callers (Runner.runNapFile) both reach 127.0.0.1.
+// Routes:
+//   GET  /get               -> 200 json   {url, args, headers, origin}            (httpbin-shape)
+//   *    /post|/put|/patch|/delete|/anything -> 200 json {method, url, json, data, headers}
+//   *    /status/{code}      -> {code} with an empty body
+//   *    /delay/{ms}         -> 200 json after sleeping {ms} (latency simulation)
+//   GET  /headers            -> 200 json   {headers}
+//   GET  /json               -> 200 json   a rich nested document (deep body.* assertions)
+//   GET  /html               -> 200 text/html
+//   GET  /xml                -> 200 application/xml
+//   GET  /bytes/{n}          -> 200 application/octet-stream of {n} bytes
+//   GET  /posts/{id}         -> 200 json   {userId,id,title,body}                  (jsonplaceholder-shape)
+//   (anything else)          -> 404
+//
+// `baseUrl` starts the listener on first access (module init is thread-safe) and is
+// reused for the whole test-host process. Acceptors run on dedicated threads so the
+// listener is immune to thread-pool starvation when the suite spawns many subprocess
+// interpreters (node/python/dotnet-script) that block pool threads on WaitForExit.
 
 open System
 open System.Collections.Generic
@@ -23,15 +35,37 @@ open System.Net
 open System.Net.Sockets
 open System.Text
 open System.Text.Json
+open System.Threading
 
 [<Literal>]
 let JsonContentType = "application/json"
+
+[<Literal>]
+let private HtmlContentType = "text/html; charset=utf-8"
+
+[<Literal>]
+let private XmlContentType = "application/xml"
+
+[<Literal>]
+let private OctetContentType = "application/octet-stream"
 
 [<Literal>]
 let private StatusPrefix = "/status/"
 
 [<Literal>]
 let private PostsPrefix = "/posts/"
+
+[<Literal>]
+let private DelayPrefix = "/delay/"
+
+[<Literal>]
+let private BytesPrefix = "/bytes/"
+
+[<Literal>]
+let private MaxDelayMs = 10_000
+
+[<Literal>]
+let private MaxBytes = 65_536
 
 let private serialize (payload: obj) : string = JsonSerializer.Serialize(payload)
 
@@ -60,34 +94,42 @@ let private parsedJson (body: string) : obj =
         with _ ->
             null
 
-let private writeJson (ctx: HttpListenerContext) (status: int) (payload: obj) : unit =
-    let bytes = Encoding.UTF8.GetBytes(serialize payload)
+let private writeText (ctx: HttpListenerContext) (status: int) (contentType: string) (body: string) : unit =
+    let bytes = Encoding.UTF8.GetBytes(body)
     ctx.Response.StatusCode <- status
-    ctx.Response.ContentType <- JsonContentType
+    ctx.Response.ContentType <- contentType
     ctx.Response.ContentLength64 <- int64 bytes.Length
     ctx.Response.OutputStream.Write(bytes, 0, bytes.Length)
     ctx.Response.OutputStream.Close()
+
+let private writeBytes (ctx: HttpListenerContext) (payload: byte[]) : unit =
+    ctx.Response.StatusCode <- 200
+    ctx.Response.ContentType <- OctetContentType
+    ctx.Response.ContentLength64 <- int64 payload.Length
+    ctx.Response.OutputStream.Write(payload, 0, payload.Length)
+    ctx.Response.OutputStream.Close()
+
+let private writeJson (ctx: HttpListenerContext) (status: int) (payload: obj) : unit =
+    writeText ctx status JsonContentType (serialize payload)
 
 let private writeStatus (ctx: HttpListenerContext) (status: int) : unit =
     ctx.Response.StatusCode <- status
     ctx.Response.ContentLength64 <- 0L
     ctx.Response.OutputStream.Close()
 
-let private getPayload (req: HttpListenerRequest) : obj =
+let private echoPayload (req: HttpListenerRequest) (withBody: bool) : obj =
     let d = Dictionary<string, obj>()
+    d["method"] <- box req.HttpMethod
     d["url"] <- box (req.Url.ToString())
     d["args"] <- box (Dictionary<string, string>())
     d["headers"] <- box (headerMap req)
     d["origin"] <- box "127.0.0.1"
-    box d
 
-let private postPayload (req: HttpListenerRequest) : obj =
-    let body = readBody req
-    let d = Dictionary<string, obj>()
-    d["url"] <- box (req.Url.ToString())
-    d["data"] <- box body
-    d["json"] <- parsedJson body
-    d["headers"] <- box (headerMap req)
+    if withBody then
+        let body = readBody req
+        d["data"] <- box body
+        d["json"] <- parsedJson body
+
     box d
 
 /// jsonplaceholder /posts/{id}: a deterministic post whose id echoes the path so
@@ -100,23 +142,64 @@ let private postsPayload (id: int) : obj =
     d["body"] <- box "deterministic body served by the local test server"
     box d
 
+/// A rich nested document for deep body.* assertions (arrays, nested objects, null).
+let private sampleJson () : obj =
+    let address = Dictionary<string, obj>()
+    address["city"] <- box "Testville"
+    address["zip"] <- box "12345"
+    let d = Dictionary<string, obj>()
+    d["id"] <- box 42
+    d["name"] <- box "napper"
+    d["active"] <- box true
+    d["score"] <- (null: obj) // serialises to JSON null, mirroring httpbin's null fields
+    d["tags"] <- box [| "alpha"; "beta"; "gamma" |]
+    d["address"] <- box address
+    box d
+
 let private trailingInt (path: string) (prefix: string) : int option =
     match Int32.TryParse(path.Substring(prefix.Length)) with
     | true, n -> Some n
     | _ -> None
+
+let private htmlBody =
+    "<!DOCTYPE html><html><head><title>napper</title></head><body><h1>napper local</h1></body></html>"
+
+let private xmlBody =
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?><note><to>napper</to><body>local xml</body></note>"
+
+let private isEcho (path: string) : bool =
+    [ "/post"; "/put"; "/patch"; "/delete"; "/anything" ] |> List.contains path
 
 let private route (ctx: HttpListenerContext) : unit =
     let req = ctx.Request
     let path = req.Url.AbsolutePath
 
     if path = "/get" then
-        writeJson ctx 200 (getPayload req)
+        writeJson ctx 200 (echoPayload req false)
+    elif isEcho path then
+        writeJson ctx 200 (echoPayload req true)
     elif path = "/headers" then
         let d = Dictionary<string, obj>()
         d["headers"] <- box (headerMap req)
         writeJson ctx 200 (box d)
-    elif path = "/post" || path = "/anything" then
-        writeJson ctx 200 (postPayload req)
+    elif path = "/json" then
+        writeJson ctx 200 (sampleJson ())
+    elif path = "/html" then
+        writeText ctx 200 HtmlContentType htmlBody
+    elif path = "/xml" then
+        writeText ctx 200 XmlContentType xmlBody
+    elif path.StartsWith(BytesPrefix) then
+        match trailingInt path BytesPrefix with
+        | Some n -> writeBytes ctx (Array.init (min n MaxBytes) (fun i -> byte (i % 256)))
+        | None -> writeStatus ctx 400
+    elif path.StartsWith(DelayPrefix) then
+        match trailingInt path DelayPrefix with
+        | Some ms ->
+            Thread.Sleep(min ms MaxDelayMs)
+            let d = Dictionary<string, obj>()
+            d["delayedMs"] <- box (min ms MaxDelayMs)
+            writeJson ctx 200 (box d)
+        | None -> writeStatus ctx 400
     elif path.StartsWith(StatusPrefix) then
         match trailingInt path StatusPrefix with
         | Some code -> writeStatus ctx code
@@ -170,7 +253,7 @@ let private startServer () : string =
     listener.Start()
 
     for i in 1..AcceptorCount do
-        let t = System.Threading.Thread(System.Threading.ThreadStart(acceptLoop listener))
+        let t = Thread(ThreadStart(acceptLoop listener))
         t.IsBackground <- true
         t.Name <- $"local-http-acceptor-{i}"
         t.Start()

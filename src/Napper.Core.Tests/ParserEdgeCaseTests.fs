@@ -1,9 +1,5 @@
 module ParserEdgeCaseTests
-// Specs: nap-minimal, nap-full, nap-file, nap-meta, nap-vars, nap-request, nap-headers,
-//        nap-body, nap-assert, nap-script, nap-comments, http-methods,
-//        naplist-file, naplist-meta, naplist-vars, naplist-steps, naplist-nap-step,
-//        naplist-folder-step, naplist-script-step,
-//        assert-status, assert-exists, assert-contains, assert-matches, assert-lt, assert-gt
+// Tests [NAP-MINIMAL], [NAP-FULL], [NAP-FILE], [NAP-META], [NAP-VARS], [NAP-REQUEST], [NAP-HEADERS], [NAP-BODY], [NAP-ASSERT], [NAP-SCRIPT], [NAP-COMMENTS], [NAP-METHODS], [NAPLIST-FILE], [NAPLIST-META], [NAPLIST-VARS], [NAPLIST-STEPS], [NAPLIST-NAP-STEP], [NAPLIST-FOLDER-STEP], [NAPLIST-SCRIPT-STEP], [ASSERT-STATUS], [ASSERT-EXISTS], [ASSERT-CONTAINS], [ASSERT-MATCHES], [ASSERT-LT], [ASSERT-GT]
 
 open Xunit
 open Napper.Core

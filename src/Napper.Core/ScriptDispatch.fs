@@ -1,8 +1,8 @@
-// [script-dispatch] Single source of truth: script file extension -> runtime invocation.
+// [SCRIPT-DISPATCH] Single source of truth: script file extension -> runtime invocation.
 // Both the .naplist step classifier (Parser) and the script executor (Runner) consult this one
 // table — there is exactly one place that knows which extensions are scripts and how to run them.
 // Adding a language is a single row here.
-// Implements [script-dispatch], [script-runtime], [script-fsx], [script-csx], [script-js], [script-py]
+// Implements [SCRIPT-DISPATCH], [SCRIPT-RUNTIME], [SCRIPT-FSX], [SCRIPT-CSX], [SCRIPT-JS], [SCRIPT-PY]
 module Napper.Core.ScriptDispatch
 
 [<Literal>]

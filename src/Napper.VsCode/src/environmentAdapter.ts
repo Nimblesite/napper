@@ -1,5 +1,4 @@
-// Implements [LSP-VSCODE-ENV]
-// Specs: vscode-env-switcher, vscode-impl
+// Implements [VSCODE-ENV-SWITCHER], [VSCODE-IMPL], [LSP-CUSTOM]
 // VSCode adapter for the environment switcher
 // Status bar item and quick pick integration
 

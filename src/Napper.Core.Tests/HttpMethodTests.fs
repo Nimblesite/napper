@@ -1,3 +1,4 @@
+// Tests [NAP-METHODS]
 module HttpMethodTests
 
 open Xunit
@@ -32,7 +33,7 @@ let ``OPTIONS.ToNetMethod returns HttpMethod.Options`` () =
     Assert.Equal(System.Net.Http.HttpMethod.Options, OPTIONS.ToNetMethod())
 
 // .Name is the single source of truth for verb rendering across CLI, curl, and LSP.
-// Covers every branch of HttpMethodExtensions.Name (Implements [http-methods]).
+// Covers every branch of HttpMethodExtensions.Name (Implements [NAP-METHODS]).
 [<Fact>]
 let ``Name returns the uppercase verb for every method`` () =
     Assert.Equal("GET", GET.Name)

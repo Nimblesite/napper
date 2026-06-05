@@ -1,5 +1,5 @@
 module AssertionEdgeCaseTests
-// Specs: assert-status, assert-equals, assert-exists, assert-contains, assert-matches, assert-lt, assert-gt
+// Tests [ASSERT-STATUS], [ASSERT-EQUALS], [ASSERT-EXISTS], [ASSERT-CONTAINS], [ASSERT-MATCHES], [ASSERT-LT], [ASSERT-GT]
 
 open System
 open Xunit

@@ -1,4 +1,4 @@
-// Specs: vscode-explorer, vscode-playlists
+// Tests [VSCODE-EXPLORER], [VSCODE-PLAYLISTS]
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as fs from 'fs';

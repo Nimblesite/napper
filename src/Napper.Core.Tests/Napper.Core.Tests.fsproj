@@ -26,6 +26,7 @@
     <Compile Include="OpenApiCliTests.fs" />
     <Compile Include="LoggerTests.fs" />
     <Compile Include="RunnerE2eTests.fs" />
+    <Compile Include="RealWorldSmokeTests.fs" />
     <Compile Include="OpenApiE2eTests.fs" />
     <Compile Include="HttpConvertE2eTests.fs" />
     <Compile Include="VersionContractTests.fs" />
