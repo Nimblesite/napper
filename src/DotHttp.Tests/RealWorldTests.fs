@@ -8,21 +8,25 @@ open DotHttp
 open DotHttp.Parser
 
 // ─── Infrastructure ───────────────────────────────────────────
+// The parser cases below read COMMITTED real-world .http fixtures (src/DotHttp.Tests/fixtures)
+// OFFLINE — deterministic, and they NEVER pound third-party hosts. A separate, deliberate pair
+// of LIVE smoke tests at the end of this file still fetches a real .http file over the network,
+// so a genuine hosting/connectivity break tanks the suite — that is the point of a real-world
+// test. Rule: one or two LIVE calls per suite per host, no more. See CLAUDE.md testing policy.
 
-let private cacheDir =
-    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".http-cache")
+let private fixturesDir = Path.Combine(__SOURCE_DIRECTORY__, "fixtures")
 
 let private httpClient = new HttpClient()
 
-let private loadCached (filename: string) (url: string) : string =
-    let path = Path.Combine(cacheDir, filename)
-
-    if not (Directory.Exists cacheDir) then
-        Directory.CreateDirectory cacheDir |> ignore
+/// Read a committed real-world fixture. `_sourceUrl` records provenance (where the file was
+/// originally captured) — it is NOT fetched here; a missing fixture fails loudly so nobody
+/// silently re-introduces a live network dependency into the parser tests.
+let private loadCached (filename: string) (_sourceUrl: string) : string =
+    let path = Path.Combine(fixturesDir, filename)
 
     if not (File.Exists path) then
-        let content = httpClient.GetStringAsync(url).Result
-        File.WriteAllText(path, content)
+        failwith
+            $"Missing committed fixture '{filename}' in {fixturesDir} — capture it once and commit it; parser tests must not fetch live."
 
     File.ReadAllText path
 
@@ -830,3 +834,30 @@ let ``real-world download: Panasonic Comfort Cloud IoT API`` () =
     for req in withAcceptEncoding do
         assertHeaderExact req "Accept-Encoding" "gzip"
         assertHeaderExact req "Connection" "Keep-Alive"
+
+// ═══════════════════════════════════════════════════════════════
+// LIVE real-world smoke — deliberately tiny, and MEANT to tank on a real outage.
+// Exactly two genuine network fetches of real .http files (stable GitHub repos, not gists).
+// Everything above is offline/committed; this thin layer proves the wild still works.
+// Rule: one or two LIVE calls per suite per host. See CLAUDE.md testing policy.
+// ═══════════════════════════════════════════════════════════════
+
+let private fetchLive (url: string) : string = httpClient.GetStringAsync(url).Result
+
+[<Fact>]
+let ``LIVE smoke: reggieray .http still downloads and parses`` () =
+    // A real outage / file removal here SHOULD fail the suite — that is the whole point.
+    let content = fetchLive ReggierayUrl
+    Assert.False(String.IsNullOrWhiteSpace content, "live fetch returned empty content")
+    let f = unwrap content
+    Assert.Equal(Microsoft, f.Dialect)
+    Assert.True(f.Requests.Length >= 1, "live .http should parse to at least one request")
+    Assert.True(f.Requests |> List.forall (fun r -> not (String.IsNullOrWhiteSpace r.Method)))
+
+[<Fact>]
+let ``LIVE smoke: BcnRust workshop .http still downloads and parses`` () =
+    let content = fetchLive BcnRustUrl
+    Assert.False(String.IsNullOrWhiteSpace content, "live fetch returned empty content")
+    let f = unwrap content
+    Assert.Equal(Microsoft, f.Dialect)
+    Assert.True(f.Requests.Length >= 1, "live .http should parse to at least one request")
