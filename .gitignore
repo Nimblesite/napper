@@ -13,7 +13,9 @@ Desktop.ini
 # =============================================================================
 # IDE / Editor
 # =============================================================================
-.idea/
+# NOTE: .idea/ and .vscode/ are intentionally NOT ignored — shared IDE config
+# (JetBrains run configs/code style, VS Code title-bar colors + recommended
+# extensions) is committed per repo standards [GITIGNORE-RULES].
 *.swp
 *.swo
 *~

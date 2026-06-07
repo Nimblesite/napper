@@ -46,6 +46,26 @@ export default function (eleventyConfig) {
     return content;
   });
 
+  // Inject Google Analytics (gtag.js) into every page's <head>.
+  const gaMeasurementId = "G-JNZW4P4DYD";
+  const googleAnalyticsTag = [
+    "<!-- Google tag (gtag.js) -->",
+    `<script async src="https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}"></script>`,
+    "<script>",
+    "  window.dataLayer = window.dataLayer || [];",
+    "  function gtag(){dataLayer.push(arguments);}",
+    "  gtag('js', new Date());",
+    `  gtag('config', '${gaMeasurementId}');`,
+    "</script>",
+  ].join("\n  ");
+
+  eleventyConfig.addTransform("google-analytics", function (content) {
+    if (this.page.outputPath?.endsWith(".html")) {
+      return content.replace("</head>", `  ${googleAnalyticsTag}\n</head>`);
+    }
+    return content;
+  });
+
   // Fix robots.txt: allow image crawling (Google requires image access)
   eleventyConfig.addTransform("robots-fix", function (content) {
     if (this.page.outputPath === "robots.txt" || this.page.outputPath?.endsWith("/robots.txt")) {

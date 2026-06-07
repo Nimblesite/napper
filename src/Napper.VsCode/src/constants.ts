@@ -327,4 +327,7 @@ export const CONVERT_HTTP_CODELENS_TITLE = '$(file-add) Convert to .nap';
 export const PERCENTAGE_MULTIPLIER = 100;
 export const HTTP_STATUS_REDIRECT_MIN = 300;
 export const HTTP_STATUS_CLIENT_ERROR_MIN = 400;
+// Plain-HTTP URL scheme — selects the `http` client (vs `https`) for spec downloads
+// (e.g. internal/self-hosted OpenAPI specs served over http). HTTPS is the default.
+export const HTTP_SCHEME_PREFIX = 'http://';
 export const JSON_INDENT_SIZE = 2;
