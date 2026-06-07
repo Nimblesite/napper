@@ -274,7 +274,7 @@ _coverage_check:
 	@{ \
 	  t=$$(jq -r '.projects["src/Napper.Zed"].threshold // .default_threshold' coverage-thresholds.json); \
 	  if [ -f "$(_RUST_COV)/report/cobertura.xml" ]; then \
-	    lr=$$(xmllint --xpath 'string(/coverage/@line-rate)' "$(_RUST_COV)/report/cobertura.xml" 2>/dev/null); \
+	    lr=$$(python3 -c "import xml.etree.ElementTree as ET,sys; print(ET.parse(sys.argv[1]).getroot().get('line-rate'))" "$(_RUST_COV)/report/cobertura.xml" 2>/dev/null); \
 	    c=$$(echo "$${lr:-0} * 100" | bc -l | xargs printf "%.1f"); \
 	    echo "  Rust: $${c}% (threshold $${t}%)"; \
 	    if [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ]; then \
