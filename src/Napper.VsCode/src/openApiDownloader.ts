@@ -1,13 +1,15 @@
 // Implements [VSCODE-OPENAPI]
-// OpenAPI spec download — fetches specs via HTTPS with redirect support
+// OpenAPI spec download — fetches specs via HTTP(S) with redirect support
 // Pure function — no VS Code SDK dependency
 
 import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
+import * as http from 'http';
 import type { IncomingMessage } from 'http';
 import { type Result, err, ok } from './types';
 import {
+  HTTP_SCHEME_PREFIX,
   HTTP_STATUS_CLIENT_ERROR_MIN,
   HTTP_STATUS_REDIRECT_MIN,
   OPENAPI_DOWNLOAD_FAILED_PREFIX,
@@ -51,13 +53,15 @@ function handleHttpResponse(
 
 export async function downloadSpec(url: string): Promise<Result<string, string>> {
   return new Promise((resolve) => {
-    https
-      .get(url, (res) => {
-        handleHttpResponse(res, resolve);
-      })
-      .on('error', (e) => {
-        resolve(err(`${OPENAPI_DOWNLOAD_FAILED_PREFIX}${e.message}`));
-      });
+    const onResponse = (res: IncomingMessage): void => {
+      handleHttpResponse(res, resolve);
+    };
+    const request = url.startsWith(HTTP_SCHEME_PREFIX)
+      ? http.get(url, onResponse)
+      : https.get(url, onResponse);
+    request.on('error', (e) => {
+      resolve(err(`${OPENAPI_DOWNLOAD_FAILED_PREFIX}${e.message}`));
+    });
   });
 }
 
