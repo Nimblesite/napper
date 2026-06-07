@@ -341,6 +341,16 @@ suite('Playlist Panel — Real API Calls', () => {
       `Report file must be created at ${expectedReportPath} after Save Report command`,
     );
 
+    // The report must open INSIDE VS Code as a webview tab — not via an external app
+    // (env.openExternal raises a blocking "No application found to open URL" modal on
+    // hosts with no handler, which hangs the headless run). Verify through the UI.
+    const reportTabLabel = `smoke${REPORT_FILE_SUFFIX}`;
+    await waitForCondition(() => findTabByLabel(reportTabLabel) !== undefined, 5000);
+    assert.ok(
+      findTabByLabel(reportTabLabel) !== undefined,
+      `Report must open in an in-editor webview tab labelled "${reportTabLabel}"`,
+    );
+
     const reportContent = fs.readFileSync(expectedReportPath, 'utf-8');
 
     assert.ok(reportContent.includes('<!DOCTYPE html'), 'Report must be a valid HTML document');

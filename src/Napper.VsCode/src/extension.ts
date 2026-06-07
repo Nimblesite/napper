@@ -71,6 +71,7 @@ import {
   PROP_FILE_PATH,
   REPORT_FILE_EXTENSION,
   REPORT_FILE_SUFFIX,
+  REPORT_PANEL_VIEW_TYPE,
   REPORT_SAVED_MSG,
   STATUS_RUNNING_ICON,
   STATUS_RUNNING_SUFFIX,
@@ -206,8 +207,20 @@ const getCliPath = (): string => {
         path.dirname(playlistFile),
         `${baseName}${REPORT_FILE_SUFFIX}${REPORT_FILE_EXTENSION}`,
       );
-    fs.writeFileSync(reportPath, generatePlaylistReport(baseName, results), ENCODING_UTF8);
-    void vscode.env.openExternal(vscode.Uri.file(reportPath));
+    const reportHtml = generatePlaylistReport(baseName, results);
+    fs.writeFileSync(reportPath, reportHtml, ENCODING_UTF8);
+    // Render the saved report INSIDE VS Code in a webview. Do NOT use env.openExternal
+    // on the file:// URL: on a host with no OS handler (headless CI / the extension-test
+    // window) it raises a blocking "No application found to open URL" modal that requires
+    // manual dismissal and hangs/fouls the automated run. The report HTML is fully
+    // self-contained (inline styles), so a webview renders it faithfully and hermetically.
+    const reportPanel = vscode.window.createWebviewPanel(
+      REPORT_PANEL_VIEW_TYPE,
+      `${baseName}${REPORT_FILE_SUFFIX}`,
+      getResponseColumn(),
+      { retainContextWhenHidden: true },
+    );
+    reportPanel.webview.html = reportHtml;
     void vscode.window.showInformationMessage(`${REPORT_SAVED_MSG}${path.basename(reportPath)}`);
   },
   currentEnvOrUndefined = (): string | undefined => {

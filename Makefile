@@ -254,7 +254,7 @@ _test_rust:
 
 _test_vsix: _build_cli _build_extension
 	$(_MKDIR) "$(_LOG_DIR)" "$(_TS_COV)"
-	cd src/Napper.VsCode && npm run compile && npm run compile:tests
+	cd src/Napper.VsCode && npm run compile && npm run compile:tests && npm run compile:e2e
 	cd src/Napper.VsCode && NODE_V8_COVERAGE="../../$(_TS_COV)/tmp" \
 	  npx mocha out/test/unit/**/*.test.js --ui tdd --timeout 5000 \
 	  2>&1 | tee "../../$(_LOG_DIR)/test-vsix-unit.log"
@@ -274,7 +274,7 @@ _coverage_check:
 	@{ \
 	  t=$$(jq -r '.projects["src/Napper.Zed"].threshold // .default_threshold' coverage-thresholds.json); \
 	  if [ -f "$(_RUST_COV)/report/cobertura.xml" ]; then \
-	    lr=$$(sed -n 's/.*line-rate="\([0-9.]*\)".*/\1/p' "$(_RUST_COV)/report/cobertura.xml" | head -1); \
+	    lr=$$(xmllint --xpath 'string(/coverage/@line-rate)' "$(_RUST_COV)/report/cobertura.xml" 2>/dev/null); \
 	    c=$$(echo "$${lr:-0} * 100" | bc -l | xargs printf "%.1f"); \
 	    echo "  Rust: $${c}% (threshold $${t}%)"; \
 	    if [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ]; then \

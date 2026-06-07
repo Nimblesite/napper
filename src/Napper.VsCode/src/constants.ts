@@ -116,6 +116,7 @@ export const MSG_SAVE_REPORT = 'saveReport';
 export const REPORT_FILE_EXTENSION = '.html';
 export const REPORT_FILE_SUFFIX = '-report';
 export const REPORT_SAVED_MSG = 'Report saved: ';
+export const REPORT_PANEL_VIEW_TYPE = 'napperReport';
 
 // CLI error messages
 export const CLI_SPAWN_FAILED_PREFIX = 'Failed to run CLI: ';
