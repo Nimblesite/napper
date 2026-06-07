@@ -1,7 +1,7 @@
 ---
 layout: layouts/base.njk
-title: "Napper — CLI-First API Testing for VS Code, Zed & any editor"
-description: "Napper is a free, open-source API testing tool for anyone testing APIs. Run from the command line, script in JavaScript, Python, F#, or C#, and edit anywhere with a native VS Code & Zed extension and a portable language server. A modern alternative to Postman and Bruno with declarative assertions and CI/CD integration."
+title: "Napper — CLI-First API Testing for VS Code, Zed and any editor"
+description: "Napper is a free, open-source API testing tool for anyone testing APIs. Run from the command line, script in JavaScript, Python, F#, or C#, and edit anywhere with a native VS Code and Zed extension and a portable language server. A modern alternative to Postman and Bruno with declarative assertions and CI/CD integration."
 permalink: /
 ---
 
@@ -34,7 +34,8 @@ permalink: /
           <div><span class="kw">name</span> <span class="op">=</span> <span class="str">Get all users</span></div>
           <div>&nbsp;</div>
           <div><span class="section">[request]</span></div>
-          <div><span class="method">GET</span> <span class="url">https://api.example.com/users</span></div>
+          <div><span class="kw">method</span> <span class="op">=</span> <span class="method">GET</span></div>
+          <div><span class="kw">url</span> <span class="op">=</span> <span class="url">https://api.example.com/users</span></div>
           <div>&nbsp;</div>
           <div><span class="section">[request.headers]</span></div>
           <div><span class="kw">Authorization</span> <span class="op">=</span> <span class="str">Bearer {{"{{token}}"}}</span></div>
@@ -87,7 +88,7 @@ permalink: /
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
         </div>
         <h3>Script in Any Language</h3>
-        <p>Write pre/post hooks and orchestration in JavaScript, Python, F#, or C# &mdash; whatever your team already runs. Extract tokens, build dynamic payloads, and orchestrate complex flows with real runtimes and full ecosystem access. No sandbox. <code>.fsx</code> and <code>.csx</code> are genuinely lovely, but never required.</p>
+        <p>Add playlist steps and pre/post hooks in JavaScript, Python, F#, or C# &mdash; whatever your team already runs, mixed freely in one playlist. Extract tokens, build dynamic payloads, and validate responses with real runtimes and full ecosystem access. No sandbox. In JavaScript and Python, an injected <code>ctx</code> object gives you the response and passes variables between steps.</p>
       </div>
 
       <div class="feature-card">
@@ -269,7 +270,8 @@ permalink: /
           </div>
           <div class="code-demo-body">
             <div><span class="section">[request]</span></div>
-            <div><span class="method">POST</span> <span class="url">{{"{{baseUrl}}"}}/users</span></div>
+            <div><span class="kw">method</span> <span class="op">=</span> <span class="method">POST</span></div>
+            <div><span class="kw">url</span> <span class="op">=</span> <span class="url">{{"{{baseUrl}}"}}/users</span></div>
             <div>&nbsp;</div>
             <div><span class="section">[request.headers]</span></div>
             <div><span class="kw">Content-Type</span> <span class="op">=</span> <span class="str">application/json</span></div>
@@ -348,7 +350,7 @@ permalink: /
 
     <div class="faq-item">
       <h3>What scripting languages does Napper support?</h3>
-      <p>Napper scripts in JavaScript (<code>.js</code>), Python (<code>.py</code>), F# (<code>.fsx</code>), and C# (<code>.csx</code>) for pre-request and post-request hooks and full orchestration. Every language sees the same <code>ctx</code> and <code>nap</code> objects. Unlike the sandboxed JavaScript in Postman and Bruno, Napper scripts run on real runtimes &mdash; Node.js, Python 3, or .NET &mdash; with full ecosystem access (npm, PyPI, NuGet). Parse XML, call databases, generate cryptographic tokens, validate complex schemas, use any package. Use whatever language you already test with &mdash; though <code>.fsx</code> and <code>.csx</code> are genuinely nice.</p>
+      <p>Napper scripts in JavaScript (<code>.js</code>), Python (<code>.py</code>), F# (<code>.fsx</code>), and C# (<code>.csx</code>) as playlist steps and pre/post request hooks, and you can mix languages in a single playlist. In JavaScript and Python an injected <code>ctx</code> object exposes the response and lets a script pass variables to later steps. Unlike the sandboxed JavaScript in Postman and Bruno, Napper scripts run on real runtimes &mdash; Node.js, Python 3, or .NET &mdash; with full ecosystem access (npm, PyPI, NuGet). Parse XML, call databases, generate cryptographic tokens, validate complex schemas, use any package.</p>
     </div>
 
     <div class="faq-item">
@@ -433,7 +435,7 @@ permalink: /
       "name": "What scripting languages does Napper support?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Napper scripts in JavaScript (.js), Python (.py), F# (.fsx), and C# (.csx) for pre-request and post-request hooks and full orchestration. Every language sees the same ctx and nap objects. Unlike the sandboxed JavaScript in Postman and Bruno, Napper scripts run on real runtimes — Node.js, Python 3, or .NET — with full ecosystem access to npm, PyPI, and NuGet."
+        "text": "Napper scripts in JavaScript (.js), Python (.py), F# (.fsx), and C# (.csx) as playlist steps and pre/post request hooks, and you can mix languages in a single playlist. In JavaScript and Python an injected ctx object exposes the response and lets a script pass variables to later steps. Unlike the sandboxed JavaScript in Postman and Bruno, Napper scripts run on real runtimes — Node.js, Python 3, or .NET — with full ecosystem access to npm, PyPI, and NuGet."
       }
     },
     {

@@ -1,5 +1,5 @@
 module AssertionEdgeCaseTests
-// Specs: assert-status, assert-equals, assert-exists, assert-contains, assert-matches, assert-lt, assert-gt
+// Tests [ASSERT-STATUS], [ASSERT-EQUALS], [ASSERT-EXISTS], [ASSERT-CONTAINS], [ASSERT-MATCHES], [ASSERT-LT], [ASSERT-GT]
 
 open System
 open Xunit
@@ -14,7 +14,7 @@ let private makeResponse status headers body durationMs : NapResponse =
 let private ok200 body =
     makeResponse 200 [ ("Content-Type", "application/json") ] body 100
 
-// ─── Status assertions ───────────────────── Spec: assert-status
+// ─── Status assertions ───────────────────── Spec: [ASSERT-STATUS]
 
 [<Fact>]
 let ``Status equals various codes`` () =
@@ -37,7 +37,7 @@ let ``Status mismatch reports actual code`` () =
     Assert.Equal("500", results[0].Actual)
     Assert.Equal("200", results[0].Expected)
 
-// ─── Body assertions ─────────────────────── Spec: assert-equals, assert-exists, assert-contains
+// ─── Body assertions ─────────────────────── Spec: [ASSERT-EQUALS], [ASSERT-EXISTS], [ASSERT-CONTAINS]
 
 [<Fact>]
 let ``Whole body equals`` () =
@@ -68,7 +68,7 @@ let ``Whole body exists`` () =
     let results = Runner.evaluateAssertions assertions response
     Assert.True(results[0].Passed)
 
-// ─── JSON path extraction ────────────────── Spec: assert-equals, assert-exists
+// ─── JSON path extraction ────────────────── Spec: [ASSERT-EQUALS], [ASSERT-EXISTS]
 
 [<Fact>]
 let ``Deeply nested JSON path (3 levels)`` () =
@@ -198,7 +198,7 @@ let ``Empty body with body path returns missing`` () =
     let results = Runner.evaluateAssertions assertions response
     Assert.False(results[0].Passed)
 
-// ─── Header assertions ───────────────────── Spec: assert-equals, assert-exists, assert-contains
+// ─── Header assertions ───────────────────── Spec: [ASSERT-EQUALS], [ASSERT-EXISTS], [ASSERT-CONTAINS]
 
 [<Fact>]
 let ``Header case-insensitive lookup`` () =
@@ -244,7 +244,7 @@ let ``Missing header fails`` () =
     let results = Runner.evaluateAssertions assertions response
     Assert.False(results[0].Passed)
 
-// ─── Duration assertions ─────────────────── Spec: assert-lt, assert-gt
+// ─── Duration assertions ─────────────────── Spec: [ASSERT-LT], [ASSERT-GT]
 
 [<Fact>]
 let ``Duration less than passes`` () =
@@ -290,7 +290,7 @@ let ``Duration greater than fails when under threshold`` () =
     let results = Runner.evaluateAssertions assertions response
     Assert.False(results[0].Passed)
 
-// ─── Contains assertion ──────────────────── Spec: assert-contains
+// ─── Contains assertion ──────────────────── Spec: [ASSERT-CONTAINS]
 
 [<Fact>]
 let ``Contains is case-insensitive`` () =
@@ -314,7 +314,7 @@ let ``Contains fails when substring absent`` () =
     let results = Runner.evaluateAssertions assertions response
     Assert.False(results[0].Passed)
 
-// ─── Matches assertion ───────────────────── Spec: assert-matches
+// ─── Matches assertion ───────────────────── Spec: [ASSERT-MATCHES]
 
 [<Fact>]
 let ``Matches with pattern`` () =
@@ -338,7 +338,7 @@ let ``Matches fails when pattern does not match`` () =
     let results = Runner.evaluateAssertions assertions response
     Assert.False(results[0].Passed)
 
-// ─── Multiple assertions mixed results ──── Spec: assert-status, assert-equals, assert-exists, assert-contains
+// ─── Multiple assertions mixed results ──── Spec: [ASSERT-STATUS], [ASSERT-EQUALS], [ASSERT-EXISTS], [ASSERT-CONTAINS]
 
 [<Fact>]
 let ``Multiple assertions with mixed pass/fail`` () =
@@ -383,7 +383,7 @@ let ``All assertions pass for healthy response`` () =
     let results = Runner.evaluateAssertions assertions response
     Assert.All(results, fun r -> Assert.True(r.Passed, $"{r.Assertion.Target}: expected {r.Expected}, got {r.Actual}"))
 
-// ─── Unknown target ──────────────────────── Spec: assert-exists
+// ─── Unknown target ──────────────────────── Spec: [ASSERT-EXISTS]
 
 [<Fact>]
 let ``Unknown target returns missing`` () =

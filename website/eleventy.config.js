@@ -10,7 +10,7 @@ export default function (eleventyConfig) {
       author: "Christian Findlay",
       themeColor: "#1B4965",
       stylesheet: "/assets/css/styles.css",
-      ogImage: "/assets/images/logo.png",
+      ogImage: "/assets/images/screenshot-playlist.png",
       organization: {
         name: "Napper",
         url: "https://napperapi.dev",
@@ -57,23 +57,41 @@ export default function (eleventyConfig) {
     return content;
   });
 
-  // Inject Nimblesite branding into footer
-  const footerBranding = '<p>Made by <a href="https://nimblesite.co">Nimblesite</a></p>';
+  // Turn the footer copyright line into a copyright link to Nimblesite.
+  const copyrightYear = new Date().getFullYear();
   eleventyConfig.addTransform("footer-branding", function (content) {
     if (this.page.outputPath?.endsWith(".html")) {
       return content.replace(
-        '</div>\n  </footer>',
-        `  ${footerBranding}\n      </div>\n  </footer>`
+        `<p>&copy; ${copyrightYear} Napper</p>`,
+        `<p>&copy; ${copyrightYear} Napper — built by <a href="https://nimblesite.co" rel="author">Nimblesite</a></p>`
       );
     }
     return content;
+  });
+
+  // Append site-name branding to bare page titles (improves SERP/AI branding).
+  eleventyConfig.addTransform("title-branding", function (content) {
+    if (!this.page.outputPath?.endsWith(".html")) {
+      return content;
+    }
+    const match = content.match(/<title>([^<]*)<\/title>/);
+    if (!match || match[1].includes("Napper")) {
+      return content;
+    }
+    const bare = match[1];
+    const branded = `${bare} — Napper`;
+    return content
+      .replace(`<title>${bare}</title>`, `<title>${branded}</title>`)
+      .replace(`<meta name="title" content="${bare}">`, `<meta name="title" content="${branded}">`)
+      .replace(`<meta property="og:title" content="${bare}">`, `<meta property="og:title" content="${branded}">`)
+      .replace(`<meta name="twitter:title" content="${bare}">`, `<meta name="twitter:title" content="${branded}">`);
   });
 
   // Fix OG site_name: use short name instead of full title
   eleventyConfig.addTransform("og-site-name", function (content) {
     if (this.page.outputPath?.endsWith(".html")) {
       return content.replace(
-        '<meta property="og:site_name" content="Napper — CLI-First API Testing for VS Code, Zed &amp; Any Editor">',
+        '<meta property="og:site_name" content="Napper — CLI-First API Testing for VS Code, Zed and Any Editor">',
         '<meta property="og:site_name" content="Napper">'
       );
     }

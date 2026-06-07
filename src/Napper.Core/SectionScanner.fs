@@ -1,3 +1,4 @@
+// Implements [LSP-SYMBOLS]
 /// Scan .nap and .naplist files for section headers and their line positions.
 /// Complements Parser.fs — the parser gives you the data, this gives you the positions.
 /// Used by the LSP for document symbols / outline navigation.

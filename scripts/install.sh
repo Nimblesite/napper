@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Implements [CLI-INSTALL-SCRIPT]
 # Install Napper CLI on macOS / Linux
 # Usage: curl -fsSL https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.sh | bash
 # Or:    ./scripts/install.sh [version]

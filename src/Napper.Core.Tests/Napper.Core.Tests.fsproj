@@ -6,21 +6,28 @@
 
   <ItemGroup>
     <Compile Include="TestHelpers.fs" />
+    <Compile Include="LocalHttpServer.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="HttpMethodTests.fs" />
+    <Compile Include="CurlGeneratorTests.fs" />
+    <Compile Include="SectionScannerTests.fs" />
     <Compile Include="ParserEdgeCaseTests.fs" />
     <Compile Include="AssertionEdgeCaseTests.fs" />
     <Compile Include="EnvironmentEdgeCaseTests.fs" />
     <Compile Include="OutputEdgeCaseTests.fs" />
     <Compile Include="CliArgTests.fs" />
     <Compile Include="ScriptEdgeCaseTests.fs" />
+    <Compile Include="ScriptContextTests.fs" />
     <Compile Include="CsxScriptTests.fs" />
+    <Compile Include="JsPyScriptTests.fs" />
+    <Compile Include="CtxScriptTests.fs" />
     <Compile Include="CliIntegrationTests.fs" />
     <Compile Include="HttpToNapConverterTests.fs" />
     <Compile Include="OpenApiGeneratorTests.fs" />
     <Compile Include="OpenApiCliTests.fs" />
     <Compile Include="LoggerTests.fs" />
     <Compile Include="RunnerE2eTests.fs" />
+    <Compile Include="RealWorldSmokeTests.fs" />
     <Compile Include="OpenApiE2eTests.fs" />
     <Compile Include="HttpConvertE2eTests.fs" />
     <Compile Include="VersionContractTests.fs" />

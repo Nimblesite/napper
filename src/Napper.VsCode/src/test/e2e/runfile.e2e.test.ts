@@ -1,4 +1,4 @@
-// Specs: vscode-commands, vscode-editor, vscode-layout
+// Tests [VSCODE-COMMANDS], [VSCODE-EDITOR], [VSCODE-LAYOUT]
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import {

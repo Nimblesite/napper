@@ -1,4 +1,4 @@
-// Specs: vscode-commands, vscode-playlists, script-csx
+// Tests [VSCODE-COMMANDS], [VSCODE-PLAYLISTS], [SCRIPT-CSX]
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as fs from 'fs';

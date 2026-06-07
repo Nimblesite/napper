@@ -1,12 +1,11 @@
 module EnvironmentEdgeCaseTests
-// Specs: env-file, env-interpolation, env-resolution, env-base, env-named, env-local, cli-var,
-//        nap-request, nap-headers, nap-body, nap-assert, assert-lt, assert-gt, assert-exists
+// Tests [ENV-FILE], [ENV-INTERPOLATION], [ENV-RESOLUTION], [ENV-BASE], [ENV-NAMED], [ENV-LOCAL], [CLI-VAR], [NAP-REQUEST], [NAP-HEADERS], [NAP-BODY], [NAP-ASSERT], [ASSERT-LT], [ASSERT-GT], [ASSERT-EXISTS]
 
 open System.IO
 open Xunit
 open Napper.Core
 
-// ─── parseEnvFile edge cases ────────────── Spec: env-file
+// ─── parseEnvFile edge cases ────────────── Spec: [ENV-FILE]
 
 [<Fact>]
 let ``Empty env file returns empty map`` () =
@@ -48,7 +47,7 @@ let ``Env file multiple variables`` () =
     Assert.Equal("abc123", vars["token"])
     Assert.Equal("42", vars["userId"])
 
-// ─── resolveVars edge cases ──────────────── Spec: env-interpolation
+// ─── resolveVars edge cases ──────────────── Spec: [ENV-INTERPOLATION]
 
 [<Fact>]
 let ``Multiple variables in one string`` () =
@@ -86,7 +85,7 @@ let ``Mixed resolved and unresolved`` () =
     let result = Environment.resolveVars vars "{{known}} and {{unknown}}"
     Assert.Equal("yes and {{unknown}}", result)
 
-// ─── resolveNapFile edge cases ───────────── Spec: env-interpolation, nap-request, nap-headers, nap-body, nap-assert
+// ─── resolveNapFile edge cases ───────────── Spec: [ENV-INTERPOLATION], [NAP-REQUEST], [NAP-HEADERS], [NAP-BODY], [NAP-ASSERT]
 
 [<Fact>]
 let ``resolveNapFile resolves URL`` () =
@@ -224,7 +223,7 @@ let ``resolveNapFile preserves Exists op unchanged`` () =
     let resolved = Environment.resolveNapFile vars napFile
     Assert.Equal(Exists, resolved.Assertions[0].Op)
 
-// ─── loadEnvironment priority ────────────── Spec: env-resolution, env-base, env-named, env-local, cli-var
+// ─── loadEnvironment priority ────────────── Spec: [ENV-RESOLUTION], [ENV-BASE], [ENV-NAMED], [ENV-LOCAL], [CLI-VAR]
 
 [<Fact>]
 let ``loadEnvironment file vars are lowest priority`` () =
@@ -301,6 +300,98 @@ let ``loadEnvironment merges distinct keys from all sources`` () =
         Assert.Equal("from-local", result["local_key"])
         Assert.Equal("from-file", result["file_key"])
         Assert.Equal("from-cli", result["cli_key"])
+    finally
+        Directory.Delete(dir, true)
+
+[<Fact>]
+let ``resolveNapFile resolves Matches and GreaterThan ops`` () =
+    // Matches/GreaterThan are the two assertion ops the existing suite never resolved,
+    // leaving those match arms uncovered. Prove BOTH interpolate their operand.
+    let vars = Map.ofList [ ("pattern", "user-*"); ("minDuration", "10ms") ]
+
+    let napFile: NapFile =
+        { Meta =
+            { Name = None
+              Description = None
+              Tags = [] }
+          Vars = Map.empty
+          Request =
+            { Method = GET
+              Url = "https://example.com"
+              Headers = Map.empty
+              Body = None }
+          Assertions =
+            [ { Target = "body.name"
+                Op = Matches "{{pattern}}" }
+              { Target = "duration"
+                Op = GreaterThan "{{minDuration}}" } ]
+          Script = { Pre = None; Post = None } }
+
+    let resolved = Environment.resolveNapFile vars napFile
+    Assert.Equal(Matches "user-*", resolved.Assertions[0].Op)
+    Assert.Equal(GreaterThan "10ms", resolved.Assertions[1].Op)
+
+// ─── resolveVars malformed braces ────────── Spec: [ENV-INTERPOLATION]
+
+[<Fact>]
+let ``resolveVars leaves an empty placeholder untouched`` () =
+    // "{{}}" opens a placeholder with no name — the close check fails (j == start), so
+    // the parser must fall through and emit the literal text rather than substitute.
+    let result = Environment.resolveVars (Map.ofList [ ("a", "1") ]) "x{{}}y"
+    Assert.Equal("x{{}}y", result)
+
+[<Fact>]
+let ``resolveVars leaves an unterminated placeholder untouched`` () =
+    let result =
+        Environment.resolveVars (Map.ofList [ ("host", "api.com") ]) "https://{{host"
+
+    Assert.Equal("https://{{host", result)
+
+[<Fact>]
+let ``resolveVars keeps a lone open brace literal`` () =
+    let result = Environment.resolveVars Map.empty "a { b {{c"
+    Assert.Equal("a { b {{c", result)
+
+// ─── detectEnvironmentNames ──────────────── Spec: [ENV-NAMED]
+
+[<Fact>]
+let ``detectEnvironmentNames returns sorted named envs excluding base and local`` () =
+    let dir =
+        Path.Combine(Path.GetTempPath(), "nap-detect-" + System.Guid.NewGuid().ToString("N"))
+
+    Directory.CreateDirectory(dir) |> ignore
+
+    try
+        File.WriteAllText(Path.Combine(dir, ".napenv"), "k = v")
+        File.WriteAllText(Path.Combine(dir, ".napenv.local"), "k = v")
+        File.WriteAllText(Path.Combine(dir, ".napenv.staging"), "k = v")
+        File.WriteAllText(Path.Combine(dir, ".napenv.production"), "k = v")
+        File.WriteAllText(Path.Combine(dir, ".napenv.dev"), "k = v")
+        let names = Environment.detectEnvironmentNames dir
+        // base (.napenv) and secrets (.napenv.local) are excluded; rest sorted+unique.
+        Assert.Equal<string list>([ "dev"; "production"; "staging" ], names)
+        Assert.DoesNotContain("local", names)
+    finally
+        Directory.Delete(dir, true)
+
+[<Fact>]
+let ``detectEnvironmentNames returns empty for a non-existent directory`` () =
+    let dir =
+        Path.Combine(Path.GetTempPath(), "nap-detect-missing-" + System.Guid.NewGuid().ToString("N"))
+
+    Assert.Empty(Environment.detectEnvironmentNames dir)
+
+[<Fact>]
+let ``detectEnvironmentNames returns empty when only base and local exist`` () =
+    let dir =
+        Path.Combine(Path.GetTempPath(), "nap-detect-baseonly-" + System.Guid.NewGuid().ToString("N"))
+
+    Directory.CreateDirectory(dir) |> ignore
+
+    try
+        File.WriteAllText(Path.Combine(dir, ".napenv"), "k = v")
+        File.WriteAllText(Path.Combine(dir, ".napenv.local"), "k = v")
+        Assert.Empty(Environment.detectEnvironmentNames dir)
     finally
         Directory.Delete(dir, true)
 

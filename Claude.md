@@ -2,7 +2,9 @@
 
 ## Too Many Cooks
 
-⚠️ NEVER KILL VSCODE PROCESSES
+⚠️ NEVER KILL VSCODE PROCESSES ⚠️
+
+⚠️ DON'T ASK QUESTIONS. USE YOUR JUDGMENT ⚠️
 
 ## Coding Rules
 
@@ -21,7 +23,7 @@
 - **Keep files under 450 LOC and functions under 20 LOC**
 - **No commented-out code** - Delete it
 - **No placeholders** - If incomplete, leave LOUD compilation error with TODO
-- **Spec IDs are hierarchical, descriptive, and non-numeric.** Every spec section MUST have a unique ID in the format `[GROUP-TOPIC]` or `[GROUP-TOPIC-DETAIL]` (e.g., `[CLI-PARSE-NAP]`, `[LSP-COMPLETION-VARS]`, `[HTTP-REQ-HEADERS]`). The first word is the **group** — all sections in the same group MUST be adjacent in the spec's TOC. NEVER use sequential numbers like `[SPEC-001]`. All code, tests, and design docs that implement a spec section MUST reference its ID in a comment (e.g., `// Implements [LSP-COMPLETION-VARS]`).
+- **Spec IDs are uniquem hierarchical, descriptive, and non-numeric.** Every spec section MUST have a unique ID in the format `[GROUP-TOPIC]` or `[GROUP-TOPIC-DETAIL]` (e.g., `[CLI-PARSE-NAP]`, `[LSP-COMPLETION-VARS]`, `[HTTP-REQ-HEADERS]`). The first word is the **group** — all sections in the same group MUST be adjacent in the spec's TOC. NEVER use sequential numbers like `[SPEC-001]`. All code, tests, and design docs that implement a spec section MUST reference its ID in a comment (e.g., `// Implements [LSP-COMPLETION-VARS]`).
 
 ### Rust
 - Keep files under 500 LOC
@@ -73,6 +75,29 @@
 - This is true for both the CLI and the VSIX.
 - The test VSIX must call the actual, real CLI.
 - VSIX tests run in actual VS Code window
+
+### HTTP: Local Test Server vs Real-World Smoke Tests
+
+We test HTTP behaviour two ways, and BOTH are mandatory:
+
+- **Local test server (the workhorse).** Most HTTP tests MUST hit a rich, in-process
+  local HTTP server (`Napper.Core.Tests/LocalHttpServer.fs`, exposed as
+  `LocalHttpServer.baseUrl`), NOT a public API. It is **hermetic**: deterministic,
+  offline, and immune to outages. It MUST deliver a BROAD surface so tests can exercise
+  real behaviour — many status/error codes (`/status/{code}`), variable latency
+  (`/delay/{ms}`), several content types (`/json`, `/html`, `/xml`, `/bytes/{n}`),
+  method/header/body echoing (`/get`, `/post`, `/anything`), and rich nested payloads.
+  **Hammer this server as much as you like.** When behaviour you need to test isn't
+  covered, ADD an endpoint to the local server — never reach for a public API to get it.
+- **Real-world smoke tests (the truth check).** Each suite MUST ALSO make a SMALL number
+  of calls — **one or two per suite, per real API** (e.g. jsonplaceholder) — against the
+  genuine public service. These exist precisely so a real outage or contract break
+  **TANKS the suite** — that is the entire point of a real-world test; do not mock it
+  away. But **never pound the same public server**: one or two calls per suite per API,
+  no more. Cache only where a suite would otherwise repeat the same fetch.
+
+Rule of thumb: breadth and volume of HTTP assertions live on the local server; a thin,
+deliberate layer of real-network calls proves the tool actually works against the wild.
 
 ### Test First Process
 

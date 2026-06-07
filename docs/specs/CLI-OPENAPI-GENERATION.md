@@ -1,57 +1,45 @@
-# `openapi-generate` — OpenAPI Test Generation — CLI
+# OpenAPI Test Generation — CLI
 
-> **One click to turn an OpenAPI spec into a comprehensive, runnable test suite.**
-
----
-
-CRITICAL: START WITH TESTS THAT VERIFY THAT OpenAPI -> .nap is WORKING. THE OPENAPI -> .nap DETERMINISTIC PART IS F#.
+> **One command turns an OpenAPI spec into a comprehensive, runnable test suite.** The deterministic OpenAPI → `.nap` core is F# (`OpenApiGenerator.fs`); tests verify it black-box.
 
 ---
 
-## Vision
+## [OPENAPI-GENERATE] Vision
 
-A user points Nap at an OpenAPI 3.x or Swagger 2.x specification and gets a complete test suite: one `.nap` file per operation, organized by tag into subdirectories, with a `.naplist` playlist, a `.napenv` environment file, and meaningful assertions derived from the spec's response schemas.
+Point Nap at an OpenAPI 3.x or Swagger 2.x spec and get a complete test suite: one `.nap` per operation, organized by tag into subdirectories, with a `.naplist` playlist, a `.napenv`, and assertions derived from the spec's response schemas. The generated files are **starting points** — the user edits, extends, and commits them.
 
-The generated files are **starting points**. The user edits, extends, and commits them alongside the rest of the collection.
+> **Status: Implemented (JSON input).** YAML ([OPENAPI-YAML]) and URL ([OPENAPI-URL]) input, error-case generation ([OPENAPI-ERROR-GEN]), and diff mode ([OPENAPI-DIFF]) are not implemented — see each section.
 
----
+## [OPENAPI-FLOW] Generation flow
 
-## Generation Flow
-
-```
-Input                    Parse              Collect             Generate
-────────────────────    ──────────────     ─────────────      ──────────────────────
-Local file (.json/.yaml) │                 Group endpoints     Per-tag subdirectory:
-  or                     ├─ JSON.parse()   by tag              - 01_operation.nap
-URL (https://...)        │  or YAML parse  │                   - 02_operation.nap
-                         ▼                 │                   ...
-                     Resolve $ref          │
-                         │                 ▼                   Root:
-                         ▼             EndpointDescriptor[]    - api-tests.naplist
-                     OpenApiSpec                               - .napenv
-                                                               - .napenv.local (gitignored)
+```mermaid
+graph LR
+  input["Local file (.json)<br/>or URL (planned)"] --> parse["Parse JSON<br/>($ref resolved by Microsoft.OpenApi)"]
+  parse --> spec["OpenApiSpec"]
+  spec --> collect["Group endpoints by tag"]
+  collect --> gen["Per-tag .nap files<br/>+ api-tests.naplist<br/>+ .napenv / .napenv.local"]
 ```
 
-### `openapi-input` — Input formats
+### [OPENAPI-INPUT] Input formats
 
 | Format | Spec ID | Status |
 |--------|---------|--------|
-| OpenAPI 3.x JSON | `openapi-oas3` | Implemented |
-| Swagger 2.x JSON | `openapi-swagger2` | Implemented |
-| YAML (both versions) | `openapi-yaml` | Not yet — needs YAML parser |
-| URL-based loading | `openapi-url` | Not yet — file picker only |
+| OpenAPI 3.x JSON | `[OPENAPI-OAS3]` | Implemented |
+| Swagger 2.x JSON | `[OPENAPI-SWAGGER2]` | Implemented |
+| YAML (both versions) | `[OPENAPI-YAML]` | **Not implemented** — needs a YAML parser |
+| URL-based loading (CLI) | `[OPENAPI-URL]` | **Not implemented** — file input only (the VSIX has a downloader) |
 
 ---
 
-## What Gets Generated
+## What gets generated
 
-### `openapi-nap-gen` — Per operation: a `.nap` file
+### [OPENAPI-NAP-GEN] Per operation: a `.nap` file
 
 ```nap
 # Generated from GET /users/{userId}
 [meta]
 name        = Get user by ID
-description = Auto-generated from petstore.yaml - operation getUserById
+description = Auto-generated from petstore.json - operation getUserById
 tags        = ["users", "generated"]
 generated   = true
 
@@ -59,7 +47,8 @@ generated   = true
 userId = "REPLACE_ME"
 
 [request]
-GET {{baseUrl}}/users/{{userId}}
+method = GET
+url = {{baseUrl}}/users/{{userId}}
 
 [request.headers]
 Authorization = Bearer {{token}}
@@ -69,201 +58,105 @@ Accept        = application/json
 status = 200
 body.id exists
 body.name exists
-body.email exists
 ```
 
-### `openapi-tag-dirs` — Per tag: a subdirectory
+### [OPENAPI-TAG-DIRS] Per tag: a subdirectory
 
-Operations tagged `users` go into `users/`, operations tagged `pets` go into `pets/`, etc. Untagged operations go into the root.
+Operations tagged `users` go into `users/`, `pets` into `pets/`; untagged operations go to the root.
 
-```
-generated/
-├── .napenv
-├── .napenv.local          # gitignored, placeholder for secrets
-├── api-tests.naplist
-├── users/
-│   ├── 01_get-user.nap
-│   ├── 02_create-user.nap
-│   └── 03_delete-user.nap
-└── pets/
-    ├── 01_list-pets.nap
-    └── 02_get-pet.nap
-```
-
-### `openapi-naplist-gen` — Per spec: a `.naplist` playlist
-
-```naplist
-[meta]
-name = Pet Store API
-
-[steps]
-./users/01_get-user.nap
-./users/02_create-user.nap
-./users/03_delete-user.nap
-./pets/01_list-pets.nap
-./pets/02_get-pet.nap
+```mermaid
+graph TD
+  root["generated/"] --> env[".napenv"]
+  root --> envl[".napenv.local — gitignored"]
+  root --> list["api-tests.naplist"]
+  root --> usersd["users/"]
+  root --> petsd["pets/"]
+  usersd --> u1["01_get-user.nap"]
+  usersd --> u2["02_create-user.nap"]
+  petsd --> p1["01_list-pets.nap"]
+  petsd --> p2["02_get-pet.nap"]
 ```
 
-### `openapi-napenv-gen` — Per spec: a `.napenv` environment
+### [OPENAPI-NAPLIST-GEN] Per spec: a `.naplist` playlist
 
-```toml
-baseUrl = https://petstore.example.com/v1
-```
+A `[meta]` + `[steps]` playlist referencing every generated file, in tag/file order.
+
+### [OPENAPI-NAPENV-GEN] Per spec: a `.napenv`
+
+`baseUrl = <extracted>` ([OPENAPI-BASEURL]), plus a `.napenv.local` placeholder for any auth secrets ([OPENAPI-AUTH]).
 
 ---
 
-## Generation Details
+## Generation details
 
-### `openapi-baseurl` — Base URL extraction
+### [OPENAPI-BASEURL] Base URL extraction
 
-1. OpenAPI 3.x: first entry in `servers[].url`
-2. Swagger 2.x: `{schemes[0]}://{host}{basePath}`
-3. Fallback: `https://api.example.com`
+> **Status: Implemented.** OAS3 → first `servers[].url`; Swagger 2 → `{schemes[0]}://{host}{basePath}`; fallback `https://api.example.com`.
 
-### `openapi-params` — Path parameter conversion
+### [OPENAPI-PARAMS] Path parameter conversion
 
-OpenAPI `{param}` becomes Nap `{{param}}`. Each path parameter also generates a `[vars]` entry with a placeholder value.
+> **Status: Implemented.** OpenAPI `{param}` → Nap `{{param}}`; each path parameter also gets a `[vars]` entry with a `REPLACE_ME` placeholder.
 
-### `openapi-body-gen` — Request body generation
+### [OPENAPI-BODY-GEN] Request body generation
 
-For POST / PUT / PATCH operations:
-- If the spec provides an `example`, use it verbatim
-- Otherwise, recursively generate from the schema using type-appropriate defaults
-- Use `format` hints for smarter defaults (email, uuid, date-time, uri)
-- Use `enum` values when available (pick the first)
-- Respect `minimum` / `maximum` for numeric types
+> **Status: Partial.** For POST/PUT/PATCH: uses the schema `example` verbatim when present, else recursively generates from the schema with type defaults. **Not yet:** `format` hints (email/uuid/date-time/uri), `enum` selection, and `minimum`/`maximum` for numerics.
 
-### `openapi-assert-gen` — Response assertion generation
+### [OPENAPI-ASSERT-GEN] Response assertion generation
 
-From the success response schema (first 2xx status code):
-- `status = {code}` for the expected status
-- `body.{field} exists` for each top-level required property
-- `body.{field} = {value}` for fields with known constant values (enums with single value)
-- `headers.Content-Type contains "json"` when response media type is `application/json`
+> **Status: Partial.** From the first 2xx response schema: `status = {code}` plus `body.{field} exists` for top-level properties. **Not yet:** `headers.Content-Type contains "json"`, and constant-value assertions for single-value enums.
 
-### `openapi-query-params` — Query parameter handling
+### [OPENAPI-QUERY-PARAMS] Query parameter handling
 
-Query parameters from the spec are appended to the URL as `?key={{key}}` and generate corresponding `[vars]` entries.
+> **Status: Implemented.** Query parameters are appended to the URL as `?key={{key}}` and generate matching `[vars]` entries.
 
-### `openapi-auth` — Authentication handling
+### [OPENAPI-AUTH] Authentication handling
 
-From the spec's `securitySchemes` and per-operation `security` requirements:
+> **Status: Partial.** From `securitySchemes` + per-operation `security`:
 
-| Scheme | Generated output |
-|--------|-----------------|
-| Bearer token (`http: bearer`) | `Authorization = Bearer {{token}}` header + `token` in `.napenv.local` |
-| API key (header) | `{headerName} = {{apiKey}}` header + `apiKey` in `.napenv.local` |
-| API key (query) | Appended as query param `?{name}={{apiKey}}` |
-| Basic auth | `Authorization = Basic {{basicAuth}}` header |
+| Scheme | Generated output | Status |
+|--------|-----------------|--------|
+| Bearer (`http: bearer`) | `Authorization = Bearer {{token}}` + `token` in `.napenv.local` | Implemented |
+| API key (header) | `{headerName} = {{apiKey}}` + `apiKey` in `.napenv.local` | Implemented |
+| Basic auth | `Authorization = Basic {{basicAuth}}` | Implemented |
+| API key (query) | `?{name}={{apiKey}}` | Not implemented |
 
-### `openapi-error-gen` — Error case generation
+### [OPENAPI-ERROR-GEN] Error case generation
 
-For each documented error response (4xx, 5xx), generate an additional `.nap` file that intentionally triggers the error:
+> **Status: Not implemented.**
 
-```nap
-# Generated error case: 404 for GET /users/{userId}
-[meta]
-name        = Get user by ID - 404
-description = Verify 404 when user does not exist
-tags        = ["users", "generated", "error-case"]
-generated   = true
+Intended: for each documented 4xx/5xx response, generate an extra `.nap` that intentionally triggers the error (e.g. a `404` case with a nonexistent id and `status = 404`).
 
-[vars]
-userId = "nonexistent-id"
+### [OPENAPI-REF] `$ref` resolution
 
-[request]
-GET {{baseUrl}}/users/{{userId}}
+> **Status: Implemented (via library).** `$ref` pointers — `#/components/schemas/...` (OAS3), `#/definitions/...` (Swagger 2), parameters, responses, and nested chains — are resolved by `Microsoft.OpenApi` during parsing before generation. There is no separate hand-rolled resolver, and no dedicated `$ref` test fixture — current generator fixtures inline their schemas.
 
-[assert]
-status = 404
-```
+### [OPENAPI-META-FLAG] Generated file metadata
 
-### `openapi-ref` — `$ref` resolution
-
-OpenAPI specs use `$ref` pointers extensively for reusable schemas, parameters, and responses. The generator must resolve all `$ref` pointers by inlining the referenced definitions before generating output. This includes:
-- `#/components/schemas/...` (OAS3) and `#/definitions/...` (Swagger 2)
-- `#/components/parameters/...`
-- `#/components/responses/...`
-- Nested `$ref` chains (a schema referencing another schema)
-
-### `openapi-meta-flag` — Generated file metadata
-
-Every generated `.nap` file includes `generated = true` in the `[meta]` block. This allows tooling to distinguish generated files from hand-written ones, enabling safe re-generation and `--diff` mode.
+> **Status: Implemented.** Every generated `.nap` includes `generated = true` in `[meta]`, letting tooling distinguish generated from hand-written files (enabling safe re-generation and a future [OPENAPI-DIFF]).
 
 ---
 
-## CLI Commands
+## [OPENAPI-COMMANDS] CLI commands
+
+> **Status: Partial.** The base command is implemented; `--tag` and `--diff` are not.
 
 ```sh
-# Generate from a local spec
-nap generate openapi ./petstore.yaml --output ./petstore/
-
-# Generate from a URL
-nap generate openapi https://api.example.com/openapi.json --output ./generated/
-
-# Generate only for specific tags
-nap generate openapi ./petstore.yaml --tag users --tag pets --output ./filtered/
-
-# Show what would change without overwriting (diff mode)
-nap generate openapi ./petstore.yaml --output ./petstore/ --diff
+napper generate openapi ./petstore.json --output-dir ./petstore/    # implemented
+napper generate openapi https://api.example.com/openapi.json ...    # planned (OPENAPI-URL)
+napper generate openapi ./petstore.json --tag users --tag pets ...  # planned (tag filter)
+napper generate openapi ./petstore.json --output-dir ./p/ --diff    # planned (OPENAPI-DIFF)
 ```
 
-### `openapi-diff` — Diff / regeneration mode
+### [OPENAPI-DIFF] Diff / regeneration mode
 
-Re-running `nap generate openapi` against an existing output directory with `--diff` compares the spec's current state against previously generated files (identified by `generated = true`). It reports:
-- New operations added to the spec
-- Operations removed from the spec
-- Changed request/response schemas
+> **Status: Not implemented.**
 
-Without `--diff`, re-generation overwrites files that have `generated = true` but leaves files where that flag has been removed (indicating the user has taken ownership).
+Intended: re-running against an existing output dir with `--diff` compares the spec against previously generated files (identified by `generated = true`) and reports added/removed operations and changed schemas. Without `--diff`, re-generation overwrites `generated = true` files but leaves files where the flag has been removed (user has taken ownership).
 
 ---
 
-## Implementation Phases
+## Related specs
 
-### Phase A: Core Generation Improvements
-
-- `$ref` resolution (inline all references before generation)
-- YAML support (add YAML parser)
-- Response body assertions from response schemas
-- Tag-based folder organization
-- `[vars]` block for path parameters
-- `generated = true` metadata flag
-
-### Phase B: Enhanced Generation
-
-- Query parameter and auth header generation
-- Error case test generation (4xx, 5xx)
-- Smarter example values using `format`, `enum`, `minimum`/`maximum`
-- URL-based spec loading
-- Header assertions
-
-### Phase C: Diff and Regeneration
-
-- `--diff` mode in CLI
-- `generated = true` detection for safe overwrite
-- Preserve custom assertions, update generated ones
-
----
-
-## TODO
-
-### Phase A: Core Generation Improvements
-- [ ] `$ref` resolution (inline all references before generation)
-- [ ] YAML support
-- [ ] Response body assertions from response schemas
-- [ ] Tag-based folder organization
-- [ ] `[vars]` block for path parameters
-- [ ] `generated = true` metadata flag
-
-### Phase B: Enhanced Generation
-- [ ] Query parameter and auth header generation
-- [ ] Error case test generation (4xx, 5xx)
-- [ ] Smarter example values using `format`, `enum`, `minimum`/`maximum`
-- [ ] URL-based spec loading
-- [ ] Header assertions
-
-### Phase C: Diff and Regeneration
-- [ ] `--diff` mode in CLI
-- [ ] `generated = true` detection for safe overwrite
-- [ ] Preserve custom assertions, update generated ones
+- [File Formats](./FILE-FORMATS-SPEC.md) — the generated `.nap` / `.naplist` / `.napenv` formats
+- [CLI Spec](./CLI-SPEC.md) — `[CLI-GENERATE]`
+- [OpenAPI Generation (Extension)](./IDE-EXTENION-OPENAPI-GENERATION-SPEC.md) — VSIX import + AI enrichment

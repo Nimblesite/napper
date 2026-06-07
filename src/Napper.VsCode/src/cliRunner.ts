@@ -1,4 +1,4 @@
-// Specs: vscode-impl
+// Implements [VSCODE-IMPL]
 // Runs the Napper CLI as a subprocess and parses JSON results
 // Decoupled from vscode SDK — takes config values as parameters
 

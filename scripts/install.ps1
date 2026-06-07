@@ -1,3 +1,4 @@
+# Implements [CLI-INSTALL-SCRIPT]
 # Install Napper CLI on Windows
 # Usage: irm https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.ps1 | iex
 # Or:    .\scripts\install.ps1 [-Version 0.2.0] [-InstallDir C:\tools]

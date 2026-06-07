@@ -1,3 +1,4 @@
+// Implements [LSP-CUSTOM]
 /// Generate curl commands from parsed NapRequest data.
 /// Shared by CLI and LSP — no IDE-specific code.
 module Napper.Core.CurlGenerator

@@ -1,4 +1,4 @@
-// Specs: vscode-openapi, vscode-openapi-import, vscode-openapi-ai, vscode-commands
+// Implements [VSCODE-OPENAPI], [VSCODE-OPENAPI-IMPORT], [VSCODE-OPENAPI-AI], [VSCODE-COMMANDS]
 // OpenAPI import command — calls CLI to generate .nap files from spec
 // Deterministic generation lives in F# CLI; AI enrichment is optional via Copilot
 

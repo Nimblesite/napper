@@ -1,4 +1,4 @@
-// Implements [LSP-SERVER] coverage — workspace/executeCommand and document
+// Tests [LSP-CUSTOM] coverage — workspace/executeCommand and document
 // version semantics.
 /// In-process protocol e2e tests for the command surface (requestInfo,
 /// copyCurl, listEnvironments) and the document version/lifecycle rules.

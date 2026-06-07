@@ -1,4 +1,4 @@
-// Specs: vscode-editor, vscode-layout
+// Implements [VSCODE-EDITOR], [VSCODE-LAYOUT]
 // Response webview panel — shows HTTP response after running a .nap file
 // Uses minimal vanilla HTML/CSS — no framework dependency
 

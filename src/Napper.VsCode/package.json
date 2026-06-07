@@ -334,6 +334,8 @@
     "pretest": "npm run build:cli && npm run compile && npm run compile:tests && npm run compile:e2e",
     "test": "vscode-test",
     "test:unit": "npm run compile:tests && c8 mocha out/test/unit/**/*.test.js --ui tdd --timeout 5000",
+    "test:mutation": "npm run compile:tests && mocha out/test/unit/htmlUtils.test.js out/test/unit/cliResolver.test.js --ui tdd --timeout 5000",
+    "mutation": "stryker run",
     "lint": "eslint src",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -341,6 +343,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@stryker-mutator/core": "^9.6.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.3.2",
     "@types/vscode": "^1.95.0",
@@ -359,7 +362,7 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
-    "@nimblesite/shipwright-vscode": "^0.1.0",
+    "@nimblesite/shipwright-vscode": "^0.9.0",
     "vscode-languageclient": "^9.0.1"
   }
 }

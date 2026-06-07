@@ -1,4 +1,5 @@
-// Implements [LSP-SERVER] coverage — initialize, documents, symbols, code lens,
+// Tests [LSP-FILE-TYPES]
+// Tests [LSP-TRANSPORT], [LSP-SYMBOLS], [LSP-ERROR-HANDLING] — initialize, documents, symbols, code lens,
 // framing and lifecycle.
 /// In-process protocol e2e tests. Each test frames real JSON-RPC messages,
 /// feeds them through the actual server loop `LspRunner.run` over in-memory

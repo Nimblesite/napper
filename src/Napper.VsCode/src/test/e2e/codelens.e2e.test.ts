@@ -1,4 +1,4 @@
-// Specs: vscode-codelens, vscode-commands
+// Tests [VSCODE-CODELENS], [VSCODE-COMMANDS]
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { activateExtension, closeAllEditors, openDocument, sleep } from '../helpers/helpers';

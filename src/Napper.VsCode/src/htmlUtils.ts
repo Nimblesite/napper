@@ -1,4 +1,4 @@
-// Specs: vscode-layout
+// Implements [VSCODE-LAYOUT]
 // Shared HTML utility functions for webview panels
 // Used by both responsePanel and playlistPanel
 

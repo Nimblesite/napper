@@ -1,7 +1,5 @@
-// Specs: openapi-generate, openapi-input, openapi-oas3, openapi-swagger2, openapi-nap-gen,
-//        openapi-tag-dirs, openapi-naplist-gen, openapi-napenv-gen, openapi-baseurl,
-//        openapi-params, openapi-body-gen, openapi-assert-gen, openapi-query-params,
-//        openapi-auth, openapi-error-gen, openapi-ref, openapi-meta-flag
+// Implements [OPENAPI-COMMANDS]
+// Implements [OPENAPI-GENERATE], [OPENAPI-INPUT], [OPENAPI-OAS3], [OPENAPI-SWAGGER2], [OPENAPI-NAP-GEN], [OPENAPI-TAG-DIRS], [OPENAPI-NAPLIST-GEN], [OPENAPI-NAPENV-GEN], [OPENAPI-BASEURL], [OPENAPI-PARAMS], [OPENAPI-BODY-GEN], [OPENAPI-ASSERT-GEN], [OPENAPI-QUERY-PARAMS], [OPENAPI-AUTH], [OPENAPI-ERROR-GEN], [OPENAPI-REF], [OPENAPI-META-FLAG]
 module Napper.Core.OpenApiGenerator
 
 open System

@@ -10,7 +10,7 @@ eleventyNavigation:
 
 # OpenAPI Import
 
-![Screenshot: VS Code Command Palette showing the Napper Import OpenAPI commands — Import from URL and Import from File](openapi-import-command-palette.png)
+![Screenshot: VS Code Command Palette showing the Napper Import OpenAPI commands — Import from URL and Import from File](/assets/images/docs/openapi-import-command-palette.png)
 
 Napper can generate `.nap` test files, a `.naplist` playlist, and a `.napenv` environment file directly from any OpenAPI or Swagger specification. This gives you a working test suite for an entire API in seconds.
 
@@ -29,7 +29,7 @@ YAML specs must be converted to JSON first (use [swagger2openapi](https://github
 
 ## Import from VS Code
 
-![Screenshot: Napper OpenAPI import dialog in VS Code with a URL field pointing to the Petstore spec, and basic vs AI-enhanced generation options](openapi-import-url-dialog.png)
+![Screenshot: Napper OpenAPI import dialog in VS Code with a URL field pointing to the Petstore spec, and basic vs AI-enhanced generation options](/assets/images/docs/openapi-import-url-dialog.png)
 
 Two commands are available from the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
 
@@ -73,7 +73,7 @@ The `--output-dir` flag specifies where generated files are written. The directo
 
 ## What gets generated
 
-![Screenshot: VS Code Explorer panel showing the generated folder structure — subdirectories per API tag, .nap files per endpoint, a .naplist playlist, and a .napenv environment file](openapi-import-generated-files.png)
+![Screenshot: VS Code Explorer panel showing the generated structure — one .nap file per endpoint, a .naplist playlist, and a .napenv environment file](/assets/images/docs/openapi-import-generated-files.png)
 
 Given a spec for an API called "Petstore" with endpoints grouped under the tags `pets` and `store`, Napper generates:
 
@@ -106,7 +106,8 @@ generated = true
 petId = 1
 
 [request]
-GET {{baseUrl}}/pets/{{petId}}
+method = GET
+url = {{baseUrl}}/pets/{{petId}}
 
 [request.headers]
 Accept = application/json
@@ -249,7 +250,7 @@ baseUrl = https://staging.petstore.example.com
 
 ## AI Enhancement (optional)
 
-![Screenshot: AI-enhanced generation option in VS Code, showing richer assertions and realistic test data generated via GitHub Copilot](openapi-import-ai-enhanced.png)
+![Screenshot: AI-enhanced generation option in VS Code, showing richer assertions and realistic test data generated via GitHub Copilot](/assets/images/docs/openapi-import-ai-enhanced.png)
 
 When GitHub Copilot is available in VS Code, you can choose **AI-enhanced** generation. This enriches the basic output with:
 
