@@ -390,43 +390,26 @@ jobs:
     if: ${{ !cancelled() && needs.package-vsix.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # KEYLESS publish — OIDC + Microsoft Entra workload-identity federation, NO VSCE_PAT.
-    # azure/login exchanges a short-lived GitHub OIDC token for an Entra access token
-    # (federated credential, ZERO client secret); `vsce --azure-credential` then
-    # publishes using that ambient Azure session. A long-lived Marketplace PAT is
-    # forbidden. Implements [SWR-SEC-OIDC-PUBLISH], [SWR-SEC-NO-PAT].
+    # Per-platform Marketplace publish via the Nimblesite ORG-level VSCODE_MARKETPLACE_PAT
+    # secret — the SAME pattern Basilisk and too-many-cooks use. napper must be on that org
+    # secret's repository allowlist. (NuGet/npm use OIDC; the VS Code Marketplace does not —
+    # the org standard is a scoped Marketplace PAT.) Implements [SWR-VSIX-PUBLISH].
     permissions:
-      id-token: write # mint the GitHub OIDC token for the Entra exchange
       contents: read # least privilege: drop the inherited contents: write
     steps:
-      # Turn a missing OIDC config into an actionable operator error before login runs.
-      # AZURE_CLIENT_ID / AZURE_TENANT_ID are NOT credentials (no secret/PAT) — the
-      # trust lives in the Entra federated credential, so they are repo variables. The
-      # GitHub Release + Homebrew + Scoop do NOT depend on this job, so a missing config
+      # Turn a missing/forbidden org secret into an actionable operator error. The GitHub
+      # Release + Open VSX + Homebrew + Scoop do NOT depend on this job, so a missing token
       # never blocks the native-binary release — only the Marketplace publish waits.
-      - name: Require Marketplace OIDC config
+      - name: Require Marketplace credential
         env:
-          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         run: |
           set -euo pipefail
-          missing=""
-          [ -z "${AZURE_CLIENT_ID:-}" ] && missing="$missing AZURE_CLIENT_ID"
-          [ -z "${AZURE_TENANT_ID:-}" ] && missing="$missing AZURE_TENANT_ID"
-          if [ -n "$missing" ]; then
-            echo "::error title=Marketplace OIDC variables not set::Set the repo VARIABLES$missing. Create a Microsoft Entra app (or user-assigned managed identity) with a federated credential trusting this repo's GitHub OIDC, add it as a Marketplace publisher member (Contributor), then set AZURE_CLIENT_ID and AZURE_TENANT_ID. Publishing is keyless — NO PAT is used. The GitHub Release (with all VSIX + CLI assets), Homebrew, and Scoop already shipped independently. Guide: https://code.visualstudio.com/api/working-with-extensions/publishing-extension"
+          if [ -z "${VSCE_PAT:-}" ]; then
+            echo "::error title=VSCODE_MARKETPLACE_PAT not accessible::Add a VS Code Marketplace PAT (Marketplace → Manage scope) as the Nimblesite ORG secret VSCODE_MARKETPLACE_PAT and add this repository to its allowed list (Org Settings → Secrets and variables → Actions → VSCODE_MARKETPLACE_PAT → Repository access). The GitHub Release (with all VSIX + CLI assets), Open VSX, Homebrew, and Scoop ship independently. Token guide: https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token"
             exit 1
           fi
-          echo "Marketplace OIDC config present — proceeding with federated login."
-      # Federated login: no client secret, no PAT. With id-token: write granted and no
-      # `creds` supplied, azure/login performs the OIDC token exchange and leaves an
-      # authenticated Azure CLI session that `vsce --azure-credential` consumes.
-      - name: Azure login (OIDC federated, secretless)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          allow-no-subscriptions: true
+          echo "VSCODE_MARKETPLACE_PAT present — proceeding with Marketplace publish."
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -444,14 +427,15 @@ jobs:
           merge-multiple: true
       # One `vsce publish` per platform VSIX: vsce silently uses only the FIRST when several
       # are passed in a single call (the previous single-call step published only one
-      # platform). Each --target VSIX MUST be published on its own. Auth is keyless via
-      # --azure-credential (the azure/login OIDC session). The publish is IDEMPOTENT — a
-      # target whose (version, platform) is already on the Marketplace ("already exists")
-      # counts as success, so a re-run after a partial publish completes the remaining
-      # platforms instead of aborting on the first duplicate. Transient errors retry up to
-      # 3x; one failed platform never blocks the others.
-      # Salvaged from repo-standardization@319159f. Implements [SWR-VSIX-PUBLISH], [SWR-SEC-OIDC-PUBLISH].
+      # platform). Each --target VSIX MUST be published on its own. The publish is
+      # IDEMPOTENT — a target whose (version, platform) is already on the Marketplace
+      # ("already exists") counts as success, so a re-run after a partial publish completes
+      # the remaining platforms instead of aborting on the first duplicate. Transient errors
+      # retry up to 3x; one failed platform never blocks the others.
+      # Salvaged from repo-standardization@319159f. Implements [SWR-VSIX-PUBLISH].
       - name: Publish each platform VSIX
+        env:
+          VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         run: |
           set -uo pipefail
           shopt -s globstar nullglob
@@ -463,7 +447,7 @@ jobs:
           publish_one() {
             local vsix="$1" attempt out rc
             for attempt in 1 2 3; do
-              out="$(vsce publish ${flag} --azure-credential --packagePath "${vsix}" 2>&1)"; rc=$?
+              out="$(vsce publish ${flag} --packagePath "${vsix}" 2>&1)"; rc=$?
               echo "${out}"
               if [ "${rc}" -eq 0 ]; then return 0; fi
               if echo "${out}" | grep -qiE "already exists"; then
@@ -573,6 +557,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     continue-on-error: true
+    # Protected environment so GitHub injects the `environment` claim into the OIDC token.
+    # The nuget.org trusted-publishing policy is scoped to Environment=release, and the
+    # token only carries that claim when the job is bound to the environment. MUST match.
+    environment: release
     # KEYLESS publish — OIDC Trusted Publishing, NO long-lived NuGet API key.
     # The job exchanges a short-lived GitHub OIDC token for a ~1h nuget.org API key
     # via a trusted-publishing policy (owner + repository + this workflow file). This
