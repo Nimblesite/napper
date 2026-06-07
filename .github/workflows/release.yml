@@ -56,11 +56,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       # Types.Generated.fs is gitignored and rebuilt from Types.td (typeDiagram DSL).
@@ -104,13 +104,13 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
       TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -190,7 +190,7 @@ jobs:
           cp "out/${{ matrix.rid }}/napper$exe" "rawbin/napper$exe"
 
       - name: Upload raw binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rawbin-${{ matrix.rid }}
           path: rawbin/*
@@ -224,13 +224,13 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
       TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -246,7 +246,7 @@ jobs:
       # The native binary was built on its own OS/arch runner; pull just that one.
       # A missing leg (e.g. an ARM-runner outage) drops only its VSIX, never the others.
       - name: Download native binary for ${{ matrix.platform }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: rawbin-${{ matrix.rid }}
           path: rawbin
@@ -295,7 +295,7 @@ jobs:
           echo "VSIX content verification: OK"
 
       - name: Upload VSIX
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vsix-${{ matrix.platform }}
           path: src/Napper.VsCode/*.vsix
@@ -315,7 +315,7 @@ jobs:
     env:
       TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: rawbins
           pattern: rawbin-*
@@ -345,7 +345,7 @@ jobs:
           sha256sum napper-* > checksums-sha256.txt
           ls -la
           echo "── checksums-sha256.txt ──"; cat checksums-sha256.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: cli-assets
           path: assets/*
@@ -362,12 +362,12 @@ jobs:
       TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
       - name: Download CLI assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: assets
           name: cli-assets
       - name: Download per-platform VSIXs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: assets
           pattern: vsix-*
@@ -375,7 +375,7 @@ jobs:
       - name: List release assets
         run: ls -la assets
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.TAG }}
           files: assets/*
@@ -405,7 +405,7 @@ jobs:
             exit 1
           fi
           echo "VSCE_PAT present — proceeding with Marketplace publish."
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       # Install vsce ONCE at a pinned, known-replicated version. `npx @vscode/vsce`
@@ -415,7 +415,7 @@ jobs:
       - name: Install vsce (pinned)
         run: npm install -g @vscode/vsce@3.9.1
       - name: Download all per-platform VSIXs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: vsix-artifacts
           pattern: vsix-*
@@ -506,11 +506,11 @@ jobs:
             exit 1
           fi
           echo "OPEN_VSX_PAT present — proceeding with Open VSX publish."
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Download all per-platform VSIXs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: vsix-artifacts
           pattern: vsix-*
@@ -555,11 +555,11 @@ jobs:
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Generate F# types (typeDiagram)
@@ -586,7 +586,7 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
       - name: Checkout homebrew-tap
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: Nimblesite/homebrew-tap
           token: ${{ secrets.BREW_SCOOP_PAT }}
@@ -671,11 +671,11 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
       - name: Checkout scoop-bucket
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: Nimblesite/scoop-bucket
           token: ${{ secrets.BREW_SCOOP_PAT }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Read SHA256 from release sidecar
