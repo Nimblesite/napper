@@ -17,7 +17,7 @@ suite('CodeLens', () => {
 
   test('CodeLens appears for shorthand .nap file', async function () {
     this.timeout(15000);
-    const doc = await openDocument('get-httpbin.nap');
+    const doc = await openDocument('get-shorthand.nap');
     await sleep(3000);
 
     const lenses = await vscode.commands.executeCommand<vscode.CodeLens[]>(
@@ -81,7 +81,7 @@ suite('CodeLens', () => {
 
   test('CodeLens Run lens passes document URI as argument', async function () {
     this.timeout(15000);
-    const doc = await openDocument('get-httpbin.nap');
+    const doc = await openDocument('get-shorthand.nap');
     await sleep(3000);
 
     const lenses = await vscode.commands.executeCommand<vscode.CodeLens[]>(

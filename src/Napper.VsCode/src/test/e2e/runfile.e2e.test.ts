@@ -30,12 +30,12 @@ suite('Run File — Real API Calls', () => {
     await closeAllEditors();
   });
 
-  test('run shorthand GET against httpbin.org opens response panel', async function () {
+  test('run shorthand GET against jsonplaceholder opens response panel', async function () {
     this.timeout(30000);
     await closeAllEditors();
     await sleep(500);
 
-    const doc = await openDocument('get-httpbin.nap');
+    const doc = await openDocument('get-shorthand.nap');
     assert.strictEqual(doc.languageId, 'nap', 'Should have nap language mode');
 
     await executeCommand(CMD_RUN_FILE, doc.uri);
@@ -130,7 +130,7 @@ suite('Run File — Real API Calls', () => {
     await closeAllEditors();
     await sleep(500);
 
-    const doc = await openDocument('get-httpbin.nap');
+    const doc = await openDocument('get-shorthand.nap');
     await executeCommand(CMD_RUN_FILE, doc.uri);
 
     await waitForCondition(() => findTabByLabel(RESPONSE_PANEL_TITLE) !== undefined, 10000);
@@ -160,7 +160,7 @@ suite('Run File — Real API Calls', () => {
     await closeAllEditors();
     await sleep(500);
 
-    const doc = await openDocument('get-httpbin.nap');
+    const doc = await openDocument('get-shorthand.nap');
     await executeCommand(CMD_RUN_FILE, doc.uri);
 
     await waitForCondition(() => findTabByLabel(RESPONSE_PANEL_TITLE) !== undefined, 10000);

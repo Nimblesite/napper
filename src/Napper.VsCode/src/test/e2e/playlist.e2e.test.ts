@@ -127,8 +127,8 @@ suite('Playlist Panel — Real API Calls', () => {
     await closeAllEditors();
     await sleep(500);
 
-    const doc = await openDocument('get-httpbin.nap');
-    assert.strictEqual(doc.languageId, 'nap', 'get-httpbin.nap should have nap language mode');
+    const doc = await openDocument('get-shorthand.nap');
+    assert.strictEqual(doc.languageId, 'nap', 'get-shorthand.nap should have nap language mode');
 
     await executeCommand(CMD_RUN_FILE, doc.uri);
 

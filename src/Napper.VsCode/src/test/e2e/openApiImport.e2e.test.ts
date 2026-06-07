@@ -45,7 +45,7 @@ const PETSTORE_URL = OPENAPI_URL_PLACEHOLDER,
   BEECEPTOR_AUTH_REGISTER_PATH = '/auth/register',
   BEECEPTOR_CHECKOUT_PATH = '/checkout',
   BEECEPTOR_SPEC_TITLE = 'E-commerce API',
-  NONEXISTENT_URL = 'https://httpbin.org/status/404',
+  NONEXISTENT_URL = 'https://jsonplaceholder.typicode.com/this-endpoint-does-not-exist-xyz',
   TEMP_SPEC_FILENAME = '.openapi-spec.json';
 
 suite('OpenAPI Import', () => {

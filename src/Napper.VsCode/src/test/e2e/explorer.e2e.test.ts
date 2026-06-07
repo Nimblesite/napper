@@ -39,8 +39,8 @@ suite('Explorer Tree View', () => {
   });
 
   test('workspace contains .nap fixture files', () => {
-    const httpbinPath = getFixturePath('get-httpbin.nap');
-    assert.ok(fs.existsSync(httpbinPath), 'get-httpbin.nap fixture should exist in workspace');
+    const shorthandPath = getFixturePath('get-shorthand.nap');
+    assert.ok(fs.existsSync(shorthandPath), 'get-shorthand.nap fixture should exist in workspace');
 
     const postPath = getFixturePath('post-jsonplaceholder.nap');
     assert.ok(fs.existsSync(postPath), 'post-jsonplaceholder.nap fixture should exist');
@@ -65,7 +65,7 @@ suite('Explorer Tree View', () => {
 
   test('opening a .nap file sets correct language mode', async function () {
     this.timeout(10000);
-    const doc = await openDocument('get-httpbin.nap');
+    const doc = await openDocument('get-shorthand.nap');
     assert.strictEqual(doc.languageId, 'nap', 'Language should be nap for .nap files');
   });
 

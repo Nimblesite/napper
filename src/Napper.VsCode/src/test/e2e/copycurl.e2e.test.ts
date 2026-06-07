@@ -23,7 +23,7 @@ suite('Copy as Curl', () => {
 
   test('copy curl for shorthand GET request', async function () {
     this.timeout(15000);
-    const doc = await openDocument('get-httpbin.nap');
+    const doc = await openDocument('get-shorthand.nap');
     await sleep(1000);
 
     await executeCommand(CMD_COPY_CURL, doc.uri);
@@ -31,7 +31,10 @@ suite('Copy as Curl', () => {
 
     const clipboard = await vscode.env.clipboard.readText();
     assert.ok(clipboard.includes('curl'), 'Clipboard should contain curl command');
-    assert.ok(clipboard.includes('httpbin.org/get'), 'Clipboard should contain the request URL');
+    assert.ok(
+      clipboard.includes('jsonplaceholder.typicode.com/todos/1'),
+      'Clipboard should contain the request URL',
+    );
     assert.ok(clipboard.includes('GET'), 'Clipboard should contain GET method');
   });
 
