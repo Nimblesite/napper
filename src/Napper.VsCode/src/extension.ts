@@ -126,8 +126,7 @@ const getCliPath = (): string => {
   // One Shipwright probe under an explicit deadline, with the library's own modal suppressed
   // (showMessages: false) so retries are silent — we own the user-facing failure surface.
   runShipwrightAttempt = async (timeoutMs: number): Promise<CliResolutionAttempt> => {
-    const { activateShipwright: deployToolkit } =
-      await import('@nimblesite/shipwright-vscode');
+    const { activateShipwright: deployToolkit } = await import('@nimblesite/shipwright-vscode');
     const result = await deployToolkit(extensionContext, {
       vscode: makeVscodeAdapter(),
       manifestPath: path.join(extensionContext.extensionPath, 'shipwright.json'),
