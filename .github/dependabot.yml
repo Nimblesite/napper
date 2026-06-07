@@ -1,0 +1,45 @@
+# Keeps SHA-pinned GitHub Actions and every language dependency fresh.
+# Implements [SWR-SEC-ACTION-PINNING]: each ecosystem groups ALL updates into ONE
+# combined PR per run (patterns: ["*"]) so pinned action SHAs get bumped together
+# instead of one PR per package.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /src/Napper.VsCode
+    schedule:
+      interval: weekly
+    groups:
+      vscode-extension:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: weekly
+    groups:
+      website:
+        patterns: ["*"]
+
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dotnet:
+        patterns: ["*"]
+
+  - package-ecosystem: cargo
+    directory: /src/Napper.Zed
+    schedule:
+      interval: weekly
+    groups:
+      zed-extension:
+        patterns: ["*"]
