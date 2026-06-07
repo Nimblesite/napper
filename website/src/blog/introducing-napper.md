@@ -46,7 +46,8 @@ name = Create a new post
 tags = posts, crud
 
 [request]
-POST {{baseUrl}}/posts
+method = POST
+url = {{baseUrl}}/posts
 
 [request.headers]
 Content-Type = application/json
@@ -73,13 +74,13 @@ That's a complete HTTP request with headers, a JSON body, and [declarative asser
 
 ## Scripting in your language — real runtimes, no sandbox
 
-This is where Napper breaks away from every other API testing tool. [Postman](/docs/vs-postman/) and [Bruno](/docs/vs-bruno/) give you a sandboxed JavaScript environment with limited APIs. Napper lets you script in **JavaScript, Python, F#, or C#** — whichever your team already runs — on the real runtime, with full access to npm, PyPI, and NuGet. Every language sees the same `ctx` (request/response context) and `nap` (orchestration runner) surface, so the examples below translate one-to-one.
+This is where Napper breaks away from every other API testing tool. [Postman](/docs/vs-postman/) and [Bruno](/docs/vs-bruno/) give you a sandboxed JavaScript environment with limited APIs. Napper lets you script in **JavaScript, Python, F#, or C#** — whichever your team already runs — on the real runtime, with full access to npm, PyPI, and NuGet. In JavaScript and Python, Napper injects a global `ctx` object that exposes the request/response and lets a script pass variables to later steps.
 
 Here's the same post-request hook — extract a user id, chain it forward, validate — in [JavaScript](/docs/javascript-scripting/) and [Python](/docs/python-scripting/):
 
 ```js
 // validate-response.js
-import { ctx } from "napper"; // bundled — no npm install
+// ctx is injected as a global — no import, no npm install
 const body = ctx.response.json;
 ctx.set("userId", String(body.id));
 if (body.id <= 0) ctx.fail("User ID must be positive");
@@ -88,7 +89,7 @@ ctx.log(`Created user ${body.id}`);
 
 ```python
 # validate_response.py
-from napper import ctx  # bundled — no pip install
+# ctx is injected as a global — no import, no pip install
 body = ctx.response.json
 ctx.set("userId", str(body["id"]))
 if body["id"] <= 0:
@@ -96,108 +97,22 @@ if body["id"] <= 0:
 ctx.log(f"Created user {body['id']}")
 ```
 
-Prefer .NET? The same hook in [C#](/docs/csharp-scripting/) (`.csx`) and [F#](/docs/fsharp-scripting/) (`.fsx`) is just as clean — and genuinely lovely.
+### F# and C# run too — on the full .NET SDK
 
-### Pre-request and post-request hooks in C#
-
-Reference C# scripts directly in your `.nap` files:
-
-```
-[script]
-pre = ./scripts/setup-auth.csx
-post = ./scripts/validate-response.csx
-```
-
-A pre-request script that generates an auth token:
+Prefer .NET? F# (`.fsx`) and C# (`.csx`) scripts run as playlist steps and `[script]` pre/post hooks via `dotnet fsi` and `dotnet script`, with the entire NuGet ecosystem. Today they communicate through stdout and their exit code — the injected `ctx` object is JavaScript and Python only — so a `.csx` step that exits non-zero fails the run:
 
 ```csharp
-// setup-auth.csx
-var token = GenerateToken();
-ctx.Set("token", token);
-ctx.Log($"Token generated: {token[..8]}...");
-```
-
-A post-request script that extracts data and chains it to the next step:
-
-```csharp
-// validate-response.csx
-var body = ctx.Response.Json;
-
-// Extract the user ID and pass it to the next step
-var userId = body.GetProperty("id").GetInt32();
-ctx.Set("userId", userId.ToString());
-
-// Complex validation with full .NET
-if (userId <= 0)
-    ctx.Fail("User ID must be positive");
-
-ctx.Log($"Created user {userId}");
-```
-
-### C# orchestration scripts
-
-For complex multi-step flows, C# orchestration scripts control execution directly. Use them to run data-driven tests, handle authentication flows, or orchestrate entire CRUD lifecycles:
-
-```csharp
-// orchestration.csx
-using System.Net.Http;
-using System.Text;
-
-// Run a request and get the result
-var loginResult = runner.Run("./auth/login.nap");
-
-// Extract token from response
-var token = loginResult.Response.Json.GetProperty("token").GetString();
-runner.Vars["token"] = token;
-
-// Run a full test suite with the token
-var results = runner.RunList("./crud-tests.naplist");
-
-// Data-driven testing with a loop
-foreach (var userId in new[] { 1, 2, 3, 42, 99 })
+// guard.csx — a playlist step or a [script] post hook
+var baseUrl = Environment.GetEnvironmentVariable("API_BASE_URL");
+if (string.IsNullOrEmpty(baseUrl))
 {
-    runner.Vars["userId"] = userId.ToString();
-    var result = runner.Run("./users/get-user.nap");
-    if (result.Failed)
-        runner.Log($"Failed for user {userId}: {result.Error}");
+    Console.Error.WriteLine("API_BASE_URL is not set");
+    Environment.Exit(1);   // non-zero exit -> the step fails
 }
+Console.WriteLine("[guard] environment looks good");
 ```
 
-Reference orchestration scripts as steps in a `.naplist` file:
-
-```
-[meta]
-name = "CRUD Lifecycle (C#)"
-description = "Full create-read-update-delete with C# scripts"
-
-[steps]
-../scripts/setup.csx
-./01_get-posts.nap
-./02_get-post-by-id.nap
-./03_create-post.nap
-./04_update-post.nap
-./05_patch-post.nap
-./06_delete-post.nap
-../scripts/teardown.csx
-```
-
-C# scripts can use `HttpClient`, `System.Text.Json`, `System.Security.Cryptography`, LINQ, `async`/`await` — everything .NET offers. Parse XML, query databases, call gRPC services, validate JWT tokens, generate test data with [Bogus](https://github.com/bchavez/Bogus), or reference any [NuGet](https://www.nuget.org/) package. No sandbox. No limitations.
-
-## F# scripting — functional-first with the same power
-
-Prefer a functional approach? Napper also supports [F# scripting](/docs/fsharp-scripting/) with `.fsx` files. The same capabilities, the same .NET ecosystem, but with F#'s concise syntax, pattern matching, and immutability by default:
-
-```fsharp
-// validate-response.fsx
-let body = ctx.Response.Json
-let userId = body.GetProperty("id").GetInt32()
-ctx.Set "userId" (string userId)
-
-if userId <= 0 then
-    ctx.Fail "User ID must be positive"
-
-ctx.Log $"Created user {userId}"
-```
+C# and F# scripts can use `HttpClient`, `System.Text.Json`, `System.Security.Cryptography`, LINQ, `async`/`await` — everything .NET offers — and any [NuGet](https://www.nuget.org/) package. No sandbox. The runnable [`crud-csharp.naplist`](https://github.com/Nimblesite/napper/blob/main/examples/jsonplaceholder/crud-csharp.naplist) example wraps the CRUD requests in C# setup and teardown steps.
 
 You can mix languages in the same project. A single `.naplist` can reference `.js`, `.py`, `.csx`, and `.fsx` files as steps. Choose whichever language your team already tests with — or use several. See the [Scripting Overview](/docs/scripting/) for the full picture.
 

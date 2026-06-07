@@ -1,6 +1,5 @@
 module HttpToNapConverterTests
-// Specs: http-convert, http-convert-mapping, http-convert-env, http-convert-scripts,
-//        http-convert-output, http-convert-naming
+// Tests [HTTP-CONVERT], [HTTP-CONVERT-MAPPING], [HTTP-CONVERT-ENV], [HTTP-CONVERT-SCRIPTS], [HTTP-CONVERT-OUTPUT], [HTTP-CONVERT-NAMING]
 
 open Xunit
 open DotHttp

@@ -1,4 +1,4 @@
-// Implements [LSP-VSCODE-CLIENT]
+// Implements [IDE-LSP]
 // Napper LSP client — spawns 'napper lsp' and connects via vscode-languageclient.
 // Decoupled from the CLI resolver: receives the resolved cliPath.
 

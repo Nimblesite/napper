@@ -4,7 +4,7 @@
   "default_threshold": 80,
   "projects": {
     "src/Napper.Core.Tests": {
-      "threshold": 84,
+      "threshold": 96,
       "include": "[Napper.Core]*"
     },
     "src/DotHttp.Tests": {
@@ -19,7 +19,7 @@
       "threshold": 98
     },
     "src/Napper.Zed": {
-      "threshold": 80
+      "threshold": 99
     }
   }
 }

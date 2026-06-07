@@ -32,7 +32,7 @@ Everything you need for API testing. Nothing you don't.
 
 - **CLI First** (`cli-run`) &mdash; The command line is the product. Run requests, execute test suites, and integrate with CI/CD pipelines from your terminal. Napper ships as a self-contained **native binary** &mdash; not a .NET DLL &mdash; with zero runtime dependencies.
 - **Editor-Native, LSP-Powered** (`vscode-extension`, `lsp`) &mdash; First-class extensions for VS Code and Zed, plus a portable language server that brings completions, diagnostics, and hover to any editor. Syntax highlighting (`vscode-syntax`), request explorer (`vscode-explorer`), environment switching (`vscode-env-switcher`), and Test Explorer integration (`vscode-test-explorer`). Never leave your editor.
-- **Script in Any Language** (`script-js`, `script-py`, `script-fsx`, `script-csx`) &mdash; Write pre/post hooks and orchestration in JavaScript, Python, F#, or C# &mdash; whatever your team already runs. Real runtimes (Node.js, Python 3, .NET), full ecosystem access (npm, PyPI, NuGet), no sandbox. `.fsx` and `.csx` are genuinely lovely, but never required.
+- **Script in Any Language** (`script-js`, `script-py`, `script-fsx`, `script-csx`) &mdash; Add playlist steps and `[script]` pre/post hooks in JavaScript, Python, F#, or C# &mdash; whatever your team already runs, mixed freely in a single playlist. Real runtimes (Node.js, Python 3, .NET), full ecosystem access (npm, PyPI, NuGet), no sandbox. Scripts pass/fail by exit code; JavaScript and Python additionally get an injected `ctx` object (response, variables, `ctx.set` / `ctx.fail` / `ctx.log`).
 - **Declarative Assertions** (`nap-assert`) &mdash; Assert on status codes (`assert-status`), JSON paths (`assert-equals`, `assert-exists`), headers (`assert-contains`), and response times (`assert-lt`) with a clean, readable syntax. No scripting required for simple checks.
 - **Composable Playlists** (`naplist-file`) &mdash; Chain requests into test suites with `.naplist` files. Nest playlists (`naplist-nested`), reference folders (`naplist-folder-step`), pass variables between steps (`naplist-var-scope`).
 - **OpenAPI Import** (`openapi-generate`) &mdash; Generate test files from any OpenAPI spec. Point it at a file, and Napper creates `.nap` files with requests, headers, bodies, and assertions. Optionally enhance with AI via GitHub Copilot (`vscode-openapi-ai`).
@@ -87,7 +87,7 @@ irm https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.ps1
 git clone https://github.com/Nimblesite/napper.git && cd napper && make install-binaries
 ```
 
-> **Note:** Script hooks need a runtime only for the language you write in — JavaScript (`.js`) needs [Node.js 18+](https://nodejs.org/), Python (`.py`) needs [Python 3.9+](https://www.python.org/downloads/), and F# (`.fsx`) / C# (`.csx`) need the [.NET 10 SDK](https://dotnet.microsoft.com/download). Plain `.nap` and `.naplist` files need nothing extra. The JS and Python SDKs are bundled — no `npm install` / `pip install` required.
+> **Note:** Script hooks need a runtime only for the language you write in — JavaScript (`.js`) needs [Node.js 18+](https://nodejs.org/), Python (`.py`) needs [Python 3.9+](https://www.python.org/downloads/), and F# (`.fsx`) / C# (`.csx`) need the [.NET 10 SDK](https://dotnet.microsoft.com/download). Runtimes are found by command name (`node`, `python3`, `dotnet`) on your `PATH`. Plain `.nap` and `.naplist` files need nothing extra. In JavaScript and Python the `ctx` object is injected automatically — nothing to `import`, no `npm install` / `pip install`.
 
 See the [full installation guide](https://napperapi.dev/docs/installation/) for VSIX manual install, troubleshooting, and macOS Gatekeeper notes.
 
@@ -107,7 +107,8 @@ GET https://httpbin.org/get
 
 ```
 [request]
-POST {{baseUrl}}/posts
+method = POST
+url = {{baseUrl}}/posts
 
 [request.headers]
 Content-Type = application/json
@@ -141,7 +142,8 @@ tags = users, smoke
 userId = 42
 
 [request]
-GET https://api.example.com/users/{{userId}}
+method = GET
+url = https://api.example.com/users/{{userId}}
 
 [request.headers]
 Authorization = Bearer {{token}}
@@ -155,8 +157,8 @@ headers.Content-Type contains "json"
 duration < 500ms
 
 [script]
-pre = ./scripts/auth.fsx
-post = ./scripts/validate-user.fsx
+pre = ./scripts/auth.js
+post = ./scripts/validate-user.js
 ```
 
 ### Run from CLI
@@ -181,10 +183,10 @@ napper run ./tests/ --env staging --output junit
 | `.napenv` | `env-base` | Environment variables (base config, checked into git) | `.napenv` |
 | `.napenv.local` | `env-local` | Local secrets (gitignored) | `.napenv.local` |
 | `.napenv.<name>` | `env-named` | Named environment | `.napenv.staging` |
-| `.js` / `.mjs` | `script-js` | JavaScript scripts (Node.js) for pre/post hooks and orchestration | `setup.js` |
-| `.py` | `script-py` | Python scripts (Python 3) for pre/post hooks and orchestration | `setup.py` |
-| `.fsx` | `script-fsx` | F# scripts for pre/post hooks and orchestration | `setup.fsx` |
-| `.csx` | `script-csx` | C# scripts for pre/post hooks and orchestration | `setup.csx` |
+| `.js` / `.mjs` / `.cjs` | `script-js` | JavaScript scripts (Node.js) — playlist steps and pre/post hooks, with an injected `ctx` | `setup.js` |
+| `.py` | `script-py` | Python scripts (Python 3) — playlist steps and pre/post hooks, with an injected `ctx` | `setup.py` |
+| `.fsx` | `script-fsx` | F# scripts (`dotnet fsi`) — playlist steps and pre/post hooks (exit-code) | `setup.fsx` |
+| `.csx` | `script-csx` | C# scripts (`dotnet script`) — playlist steps and pre/post hooks (exit-code) | `setup.csx` |
 
 ### Playlists
 
@@ -203,6 +205,8 @@ description = Full create-read-update-delete lifecycle for posts
 ./06_delete-post.nap
 ../scripts/teardown.fsx
 ```
+
+**Runnable examples** ([`examples/`](examples/)): the same CRUD suite in each language — [`crud.naplist`](examples/jsonplaceholder/crud.naplist) (F#), [`crud-javascript.naplist`](examples/jsonplaceholder/crud-javascript.naplist), [`crud-python.naplist`](examples/jsonplaceholder/crud-python.naplist), [`crud-csharp.naplist`](examples/jsonplaceholder/crud-csharp.naplist) — plus [`mixed-scripts.naplist`](examples/jsonplaceholder/mixed-scripts.naplist) (all four languages in one playlist) and [`scripting-ctx/`](examples/scripting-ctx/) (the injected `ctx` object in JavaScript and Python: `ctx.set`, `ctx.fail`, `ctx.response`).
 
 ### Environments (`env-resolution`)
 

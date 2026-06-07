@@ -1,4 +1,4 @@
-// Specs: vscode-settings
+// Tests [VSCODE-SETTINGS]
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { activateExtension, sleep } from '../helpers/helpers';

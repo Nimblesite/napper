@@ -1,4 +1,4 @@
-// Implements [LSP-TEST-CLIENT]
+// Test harness for [LSP-CUSTOM], [LSP-SYMBOLS]
 /// Test client that launches 'napper lsp' as a child process and communicates
 /// via JSON-RPC over stdio. This is the exact same protocol VSCode and Zed use.
 /// All wire framing, envelope building and string constants live in LspWire so

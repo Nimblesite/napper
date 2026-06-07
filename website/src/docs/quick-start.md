@@ -10,7 +10,7 @@ eleventyNavigation:
 
 # Quick Start
 
-![Screenshot: VS Code with a newly created hello.nap file open, showing the GET request line and the CodeLens Run button above it](quick-start-first-request.png)
+![Screenshot: VS Code with a newly created hello.nap file open, showing the GET request line and the CodeLens Run button above it](/assets/images/docs/quick-start-first-request.png)
 
 Get up and running with Napper in under 5 minutes.
 
@@ -36,7 +36,8 @@ Edit `hello.nap` to verify the response:
 
 ```
 [request]
-GET https://jsonplaceholder.typicode.com/posts/1
+method = GET
+url = https://jsonplaceholder.typicode.com/posts/1
 
 [assert]
 status = 200
@@ -59,7 +60,8 @@ Update your request to use the variable:
 {% raw %}
 ```
 [request]
-GET {{baseUrl}}/posts/1
+method = GET
+url = {{baseUrl}}/posts/1
 
 [assert]
 status = 200
@@ -96,7 +98,7 @@ napper run ./smoke.naplist --output junit > results.xml
 
 Napper exits with code 0 when all assertions pass, 1 when any assertion fails, and 2 on runtime errors. This integrates naturally with any CI platform that fails on non-zero exit codes.
 
-![Screenshot: Napper CLI output after running a .naplist suite, showing green checkmarks for all assertions and a summary pass/fail count](quick-start-suite-results.png)
+![Screenshot: Napper CLI output after running a .naplist suite, showing green checkmarks for all assertions and a summary pass/fail count](/assets/images/docs/quick-start-suite-results.png)
 
 ## Next steps
 

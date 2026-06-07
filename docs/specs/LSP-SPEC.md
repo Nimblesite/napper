@@ -1,18 +1,18 @@
 # Nap Language Server — Specification
 
-> The Napper language server is **not a separate binary**. It is a subcommand of the `napper` CLI: `napper lsp` runs the LSP over stdio. **One binary. One install. One version.** The LSP and CLI are the same artifact.
+> The Napper language server is **not a separate binary**. It is a subcommand of the `napper` CLI: `napper lsp` runs the LSP over stdio. **One binary. One install. One version.**
 
 ---
 
-## `lsp-one-binary` — One Binary
+## [LSP-ONE-BINARY] One binary
 
-The CLI and the LSP ship as a single `napper` executable. Running `napper run …` executes a `.nap` file. Running `napper lsp` starts the language server, reads JSON-RPC from stdin, and writes JSON-RPC to stdout. There is no `napper-lsp`, no `nap-lsp`, no separate NuGet package, no separate brew formula, no separate version-resolution path. The version reported by `napper --version` is the version of every capability in the binary, including the LSP.
+The CLI and the LSP ship as a single `napper` executable. `napper run …` executes a `.nap` file; `napper lsp` starts the language server, reading JSON-RPC from stdin and writing JSON-RPC to stdout. There is no `napper-lsp`, no separate NuGet package, no separate brew formula, no separate version-resolution path. `napper --version` is the version of every capability in the binary, including the LSP.
 
-This is non-negotiable. Any change that splits the LSP back out into its own binary is a regression. When [`cli-aot-migration`](./CLI-SPEC.md#cli-aot-migration) lands, the AOT-compiled `napper` binary still contains the LSP — exactly the same way.
+This is non-negotiable. Splitting the LSP back into its own binary is a regression. The NativeAOT `napper` binary ([CLI-AOT-MIGRATION](./CLI-SPEC.md)) still contains the LSP.
 
 ---
 
-## Architecture
+## [LSP-ARCHITECTURE] Architecture
 
 ```mermaid
 graph TB
@@ -50,17 +50,17 @@ graph TB
 
 ---
 
-## Design Principles
+## [LSP-PRINCIPLES] Design principles
 
-- **One binary.** [`lsp-one-binary`](#lsp-one-binary). The LSP is a subcommand of `napper`, not a separate executable.
-- **⚠️ ZERO duplicated logic.** LSP handler code MUST NOT contain parsing, types, environment resolution, or any domain logic. Those live in `Napper.Core` and are shared with the CLI subcommands. The LSP layer is a thin protocol adapter that calls `Napper.Core` functions and translates results to LSP responses.
-- **Napper.Core is the single source of truth.** Every CLI subcommand and every LSP handler calls into `Napper.Core`. Any new capability the LSP needs that could be useful to the CLI MUST be added to `Napper.Core`.
-- **Protocol-only coupling.** IDE extensions communicate with the LSP exclusively via JSON-RPC over stdio. No IDE-specific code in the F# binary.
-- **Incremental.** Each LSP capability ships independently. The server advertises only what it supports.
+- **One binary.** [LSP-ONE-BINARY]. The LSP is a subcommand of `napper`, not a separate executable.
+- **⚠️ ZERO duplicated logic.** LSP handlers MUST NOT contain parsing, types, environment resolution, or any domain logic. Those live in `Napper.Core` and are shared with the CLI. The LSP layer is a thin protocol adapter that calls `Napper.Core` and translates results to LSP responses.
+- **`Napper.Core` is the single source of truth.** Any new capability the LSP needs that could be useful to the CLI MUST be added to `Napper.Core`.
+- **Protocol-only coupling.** IDE extensions talk to the LSP exclusively via JSON-RPC over stdio. No IDE-specific code in the F# binary.
+- **Incremental.** Each capability ships independently; the server advertises only what it supports.
 
 ---
 
-## Transport
+## [LSP-TRANSPORT] Transport
 
 | Property | Value |
 |----------|-------|
@@ -69,164 +69,138 @@ graph TB
 | Protocol | JSON-RPC 2.0 (LSP 3.17) |
 | Encoding | UTF-8 |
 
-IDE extensions spawn `napper lsp` as a child process and communicate over stdin/stdout. No TCP, no WebSocket, no HTTP. The `napper lsp` subcommand takes over stdio for the lifetime of the process — it MUST NOT print anything to stdout outside of LSP framing, and MUST log to stderr or to a file (never stdout).
+IDE extensions spawn `napper lsp` as a child process and communicate over stdin/stdout. No TCP, no WebSocket, no HTTP. While `lsp` is active the process MUST NOT print to stdout outside LSP framing, and MUST log to stderr or a file.
 
 ---
 
-## ⚠️ The LSP Replaces Duplicated IDE Logic
+## [LSP-DEDUP] The LSP replaces duplicated IDE logic
 
-The VSIX currently reimplements `.nap` file parsing in TypeScript — extracting HTTP methods, URLs, playlist steps, and environment names. This is **duplicated logic** that already exists in `Napper.Core` F#. The LSP eliminates this duplication: all IDEs ask the LSP, the LSP calls `Napper.Core`, done. **Less TypeScript, less Rust, MORE F#.**
+The VSIX historically reimplemented `.nap` parsing in TypeScript. That logic already exists in `Napper.Core`. The LSP eliminates the duplication: all IDEs ask the LSP, the LSP calls `Napper.Core`. **Less TypeScript, less Rust, MORE F#.**
 
-| Duplicated VSIX Logic | Replaced By |
+| Duplicated VSIX logic | Replaced by |
 |-----------------------|-------------|
-| `extractHttpMethod` (TS) — re-parses `.nap` to find method | `textDocument/documentSymbol` — LSP parses once via `Napper.Core.Parser` |
-| `parseMethodAndUrl` (TS) — re-parses `.nap` for curl copy | `napper/requestInfo` — custom LSP request |
-| `parsePlaylistStepPaths` (TS) — re-parses `.naplist` for steps | `textDocument/documentSymbol` — LSP parses via `Napper.Core.Parser` |
-| `detectEnvironments` (TS) — scans `.napenv.*` files | `napper/environments` — custom LSP request |
-| CodeLens section detection (TS) — finds `[request]` lines | `textDocument/documentSymbol` — sections with line ranges |
+| `extractHttpMethod` (TS) | `textDocument/documentSymbol` ([LSP-SYMBOLS]) via `Napper.Core.Parser` |
+| `parseMethodAndUrl` (TS) | `napper/requestInfo` ([LSP-CUSTOM]) |
+| `parsePlaylistStepPaths` (TS) | `textDocument/documentSymbol` ([LSP-SYMBOLS]) |
+| `detectEnvironments` (TS) | `napper/environments` ([LSP-CUSTOM]) |
+| CodeLens section detection (TS) | `textDocument/documentSymbol` ([LSP-SYMBOLS]) |
 
 ---
 
 ## Capabilities
 
-### `lsp-custom` — Custom Requests (Napper-specific)
+### [LSP-CUSTOM] Custom requests (Napper-specific)
 
-These are non-standard LSP requests that provide structured data to all IDEs. They replace duplicated parsing logic in TypeScript/Rust.
+> **Status: Implemented.**
+
+Non-standard LSP requests that provide structured data to all IDEs, replacing duplicated parsing. Each calls a `Napper.Core` function.
 
 | Method | Params | Returns | Replaces |
 |--------|--------|---------|----------|
-| `napper/requestInfo` | `{ uri: string }` | `{ method: string, url: string, headers: Record<string, string> }` | `parseMethodAndUrl` in TS |
-| `napper/environments` | `{ rootUri: string }` | `{ environments: string[] }` | `detectEnvironments` in TS |
-| `napper/curlCommand` | `{ uri: string }` | `{ curl: string }` | curl generation in TS |
+| `napper/requestInfo` | `{ uri }` | `{ method, url, headers }` | `parseMethodAndUrl` (TS) |
+| `napper/environments` | `{ rootUri }` | `{ environments[] }` | `detectEnvironments` (TS) |
+| `napper/curlCommand` | `{ uri }` | `{ curl }` | curl generation (TS) |
 
-**Implementation:** All three call `Napper.Core` functions — `Parser.parseNapFile`, `Environment.detectEnvironmentNames` (new), `CurlGenerator.toCurl` (new).
+Implemented via `Parser.parseNapFile`, `Environment.detectEnvironmentNames`, and `CurlGenerator.toCurl`.
 
-### `lsp-completions` — Completions
+### [LSP-SYMBOLS] Document symbols
 
-Triggered on typing within `.nap` and `.naplist` files.
+> **Status: Implemented.**
 
-| Context | Completion Items |
-|---------|-----------------|
-| After `method =` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` |
-| After `[request.headers]` key position | Common HTTP headers: `Content-Type`, `Authorization`, `Accept`, `Cache-Control`, `User-Agent`, ... |
-| Inside `{{` | Variable names from `.napenv` files in the workspace |
-| After `status` in `[assert]` | Common HTTP status codes: `200`, `201`, `400`, `401`, `404`, `500`, ... |
-| After assertion target | Assertion operators: `=`, `exists`, `contains`, `matches`, `<`, `>` |
-| `[steps]` block in `.naplist` | `.nap` and `.naplist` file paths from the workspace |
-
-**Implementation:** Parse the document up to the cursor position using `Napper.Core.Parser`. Determine the current section (`[meta]`, `[request]`, `[assert]`, etc.) and offer context-appropriate items.
-
-### `lsp-diagnostics` — Diagnostics
-
-Published on `textDocument/didOpen` and `textDocument/didChange`.
-
-| Diagnostic | Severity | Condition |
-|-----------|----------|-----------|
-| Parse error | Error | `Napper.Core.Parser.parseNapFile` returns `Error` |
-| Unknown variable | Warning | `{{name}}` referenced but not defined in any `.napenv` file or `[vars]` block |
-| Missing `[request]` block | Error | Full `.nap` file has no `[request]` section |
-| Invalid assertion syntax | Error | Assertion line doesn't match any known operator pattern |
-| Unreachable script path | Warning | `[script]` `pre` or `post` path does not exist on disk |
-| Missing step file | Warning | `.naplist` step references a file that doesn't exist |
-
-**Implementation:** Run `Napper.Core.Parser.parseNapFile` or `parseNapList`. For variable diagnostics, scan for `{{...}}` patterns and check against `Napper.Core.Environment.loadEnvironment`. Report diagnostics with line/column positions from FParsec error info.
-
-### `lsp-hover` — Hover
-
-| Hover Target | Display |
-|-------------|---------|
-| `{{variable}}` | Resolved value from the active environment. If sourced from `.napenv.local`, show `******` (masked). |
-| Section header (`[request]`, `[assert]`, etc.) | Brief description of the section's purpose |
-| HTTP method keyword | Method description (e.g., "GET — Safe, idempotent retrieval") |
-| Assertion operator | Operator description (e.g., "contains — checks if the value includes the substring") |
-
-**Implementation:** Parse the document, locate the token under the cursor, resolve variables using `Napper.Core.Environment`.
-
-### `lsp-symbols` — Document Symbols
-
-Expose file structure for outline navigation (Ctrl+Shift+O in VSCode, symbol search in Zed).
+Exposes file structure for outline navigation (Ctrl+Shift+O in VSCode, symbol search in Zed) by walking the parsed AST and emitting `DocumentSymbol` entries with line ranges.
 
 | Symbol | Kind | Scope |
 |--------|------|-------|
-| `[meta]` | `Namespace` | `.nap`, `.naplist` |
-| `[request]` | `Function` | `.nap` |
-| `[request.headers]` | `Struct` | `.nap` |
-| `[request.body]` | `Struct` | `.nap` |
-| `[assert]` | `Function` | `.nap` |
-| `[script]` | `Function` | `.nap` |
-| `[vars]` | `Variable` | `.nap`, `.naplist` |
-| `[steps]` | `Array` | `.naplist` |
+| `[meta]` | Namespace | `.nap`, `.naplist` |
+| `[request]` / `[assert]` / `[script]` | Function | `.nap` |
+| `[request.headers]` / `[request.body]` | Struct | `.nap` |
+| `[vars]` | Variable | `.nap`, `.naplist` |
+| `[steps]` | Array | `.naplist` |
 
-**Implementation:** Walk the parsed AST from `Napper.Core.Parser` and emit `DocumentSymbol` entries with line ranges.
+### [LSP-COMPLETIONS] Completions
+
+> **Status: Not implemented.** No completion provider is advertised in `Server.fs` capabilities; `textDocument/completion` is not handled.
+
+Intended: context-aware completions triggered inside `.nap` / `.naplist` files — HTTP methods after `method =`, common headers in `[request.headers]`, variable names inside `{{`, status codes and assertion operators in `[assert]`, and step paths in `[steps]`. Implementation parses up to the cursor via `Napper.Core.Parser` and offers items for the current section.
+
+### [LSP-DIAGNOSTICS] Diagnostics
+
+> **Status: Not implemented.** No diagnostics are published on `didOpen`/`didChange`.
+
+Intended: parse errors, unknown `{{variable}}` references, missing `[request]` block, invalid assertion syntax, unreachable script paths, and missing step files — published with line/column positions from FParsec error info.
+
+### [LSP-HOVER] Hover
+
+> **Status: Not implemented.** No hover provider is advertised.
+
+Intended: resolved value for `{{variable}}` (masked for `.napenv.local`), section descriptions, HTTP-method descriptions, and assertion-operator descriptions.
 
 ---
 
-## File Watching
+## [LSP-FILE-WATCHING] File watching
 
-The LSP watches the workspace for changes to `.napenv`, `.napenv.*`, and `.napenv.local` files. When these change, the server:
+> **Status: Not implemented.** No `workspace/didChangeWatchedFiles` registration exists.
 
-1. Reloads the environment using `Napper.Core.Environment.loadEnvironment`
-2. Re-publishes diagnostics for all open `.nap` files (unknown variable warnings may appear or disappear)
-3. Updates hover resolution for `{{variable}}` tokens
-
-The server registers `workspace/didChangeWatchedFiles` for these glob patterns:
-- `**/.napenv`
-- `**/.napenv.*`
+Intended: watch `**/.napenv` and `**/.napenv.*`; on change, reload via `Environment.loadEnvironment`, re-publish [LSP-DIAGNOSTICS], and refresh [LSP-HOVER] resolution.
 
 ---
 
-## Configuration
+## [LSP-CONFIGURATION] Configuration
 
-The LSP accepts configuration via `workspace/didChangeConfiguration` and `initializationOptions`:
+> **Status: Not implemented.** `workspace/didChangeConfiguration` and `initializationOptions` are not consumed.
+
+Intended settings:
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `nap.environment` | `string` | `""` | Active environment name (selects `.napenv.{name}`) |
-| `nap.maskSecrets` | `bool` | `true` | Mask values from `.napenv.local` in hover |
+| `nap.environment` | string | `""` | Active environment (selects `.napenv.{name}`) |
+| `nap.maskSecrets` | bool | `true` | Mask `.napenv.local` values in [LSP-HOVER] |
 
 ---
 
-## Supported File Types
+## [LSP-FILE-TYPES] Supported file types
+
+> **Status: Partial.** `.nap` and `.naplist` are recognized; `.napenv` hover semantics depend on the unimplemented [LSP-HOVER].
 
 | Extension | Language ID | Features |
 |-----------|------------|----------|
-| `.nap` | `nap` | All capabilities |
-| `.naplist` | `naplist` | Completions (steps), diagnostics, symbols |
-| `.napenv` | `napenv` | Hover (show which files reference each variable) |
+| `.nap` | `nap` | [LSP-SYMBOLS], [LSP-CUSTOM] (and, when implemented, completions/diagnostics/hover) |
+| `.naplist` | `naplist` | [LSP-SYMBOLS] |
+| `.napenv` | `napenv` | [LSP-HOVER] (planned) |
 
 ---
 
-## Error Handling
+## [LSP-ERROR-HANDLING] Error handling
 
-- Parse errors from FParsec are mapped to LSP `Diagnostic` objects with precise line/column positions.
-- The server never crashes on malformed input. All handlers catch exceptions and log via `Napper.Core.Logger`.
-- If the workspace has no `.napenv` files, variable-related features degrade gracefully (no completions, no hover values, but no errors either).
+> **Status: Implemented.**
 
----
+- The server never crashes on malformed input — all handlers catch exceptions and log via `Napper.Core.Logger`.
+- Null-safe JSON access and lenient framing tolerate partial/garbage input.
+- With no `.napenv` files present, variable-related features degrade gracefully (no values, but no errors).
 
-## Distribution
-
-The LSP has no separate distribution. It ships inside the native `napper` binary — you launch
-it via `napper lsp`. The primary channels need no .NET ([`cli-aot-migration`](./CLI-SPEC.md#cli-aot-migration)):
-
-- **Install script** — `install.sh` / `install.ps1` ([`cli-install-script`](./CLI-SPEC.md#cli-install-script)).
-- **Homebrew tap** — `brew install napper` ([`cli-install-homebrew`](./CLI-SPEC.md#cli-install-homebrew)).
-- **Scoop bucket** — `scoop install napper` ([`cli-install-scoop`](./CLI-SPEC.md#cli-install-scoop)).
-- **dotnet tool** (secondary, optional, needs .NET SDK) — `dotnet tool install -g napper` ([`cli-install-dotnet-tool`](./CLI-SPEC.md#cli-install-dotnet-tool)).
-
-The VSIX install resolver ([`vscode-cli-acquisition`](./IDE-EXTENSION-SPEC.md#vscode-cli-acquisition)) installs `napper` once. That single install gives you the LSP for free — no second download, no second version pin, no second discovery step.
-
-## Discovery
-
-IDE extensions launch the language server by spawning `<resolved-napper-path> lsp`. The resolved path is whatever the install resolver settled on (`napper` from `nap.cliPath`, the user's `PATH`, or the dotnet tools directory). There is no separate `nap-lsp` lookup — the LSP is reachable iff the CLI is reachable, by definition.
+When [LSP-DIAGNOSTICS] lands, FParsec parse errors will map to LSP `Diagnostic` objects with precise positions.
 
 ---
 
-## Related Specs
+## [LSP-DISTRIBUTION] Distribution
 
-- [CLI Spec](./CLI-SPEC.md) — `napper` CLI subcommands including `napper lsp`
-- [IDE Extension Spec](./IDE-EXTENSION-SPEC.md) — Feature matrix and IDE-specific behaviour
-- [IDE Extension Plan (VSCode)](../plans/IDE-EXTENSION-PLAN.md) — VSCode implementation phases
-- [Zed Extension Plan](../plans/ZED-EXTENSION-PLAN.md) — Zed implementation phases
-- [File Formats Spec](./FILE-FORMATS-SPEC.md) — `.nap`, `.naplist`, `.napenv` format definitions
-- [LSP Implementation Plan](../plans/LSP-PLAN.md) — Implementation phases and TODO
+> **Status: Implemented.**
+
+The LSP has no separate distribution — it ships inside the native `napper` binary and launches via `napper lsp`. The primary channels need no .NET ([CLI-AOT-MIGRATION](./CLI-SPEC.md)): install script ([CLI-INSTALL-SCRIPT](./CLI-SPEC.md)), Homebrew ([CLI-INSTALL-HOMEBREW](./CLI-SPEC.md)), Scoop ([CLI-INSTALL-SCOOP](./CLI-SPEC.md)), and the optional dotnet tool ([CLI-INSTALL-DOTNET-TOOL](./CLI-SPEC.md)). The VSIX resolver ([VSCODE-CLI-ACQUIRE](./IDE-EXTENSION-SPEC.md)) installs `napper` once — that install gives the LSP for free.
+
+---
+
+## [LSP-DISCOVERY] Discovery
+
+> **Status: Implemented.**
+
+IDE extensions launch the server by spawning `<resolved-napper-path> lsp`. The resolved path is whatever the install resolver settled on. There is no separate `nap-lsp` lookup — the LSP is reachable iff the CLI is reachable.
+
+---
+
+## Related specs
+
+- [CLI Spec](./CLI-SPEC.md) — `napper` subcommands including `napper lsp`
+- [IDE Extension Spec](./IDE-EXTENSION-SPEC.md) — feature matrix and IDE-specific behaviour
+- [File Formats Spec](./FILE-FORMATS-SPEC.md) — `.nap`, `.naplist`, `.napenv` definitions
+- [LSP Implementation Plan](../plans/LSP-PLAN.md) — phases and TODO

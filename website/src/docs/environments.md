@@ -78,7 +78,8 @@ Reference variables with double curly braces:
 {% raw %}
 ```
 [request]
-GET {{baseUrl}}/users
+method = GET
+url = {{baseUrl}}/users
 
 [request.headers]
 Authorization = Bearer {{token}}

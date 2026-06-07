@@ -1,9 +1,5 @@
 module CliIntegrationTests
-// Specs: cli-run, cli-check, cli-env, cli-var, cli-exit-codes, cli-output,
-//        nap-minimal, nap-full, nap-assert, nap-body, nap-request, http-methods,
-//        env-interpolation, env-named, env-resolution, collection-folder,
-//        naplist-file, naplist-steps, naplist-nested, naplist-script-step,
-//        script-fsx, script-csx, output-json, output-junit, output-pretty, output-ndjson
+// Tests [CLI-RUN], [CLI-CHECK], [CLI-ENV], [CLI-VAR], [CLI-EXIT-CODES], [CLI-OUTPUT], [NAP-MINIMAL], [NAP-FULL], [NAP-ASSERT], [NAP-BODY], [NAP-REQUEST], [NAP-METHODS], [ENV-INTERPOLATION], [ENV-NAMED], [ENV-RESOLUTION], [COLLECTION-FOLDER], [NAPLIST-FILE], [NAPLIST-STEPS], [NAPLIST-NESTED], [NAPLIST-SCRIPT-STEP], [SCRIPT-FSX], [SCRIPT-CSX], [OUTPUT-JSON], [OUTPUT-JUNIT], [OUTPUT-PRETTY], [OUTPUT-NDJSON]
 
 open System
 open System.IO
@@ -20,7 +16,7 @@ let private createTempDir () =
 
 let private cleanupDir dir = TestHelpers.cleanupDir dir
 
-// ─── Help command ────────────────────────── Spec: cli-exit-codes
+// ─── Help command ────────────────────────── Spec: [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``CLI help returns exit code 0`` () =
@@ -46,7 +42,7 @@ let ``CLI --help returns exit code 0`` () =
     finally
         cleanupDir dir
 
-// ─── Check command ───────────────────────── Spec: cli-check, nap-minimal, nap-full, naplist-file, cli-exit-codes
+// ─── Check command ───────────────────────── Spec: [CLI-CHECK], [NAP-MINIMAL], [NAP-FULL], [NAPLIST-FILE], [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``CLI check valid shorthand nap file`` () =
@@ -121,14 +117,14 @@ let ``CLI check with no file returns exit code 2`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: single file ────────────── Spec: cli-run, nap-minimal, nap-assert, cli-exit-codes
+// ─── Run command: single file ────────────── Spec: [CLI-RUN], [NAP-MINIMAL], [NAP-ASSERT], [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``CLI run shorthand GET against jsonplaceholder`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://jsonplaceholder.typicode.com/posts/1")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/posts/1")
         let exitCode, stdout, _ = runCli "run test.nap --output json" dir
         Assert.Equal(0, exitCode)
         let doc = System.Text.Json.JsonDocument.Parse(stdout)
@@ -143,7 +139,9 @@ let ``CLI run with assertions that pass`` () =
 
     try
         let content =
-            "[request]\nmethod = GET\nurl = https://httpbin.org/get\n\n[assert]\nstatus = 200\n"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 200\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --output json" dir
@@ -159,7 +157,9 @@ let ``CLI run with failing assertion returns exit code 1`` () =
 
     try
         let content =
-            "[request]\nmethod = GET\nurl = https://httpbin.org/get\n\n[assert]\nstatus = 404\n"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/get\n\n[assert]\nstatus = 404\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --output json" dir
@@ -191,14 +191,14 @@ let ``CLI run with no file returns exit code 2`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: output formats ─────────── Spec: cli-output, output-json, output-junit, output-pretty
+// ─── Run command: output formats ─────────── Spec: [CLI-OUTPUT], [OUTPUT-JSON], [OUTPUT-JUNIT], [OUTPUT-PRETTY]
 
 [<Fact>]
 let ``CLI run with json output is valid JSON`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap --output json" dir
         let doc = System.Text.Json.JsonDocument.Parse(stdout)
         Assert.True(doc.RootElement.TryGetProperty("file") |> fst)
@@ -210,7 +210,7 @@ let ``CLI run with junit output is valid XML`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap --output junit" dir
         Assert.Contains("<?xml", stdout)
         Assert.Contains("testsuites", stdout)
@@ -222,21 +222,21 @@ let ``CLI run with pretty output shows status`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap" dir
         Assert.Contains("PASS", stdout)
     finally
         cleanupDir dir
 
-// ─── Run command: directory ──────────────── Spec: cli-run, collection-folder
+// ─── Run command: directory ──────────────── Spec: [CLI-RUN], [COLLECTION-FOLDER], [COLLECTION-SORT]
 
 [<Fact>]
 let ``CLI run directory executes all nap files`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET https://httpbin.org/get")
-        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
+        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let exitCode, stdout, _ = runCli $"run {dir} --output json" dir
         Assert.Equal(0, exitCode)
         let doc = System.Text.Json.JsonDocument.Parse(stdout)
@@ -255,7 +255,7 @@ let ``CLI run empty directory returns exit code 2`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: --var flag ─────────────── Spec: cli-var, env-interpolation
+// ─── Run command: --var flag ─────────────── Spec: [CLI-VAR], [ENV-INTERPOLATION]
 
 [<Fact>]
 let ``CLI run with --var substitutes variable`` () =
@@ -263,7 +263,9 @@ let ``CLI run with --var substitutes variable`` () =
 
     try
         let content =
-            "[request]\nmethod = GET\nurl = https://httpbin.org/status/{{code}}\n\n[assert]\nstatus = {{code}}\n"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/status/{{code}}\n\n[assert]\nstatus = {{code}}\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --var code=200 --output json" dir
@@ -273,7 +275,7 @@ let ``CLI run with --var substitutes variable`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: --env flag ─────────────── Spec: cli-env, env-named, env-resolution
+// ─── Run command: --env flag ─────────────── Spec: [CLI-ENV], [ENV-NAMED], [ENV-RESOLUTION]
 
 [<Fact>]
 let ``CLI run with --env loads named environment`` () =
@@ -283,7 +285,9 @@ let ``CLI run with --env loads named environment`` () =
         File.WriteAllText(Path.Combine(dir, ".napenv.staging"), "statusCode = \"200\"")
 
         let content =
-            "[request]\nmethod = GET\nurl = https://httpbin.org/status/{{statusCode}}\n\n[assert]\nstatus = {{statusCode}}\n"
+            "[request]\nmethod = GET\nurl = "
+            + LocalHttpServer.baseUrl
+            + "/status/{{statusCode}}\n\n[assert]\nstatus = {{statusCode}}\n"
 
         File.WriteAllText(Path.Combine(dir, "test.nap"), content)
         let exitCode, stdout, _ = runCli "run test.nap --env staging --output json" dir
@@ -293,15 +297,15 @@ let ``CLI run with --env loads named environment`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: playlist ───────────────── Spec: naplist-file, naplist-steps, output-ndjson
+// ─── Run command: playlist ───────────────── Spec: [NAPLIST-FILE], [NAPLIST-STEPS], [OUTPUT-NDJSON]
 
 [<Fact>]
 let ``CLI run naplist executes all steps`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET https://httpbin.org/get")
-        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
+        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         File.WriteAllText(Path.Combine(dir, "suite.naplist"), "[steps]\na.nap\nb.nap\n")
         let exitCode, stdout, _ = runCli "run suite.naplist --output json" dir
         Assert.Equal(0, exitCode)
@@ -315,8 +319,8 @@ let ``CLI run naplist with ndjson streams results`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET https://httpbin.org/get")
-        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "a.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
+        File.WriteAllText(Path.Combine(dir, "b.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         File.WriteAllText(Path.Combine(dir, "suite.naplist"), "[steps]\na.nap\nb.nap\n")
         let exitCode, stdout, _ = runCli "run suite.naplist --output ndjson" dir
         let lines = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries)
@@ -329,7 +333,7 @@ let ``CLI run naplist with ndjson streams results`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: script step ────────────── Spec: naplist-script-step, script-fsx
+// ─── Run command: script step ────────────── Spec: [NAPLIST-SCRIPT-STEP], [SCRIPT-FSX]
 
 [<Fact>]
 let ``CLI run naplist with script step`` () =
@@ -337,7 +341,7 @@ let ``CLI run naplist with script step`` () =
 
     try
         File.WriteAllText(Path.Combine(dir, "setup.fsx"), "printfn \"[setup] ready\"")
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         File.WriteAllText(Path.Combine(dir, "suite.naplist"), "[steps]\nsetup.fsx\ntest.nap\n")
         let exitCode, stdout, _ = runCliSlow "run suite.naplist --output json" dir
         Assert.Equal(0, exitCode)
@@ -363,7 +367,7 @@ let ``CLI run naplist with failing script returns exit code 1`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: C# script step ─────────── Spec: naplist-script-step, script-csx
+// ─── Run command: C# script step ─────────── Spec: [NAPLIST-SCRIPT-STEP], [SCRIPT-CSX]
 
 [<Fact>]
 let ``CLI run naplist with CSX script step`` () =
@@ -371,7 +375,7 @@ let ``CLI run naplist with CSX script step`` () =
 
     try
         File.WriteAllText(Path.Combine(dir, "setup.csx"), "Console.WriteLine(\"[csx-setup] ready\");")
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://jsonplaceholder.typicode.com/posts/1")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/posts/1")
         File.WriteAllText(Path.Combine(dir, "suite.naplist"), "[steps]\nsetup.csx\ntest.nap\n")
         let exitCode, stdout, _ = runCliSlow "run suite.naplist --output json" dir
         Assert.Equal(0, exitCode)
@@ -396,7 +400,7 @@ let ``CLI run naplist with failing CSX script returns exit code 1`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: mixed F# + C# script steps Spec: script-fsx, script-csx, script-dispatch
+// ─── Run command: mixed F# + C# script steps Spec: [SCRIPT-FSX], [SCRIPT-CSX], [SCRIPT-DISPATCH]
 
 [<Fact>]
 let ``CLI run naplist with mixed FSX and CSX scripts`` () =
@@ -404,7 +408,7 @@ let ``CLI run naplist with mixed FSX and CSX scripts`` () =
 
     try
         File.WriteAllText(Path.Combine(dir, "setup.fsx"), "printfn \"[fsx] setup done\"")
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://jsonplaceholder.typicode.com/posts/1")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/posts/1")
         File.WriteAllText(Path.Combine(dir, "teardown.csx"), "Console.WriteLine(\"[csx] teardown done\");")
         File.WriteAllText(Path.Combine(dir, "suite.naplist"), "[steps]\nsetup.fsx\ntest.nap\nteardown.csx\n")
         let exitCode, stdout, _ = runCliSlow "run suite.naplist --output json" dir
@@ -424,7 +428,7 @@ let ``CLI run naplist with mixed FSX and CSX scripts`` () =
     finally
         cleanupDir dir
 
-// ─── Unknown command ─────────────────────── Spec: cli-exit-codes
+// ─── Unknown command ─────────────────────── Spec: [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``CLI unknown command returns exit code 2`` () =
@@ -437,7 +441,7 @@ let ``CLI unknown command returns exit code 2`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: POST with body ─────────── Spec: cli-run, nap-body, nap-request, nap-headers
+// ─── Run command: POST with body ─────────── Spec: [CLI-RUN], [NAP-BODY], [NAP-REQUEST], [NAP-HEADERS]
 
 [<Fact>]
 let ``CLI run POST with JSON body`` () =
@@ -448,7 +452,9 @@ let ``CLI run POST with JSON body`` () =
         let content =
             "[request]\n"
             + "method = POST\n"
-            + "url = https://httpbin.org/post\n\n"
+            + "url = "
+            + LocalHttpServer.baseUrl
+            + "/post\n\n"
             + "[request.headers]\n"
             + "Content-Type = application/json\n\n"
             + "[request.body]\n"
@@ -470,7 +476,7 @@ let ``CLI run POST with JSON body`` () =
     finally
         cleanupDir dir
 
-// ─── Run command: nested playlists ───────── Spec: naplist-nested
+// ─── Run command: nested playlists ───────── Spec: [NAPLIST-NESTED]
 
 [<Fact>]
 let ``CLI run nested naplist`` () =
@@ -479,7 +485,7 @@ let ``CLI run nested naplist`` () =
     Directory.CreateDirectory(subdir) |> ignore
 
     try
-        File.WriteAllText(Path.Combine(subdir, "inner.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(subdir, "inner.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         File.WriteAllText(Path.Combine(subdir, "inner.naplist"), "[steps]\ninner.nap\n")
         File.WriteAllText(Path.Combine(dir, "outer.naplist"), "[steps]\nsub/inner.naplist\n")
         let exitCode, stdout, _ = runCli "run outer.naplist --output json" dir

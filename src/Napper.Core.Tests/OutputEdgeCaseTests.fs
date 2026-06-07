@@ -1,5 +1,5 @@
 module OutputEdgeCaseTests
-// Specs: output-json, output-junit, output-pretty
+// Tests [OUTPUT-JSON], [OUTPUT-JUNIT], [OUTPUT-PRETTY]
 
 open System
 open Xunit
@@ -24,7 +24,8 @@ let private makeResult file passed statusCode body assertions error log : NapRes
       Assertions = assertions
       Passed = passed
       Error = error
-      Log = log }
+      Log = log
+      SetVars = Map.empty }
 
 let private passedAssertion target expected : AssertionResult =
     { Assertion =
@@ -42,7 +43,7 @@ let private failedAssertion target expected actual : AssertionResult =
       Expected = expected
       Actual = actual }
 
-// ─── JSON output ─────────────────────────── Spec: output-json
+// ─── JSON output ─────────────────────────── Spec: [OUTPUT-JSON]
 
 [<Fact>]
 let ``JSON output has correct file field`` () =
@@ -113,7 +114,7 @@ let ``JSON output bodyLength field`` () =
     let doc = System.Text.Json.JsonDocument.Parse(json)
     Assert.Equal(body.Length, doc.RootElement.GetProperty("bodyLength").GetInt32())
 
-// ─── JSON array output ───────────────────── Spec: output-json
+// ─── JSON array output ───────────────────── Spec: [OUTPUT-JSON]
 
 [<Fact>]
 let ``JSON array with multiple results`` () =
@@ -139,7 +140,7 @@ let ``JSON array empty`` () =
     let doc = System.Text.Json.JsonDocument.Parse(json)
     Assert.Equal(0, doc.RootElement.GetArrayLength())
 
-// ─── JUnit output ────────────────────────── Spec: output-junit
+// ─── JUnit output ────────────────────────── Spec: [OUTPUT-JUNIT]
 
 [<Fact>]
 let ``JUnit contains XML declaration`` () =
@@ -187,7 +188,7 @@ let ``JUnit time attribute is in seconds`` () =
     let xml = Output.formatJUnit [ result ]
     Assert.Contains("time=\"0.050\"", xml)
 
-// ─── Pretty output ───────────────────────── Spec: output-pretty
+// ─── Pretty output ───────────────────────── Spec: [OUTPUT-PRETTY]
 
 [<Fact>]
 let ``Pretty output contains PASS for passing result`` () =
@@ -231,7 +232,71 @@ let ``Pretty output shows status code and method`` () =
     Assert.Contains("200", pretty)
     Assert.Contains("GET", pretty)
 
-// ─── Summary output ──────────────────────── Spec: output-pretty
+[<Fact>]
+let ``Pretty output uses the redirect colour for a 3xx status`` () =
+    // 2xx -> green(32), 4xx/5xx -> red(31), everything else -> yellow(33). The 3xx
+    // branch was the only status-colour arm never exercised.
+    let result = makeResult "redirect.nap" true 301 "" [] None []
+    let pretty = Output.formatPretty result
+    Assert.Contains("301", pretty)
+    Assert.Contains("33m", pretty) // yellow ANSI code for the non-2xx/non-4xx branch
+
+[<Fact>]
+let ``Pretty output renders every assertion operator label`` () =
+    // Each Op has its own opStr rendering; drive all six through the passing-assertion path.
+    let passedOp target op : AssertionResult =
+        { Assertion = { Target = target; Op = op }
+          Passed = true
+          Expected = "x"
+          Actual = "x" }
+
+    let assertions =
+        [ passedOp "status" (Equals "200")
+          passedOp "body.id" Exists
+          passedOp "body.name" (Contains "ali")
+          passedOp "body.slug" (Matches "user-*")
+          passedOp "duration" (LessThan "500ms")
+          passedOp "duration" (GreaterThan "1ms") ]
+
+    let result = makeResult "ops.nap" true 200 "" assertions None []
+    let pretty = Output.formatPretty result
+    Assert.Contains("= 200", pretty)
+    Assert.Contains("exists", pretty)
+    Assert.Contains("contains \"ali\"", pretty)
+    Assert.Contains("matches \"user-*\"", pretty)
+    Assert.Contains("< 500ms", pretty)
+    Assert.Contains("> 1ms", pretty)
+
+[<Fact>]
+let ``JSON output includes request headers and request body`` () =
+    // makeResult fixes an empty-header, body-less GET; build a POST with both so the
+    // requestHeaders loop and requestBody fields are emitted.
+    let result: NapResult =
+        { File = "post.nap"
+          Request =
+            { Method = POST
+              Url = "https://example.com/users"
+              Headers = Map.ofList [ ("Authorization", "Bearer t"); ("X-Trace", "abc") ]
+              Body =
+                Some
+                    { ContentType = "application/json"
+                      Content = """{"name":"Alice"}""" } }
+          Response = None
+          Assertions = []
+          Passed = true
+          Error = None
+          Log = []
+          SetVars = Map.empty }
+
+    let json = Output.formatJson result
+    let doc = System.Text.Json.JsonDocument.Parse(json)
+    let headers = doc.RootElement.GetProperty("requestHeaders")
+    Assert.Equal("Bearer t", headers.GetProperty("Authorization").GetString())
+    Assert.Equal("abc", headers.GetProperty("X-Trace").GetString())
+    Assert.Equal("application/json", doc.RootElement.GetProperty("requestBodyContentType").GetString())
+    Assert.Equal("""{"name":"Alice"}""", doc.RootElement.GetProperty("requestBody").GetString())
+
+// ─── Summary output ──────────────────────── Spec: [OUTPUT-PRETTY]
 
 [<Fact>]
 let ``Summary all passed`` () =

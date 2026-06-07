@@ -1,3 +1,4 @@
+// Tests [CLI-AOT-MIGRATION], [CLI-RUNTIME-DEPENDENCY]
 module VersionContractTests
 // e2e black-box tests for the Shipwright binary version contract and the release
 // version stamper. Tests drive the REAL napper binary and the REAL stamper script

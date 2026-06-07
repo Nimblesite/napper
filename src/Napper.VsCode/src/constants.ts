@@ -142,8 +142,33 @@ export const CLI_BINARY_NAME = 'napper';
 // CLI installer complete message
 export const CLI_INSTALL_COMPLETE_MSG = 'Napper CLI ready';
 
+// CLI resolution resilience — Implements [SWR-IDE-RESOLUTION]. Shipwright's `--version`
+// probe collapses EVERY failure (a slow first-run antivirus scan of the ~10 MB NativeAOT
+// binary, a cold start past the deadline, a transient file lock) into a non-ok result with
+// no path ("no resolved source"). A single attempt under the library's 1.5s default bricked
+// fresh Windows Marketplace installs, so we retry with a generous deadline against a warm,
+// already-scanned file.
+export const SHIPWRIGHT_COMPONENT_ID = 'napper';
+export const SHIPWRIGHT_PROBE_TIMEOUT_MS = 15000;
+export const SHIPWRIGHT_MAX_ATTEMPTS = 3;
+export const SHIPWRIGHT_RETRY_DELAY_MS = 1500;
+
+// CLI resolution log messages
+export const LOG_MSG_RESOLVING_CLI = 'Resolving CLI via Shipwright...';
+export const LOG_MSG_CLI_RESOLVED = 'Napper CLI resolved at';
+export const LOG_MSG_CLI_RESOLVE_RETRY = 'Shipwright did not resolve the CLI; retrying attempt';
+export const LOG_MSG_CLI_RESOLVE_FAILED =
+  'Shipwright could not resolve the Napper CLI after all attempts';
+
+// CLI resolution failure surface (actionable, non-modal)
+export const MSG_CLI_RESOLVE_FAILED =
+  'Napper could not start its bundled CLI. This is usually a first-run antivirus scan or a blocked binary. Reload the window to retry, set "napper.cliPath" to a napper you installed (Scoop / Homebrew / dotnet tool), or check the Napper output log.';
+export const ACTION_OPEN_SETTINGS = 'Open Settings';
+export const ACTION_SHOW_LOG = 'Show Log';
+
 // VSCode built-in commands
 export const CMD_VSCODE_OPEN = 'vscode.open';
+export const CMD_OPEN_SETTINGS = 'workbench.action.openSettings';
 
 // Layout options
 export const LAYOUT_BESIDE = 'beside';

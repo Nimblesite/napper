@@ -1,8 +1,6 @@
+// Tests [OPENAPI-COMMANDS]
 module OpenApiE2eTests
-// Specs: cli-generate, cli-exit-codes, openapi-generate, openapi-nap-gen, openapi-tag-dirs,
-//        openapi-naplist-gen, openapi-napenv-gen, openapi-baseurl, openapi-params,
-//        openapi-body-gen, openapi-assert-gen, openapi-query-params, openapi-auth,
-//        openapi-meta-flag, nap-meta, nap-request, nap-body, nap-vars
+// Tests [CLI-GENERATE], [CLI-EXIT-CODES], [OPENAPI-GENERATE], [OPENAPI-NAP-GEN], [OPENAPI-TAG-DIRS], [OPENAPI-NAPLIST-GEN], [OPENAPI-NAPENV-GEN], [OPENAPI-BASEURL], [OPENAPI-PARAMS], [OPENAPI-BODY-GEN], [OPENAPI-ASSERT-GEN], [OPENAPI-QUERY-PARAMS], [OPENAPI-AUTH], [OPENAPI-META-FLAG], [NAP-META], [NAP-REQUEST], [NAP-BODY], [NAP-VARS]
 
 open System
 open System.IO
@@ -59,7 +57,7 @@ let private generatePetstore (outDir: string) : int * string * string =
     downloadSpec () |> ignore
     runCli $"generate openapi {specPath} --output-dir {outDir}" specCacheDir
 
-// ─── CLI generate openapi: Petstore E2E ── Spec: cli-generate, openapi-nap-gen, openapi-tag-dirs, openapi-naplist-gen, openapi-napenv-gen, openapi-baseurl, openapi-params, openapi-body-gen, openapi-assert-gen, openapi-query-params, openapi-auth, openapi-meta-flag
+// ─── CLI generate openapi: Petstore E2E ── Spec: [CLI-GENERATE], [OPENAPI-NAP-GEN], [OPENAPI-TAG-DIRS], [OPENAPI-NAPLIST-GEN], [OPENAPI-NAPENV-GEN], [OPENAPI-BASEURL], [OPENAPI-PARAMS], [OPENAPI-BODY-GEN], [OPENAPI-ASSERT-GEN], [OPENAPI-QUERY-PARAMS], [OPENAPI-AUTH], [OPENAPI-META-FLAG]
 
 [<Fact>]
 let ``Petstore generate exits with code 0`` () =
@@ -275,7 +273,7 @@ let ``Petstore query param endpoints have params in URL`` () =
     finally
         cleanupDir outDir
 
-// ─── Error handling ──────────────────────── Spec: cli-generate, cli-exit-codes
+// ─── Error handling ──────────────────────── Spec: [CLI-GENERATE], [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``Generate with missing spec returns exit code 2`` () =
@@ -313,7 +311,7 @@ let ``Generate with invalid JSON returns exit code 1`` () =
     finally
         cleanupDir dir
 
-// ─── CLI generate openapi: Beeceptor E2E ── Spec: cli-generate, openapi-nap-gen, openapi-naplist-gen, openapi-napenv-gen, openapi-baseurl, openapi-body-gen, openapi-auth, openapi-query-params, openapi-params, openapi-assert-gen
+// ─── CLI generate openapi: Beeceptor E2E ── Spec: [CLI-GENERATE], [OPENAPI-NAP-GEN], [OPENAPI-NAPLIST-GEN], [OPENAPI-NAPENV-GEN], [OPENAPI-BASEURL], [OPENAPI-BODY-GEN], [OPENAPI-AUTH], [OPENAPI-QUERY-PARAMS], [OPENAPI-PARAMS], [OPENAPI-ASSERT-GEN]
 
 [<Fact>]
 let ``Beeceptor generate exits with code 0`` () =
@@ -493,7 +491,7 @@ let ``Beeceptor checkout endpoint asserts 201 status`` () =
     finally
         cleanupDir outDir
 
-// ─── Petstore: complete .nap format validation ── Spec: nap-file, nap-meta, nap-request, nap-assert
+// ─── Petstore: complete .nap format validation ── Spec: [NAP-FILE], [NAP-META], [NAP-REQUEST], [NAP-ASSERT]
 
 [<Fact>]
 let ``Petstore every nap file has correct section ordering`` () =

@@ -1,0 +1,54 @@
+### Check whether server is up and running
+GET http://localhost:8080/api/1/health
+
+----
+
+### Spring actuator
+GET http://localhost:8080/actuator
+
+----
+### Get policies
+GET http://localhost:8080/policies
+
+### Create policies
+POST http://localhost:8080/policies
+Content-Type: application/json
+Accept: application/json
+
+{
+  "name": "What is this ?",
+  "status": "INACTIVE",
+  "startDate": "2026-01-01T01:02:00Z",
+  "endDate": "2026-12-01T01:02:00Z"
+} 
+
+### GET a particular policy
+GET http://localhost:8080/policies/1
+
+### Update policy
+PUT  http://localhost:8080/policies/1
+Content-Type: application/json
+Accept: application/json
+
+{
+  "id": 1,
+  "name": "This policy is obsolete",
+  "status": "INACTIVE",
+  "startDate": "2026-01-01T01:02:00Z",
+  "endDate": "2026-12-01T01:02:00Z",
+  "createdAt": "2028-08-09T15:14:31.548981Z",
+  "updatedAt": "2028-08-09T15:14:31.550346Z"
+}
+
+### Delete policy
+DELETE  http://localhost:8080/policies/1
+
+
+
+### GET user by name
+GET http://localhost:8080/policies/1
+Content-Type: application/json
+Accept: application/json
+
+
+

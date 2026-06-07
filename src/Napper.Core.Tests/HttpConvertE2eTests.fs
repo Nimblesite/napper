@@ -1,7 +1,6 @@
+// Tests [CLI-CONVERT], [CLI-OUTPUT-DIR]
 module HttpConvertE2eTests
-// Specs: http-convert, http-convert-outdir, http-convert-dryrun, http-convert-envfile,
-//        http-convert-mapping, http-convert-naming, http-convert-output,
-//        http-convert-env, cli-exit-codes
+// Tests [HTTP-CONVERT], [HTTP-CONVERT-OUTDIR], [HTTP-CONVERT-DRYRUN], [HTTP-CONVERT-ENVFILE], [HTTP-CONVERT-MAPPING], [HTTP-CONVERT-NAMING], [HTTP-CONVERT-OUTPUT], [HTTP-CONVERT-ENV], [CLI-EXIT-CODES]
 
 open System.IO
 open Xunit

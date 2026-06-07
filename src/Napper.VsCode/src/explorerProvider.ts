@@ -1,4 +1,4 @@
-// Specs: vscode-explorer, vscode-playlists
+// Implements [VSCODE-EXPLORER], [VSCODE-PLAYLISTS]
 // Tree data provider for the Explorer view
 // Shows .nap and .naplist files in workspace folder structure
 

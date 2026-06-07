@@ -88,18 +88,18 @@ All assertions are evaluated. Napper reports each one as passed or failed.
 
 ## Complex assertions with scripts
 
-For assertions that go beyond the declarative syntax, use [F#](/docs/fsharp-scripting/) or [C#](/docs/csharp-scripting/) post-request scripts:
+For checks that go beyond the declarative syntax, use a [JavaScript](/docs/javascript-scripting/) or [Python](/docs/python-scripting/) post-request hook. The injected `ctx` object gives you the parsed response, and `ctx.fail(message)` fails the request:
 
 ```
 [script]
-post = ./scripts/validate-schema.fsx
+post = ./scripts/validate-schema.js
 ```
 
-```fsharp
-// validate-schema.fsx
-let users = ctx.Response.Json.EnumerateArray() |> Seq.toList
-
-for user in users do
-    if not (user.TryGetProperty("email") |> fst) then
-        ctx.Fail $"User {user.GetProperty("id")} missing email"
+```js
+// validate-schema.js — ctx is a global, no import
+for (const user of ctx.response.json) {
+  if (!user.email) ctx.fail("user " + user.id + " is missing email");
+}
 ```
+
+F# and C# scripts can also run as post hooks, but they validate by exit code rather than the `ctx` object — see the [F#](/docs/fsharp-scripting/) and [C#](/docs/csharp-scripting/) guides.

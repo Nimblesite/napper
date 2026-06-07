@@ -1,0 +1,69 @@
+// CLICAR EM 'Send Request' para utilizar os endpoints da API
+
+// FEATURE: CONSULTA DE RECURSOS
+###
+GET http://localhost:3000/recursos
+
+
+// FEATURE: CRIAÇAO DE RECURSOS
+###
+POST http://localhost:3000/recursos
+Content-Type: application/json
+
+{
+    "nome": "Roger Guedes",
+    "cpf": "72152492048",
+    "cargo": "Product Owner",
+    "dataAlocacao": "2021-12-20"
+}
+
+###
+POST http://localhost:3000/recursos
+Content-Type: application/json
+
+{
+    "nome": "Eva Mendes",
+    "cpf": "30372490050",
+    "cargo": "Scrum Master",
+    "dataAlocacao": "2021-12-20"
+}
+
+###
+POST http://localhost:3000/recursos
+Content-Type: application/json
+
+{
+    "nome": "Immanuel Kant",
+    "cpf": "96309394010",
+    "cargo": "Backend Developer",
+    "dataAlocacao": "2021-12-20"
+}
+
+###
+POST http://localhost:3000/recursos
+Content-Type: application/json
+
+{
+    "nome": "Priscila Fantin",
+    "cpf": "10010425063",
+    "cargo": "Analista de Requisitos",
+    "dataAlocacao": "2021-12-20"
+}
+
+// findByPk
+###
+GET http://localhost:3000/recursos/149b32d4-302a-463f-ab97-045641df38bf
+
+
+// update (PATCH)
+###
+PATCH http://localhost:3000/recursos/149b32d4-302a-463f-ab97-045641df38bf
+Content-Type: application/json
+
+{
+    "nome": "Boneco Sifuroso"
+}
+
+// delete
+###
+DELETE http://localhost:3000/recursos/27c93c80-ec0c-4377-a9e1-268f64ea6563

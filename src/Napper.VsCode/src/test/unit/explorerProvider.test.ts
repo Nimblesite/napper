@@ -1,4 +1,4 @@
-// Specs: vscode-explorer
+// Tests [VSCODE-EXPLORER]
 import * as assert from 'assert';
 import {
   appendStepToPlaylist,

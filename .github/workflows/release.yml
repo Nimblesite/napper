@@ -1,3 +1,4 @@
+# Implements [CLI-INSTALL-HOMEBREW], [CLI-INSTALL-SCOOP], [CLI-INSTALL-DOTNET-TOOL]
 name: Release
 
 # Tag-triggered Shipwright release. Implements [SWR-REL-WORKFLOW], [SWR-REL-GITHUB].
@@ -396,22 +397,21 @@ jobs:
       # never blocks the native-binary release — only the Marketplace publish waits.
       - name: Require Marketplace credential
         env:
-          VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           set -euo pipefail
           if [ -z "${VSCE_PAT:-}" ]; then
-            echo "::error title=VSCODE_MARKETPLACE_PAT not accessible::This is the Nimblesite ORG-level secret used by Basilisk/Deslop/too-many-cooks. If it exists at the org level, add napper to its allowed repositories under Org Settings -> Secrets and variables -> Actions, then re-run. The GitHub Release (with all VSIX + CLI assets), Homebrew, and Scoop already shipped independently."
+            echo "::error title=VSCE_PAT secret is not set::Add a VS Code Marketplace Personal Access Token as the repo secret VSCE_PAT, then re-run, to publish the per-platform VSIXs. The GitHub Release (with all VSIX + CLI assets), Homebrew, and Scoop already shipped independently. Token guide: https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token"
             exit 1
           fi
           echo "VSCE_PAT present — proceeding with Marketplace publish."
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Install vsce ONCE at a pinned, known-replicated version. `npx --yes @vscode/vsce`
+      # Install vsce ONCE at a pinned, known-replicated version. `npx @vscode/vsce`
       # re-resolves the package on every call, so a transient npm `latest`-tag replication
-      # race (ETARGET "No matching version found") on any single iteration aborts the whole
-      # loop mid-publish — exactly what stranded 3 of 6 platforms on v0.12.1. One install,
-      # one binary, reused for all targets.
+      # race (ETARGET) on a single iteration can abort the whole publish mid-loop and
+      # strand some platforms. One install, one binary, reused for all targets.
       - name: Install vsce (pinned)
         run: npm install -g @vscode/vsce@3.9.1
       - name: Download all per-platform VSIXs
@@ -420,15 +420,17 @@ jobs:
           path: vsix-artifacts
           pattern: vsix-*
           merge-multiple: true
-      # One `vsce publish` per platform-specific VSIX. vsce silently uses only the first
-      # when several are passed in a single call, so each --target VSIX MUST be published
-      # on its own (matches Basilisk / Deslop). The publish is IDEMPOTENT: a target whose
-      # (version, platform) is already on the Marketplace ("already exists") is treated as
-      # success so a re-run after a partial publish completes the remaining platforms
-      # instead of aborting on the first duplicate. A hyphenated SemVer tag is a prerelease.
+      # One `vsce publish` per platform VSIX: vsce silently uses only the FIRST when several
+      # are passed in a single call (the previous single-call step published only one
+      # platform). Each --target VSIX MUST be published on its own. The publish is
+      # IDEMPOTENT — a target whose (version, platform) is already on the Marketplace
+      # ("already exists") counts as success, so a re-run after a partial publish completes
+      # the remaining platforms instead of aborting on the first duplicate. Transient errors
+      # retry up to 3x; one failed platform never blocks the others.
+      # Salvaged from repo-standardization@319159f. Implements [SWR-VSIX-PUBLISH].
       - name: Publish each platform VSIX
         env:
-          VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           set -uo pipefail
           shopt -s globstar nullglob
@@ -468,6 +470,77 @@ jobs:
           fi
           echo "Published/confirmed ${published} VSIX(es); ${failed} failed."
           [ "${failed}" -eq 0 ]
+
+  # ── Publish per-platform VSIXs to the Open VSX Registry ──────── [SWR-VSIX-PUBLISH]
+  # Open VSX serves the VS Code FORKS — Cursor, Windsurf, VSCodium, Gitpod, Eclipse
+  # Theia, Antigravity — none of which can reach the Microsoft Marketplace. Fully
+  # independent of publish-marketplace: the Open VSX push must not be gated on the MS
+  # Marketplace publish, and vice versa. The GitHub Release + Homebrew + Scoop ship
+  # regardless, so a missing OVSX token can NEVER block the native-binary release —
+  # only the Open VSX publish waits. Implements [SWR-SEC-OIDC-PUBLISH] (per-channel).
+  publish-openvsx:
+    name: Publish to Open VSX Registry
+    needs: [validate-tag, package-vsix]
+    if: ${{ !cancelled() && needs.package-vsix.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Least privilege: this job only downloads same-run artifacts and pushes to an
+    # external registry, so it drops the inherited top-level `contents: write` to
+    # read-only. Open VSX has no OIDC/trusted-publishing path, so no `id-token` is
+    # granted. Implements [SWR-SEC-TOKEN-PRIVILEGE].
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      # Turn Open VSX's opaque auth failure (what you get from an empty/blank PAT)
+      # into an actionable, operator-facing error before anything else runs. The
+      # GitHub Release, Marketplace, Homebrew, and Scoop do NOT depend on this job,
+      # so a missing token only stalls the Open VSX publish.
+      - name: Require Open VSX credential
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OVSX_PAT:-}" ]; then
+            echo "::error title=OPEN_VSX_PAT secret is not set::Add an Open VSX access token as the repo (or Nimblesite org) secret OPEN_VSX_PAT, then re-run, to publish the per-platform VSIXs to Open VSX. The GitHub Release (with all VSIX + CLI assets), VS Code Marketplace, Homebrew, and Scoop already shipped independently. Create a token at https://open-vsx.org/user-settings/tokens and create the publisher namespace once with: npx ovsx create-namespace nimblesite -p \$OVSX_PAT"
+            exit 1
+          fi
+          echo "OPEN_VSX_PAT present — proceeding with Open VSX publish."
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Download all per-platform VSIXs
+        uses: actions/download-artifact@v4
+        with:
+          path: vsix-artifacts
+          pattern: vsix-*
+          merge-multiple: true
+      - name: Publish every per-platform VSIX to Open VSX
+        # The token is exposed ONLY as an env var, never on the command line: ovsx
+        # reads OVSX_PAT automatically when -p is omitted, keeping the secret out of
+        # the process argv (where a `ps`/dump could read it). ovsx is version-pinned —
+        # a floating `npx ovsx` would fetch and run the latest release at publish time,
+        # inside the very job that holds the token (a supply-chain risk). Bump it
+        # deliberately. Implements [SWR-SEC-FROZEN-INSTALL].
+        env:
+          OVSX_PAT: ${{ secrets.OPEN_VSX_PAT }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          # One publish per platform-specific VSIX: the target is baked into each
+          # VSIX, so no --target flag is needed, but each must be pushed separately —
+          # a single glob into one call would publish only the first.
+          published=0
+          for vsix in vsix-artifacts/*.vsix; do
+            echo "Publishing $vsix to Open VSX"
+            npx --yes ovsx@1.0.0 publish --packagePath "$vsix"
+            published=$((published + 1))
+          done
+          if [ "$published" -eq 0 ]; then
+            echo "::error::No VSIX artifacts found to publish to Open VSX"
+            exit 1
+          fi
+          echo "Published $published VSIX(es) to Open VSX"
 
   # ── SECONDARY, best-effort dotnet-tool NuGet package ──────────────────────────
   # continue-on-error + NOT a dependency of release / marketplace / brew / scoop, so a

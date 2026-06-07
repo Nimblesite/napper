@@ -1,4 +1,4 @@
-// Specs: vscode-openapi, vscode-openapi-import
+// Tests [VSCODE-OPENAPI], [VSCODE-OPENAPI-IMPORT]
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as fs from 'fs';

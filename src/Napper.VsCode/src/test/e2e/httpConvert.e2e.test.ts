@@ -1,4 +1,4 @@
-// Specs: vscode-http-convert
+// Tests [HTTP-IDE]
 // E2E tests — prove the .http → .nap conversion works through the actual
 // VSCode extension commands and CodeLens, not by calling the CLI directly.
 import * as assert from 'assert';

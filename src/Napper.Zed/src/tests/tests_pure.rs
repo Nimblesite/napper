@@ -1,3 +1,4 @@
+// Tests [ZED-RUNNABLES], [ZED-SLASH-COMMANDS]
 use crate::*;
 use zed_extension_api::{process::Output, Extension};
 

@@ -1,4 +1,4 @@
-// Specs: vscode-settings, vscode-commands
+// Implements [VSCODE-SETTINGS], [VSCODE-COMMANDS]
 // File system watchers and auto-run registration for .nap/.naplist files
 
 import * as vscode from 'vscode';

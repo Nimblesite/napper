@@ -1,4 +1,4 @@
-// Specs: output-pretty, output-junit, output-json, output-ndjson
+// Implements [OUTPUT-PRETTY], [OUTPUT-JUNIT], [OUTPUT-JSON], [OUTPUT-NDJSON]
 module Napper.Core.Output
 
 open System
