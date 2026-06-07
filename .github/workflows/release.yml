@@ -390,21 +390,26 @@ jobs:
     if: ${{ !cancelled() && needs.package-vsix.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Per-platform Marketplace publish via the Nimblesite ORG-level VSCODE_MARKETPLACE_PAT
+    # secret — the SAME pattern Basilisk and too-many-cooks use. napper must be on that org
+    # secret's repository allowlist. (NuGet/npm use OIDC; the VS Code Marketplace does not —
+    # the org standard is a scoped Marketplace PAT.) Implements [SWR-VSIX-PUBLISH].
+    permissions:
+      contents: read # least privilege: drop the inherited contents: write
     steps:
-      # Turn the Marketplace's opaque "TF400813: user aaaaaaaa-... not authorized" (what
-      # you get from an empty/blank PAT) into an actionable, operator-facing error. The
-      # GitHub Release + Homebrew + Scoop do NOT depend on this job, so a missing token
+      # Turn a missing/forbidden org secret into an actionable operator error. The GitHub
+      # Release + Open VSX + Homebrew + Scoop do NOT depend on this job, so a missing token
       # never blocks the native-binary release — only the Marketplace publish waits.
       - name: Require Marketplace credential
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         run: |
           set -euo pipefail
           if [ -z "${VSCE_PAT:-}" ]; then
-            echo "::error title=VSCE_PAT secret is not set::Add a VS Code Marketplace Personal Access Token as the repo secret VSCE_PAT, then re-run, to publish the per-platform VSIXs. The GitHub Release (with all VSIX + CLI assets), Homebrew, and Scoop already shipped independently. Token guide: https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token"
+            echo "::error title=VSCODE_MARKETPLACE_PAT not accessible::Add a VS Code Marketplace PAT (Marketplace → Manage scope) as the Nimblesite ORG secret VSCODE_MARKETPLACE_PAT and add this repository to its allowed list (Org Settings → Secrets and variables → Actions → VSCODE_MARKETPLACE_PAT → Repository access). The GitHub Release (with all VSIX + CLI assets), Open VSX, Homebrew, and Scoop ship independently. Token guide: https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token"
             exit 1
           fi
-          echo "VSCE_PAT present — proceeding with Marketplace publish."
+          echo "VSCODE_MARKETPLACE_PAT present — proceeding with Marketplace publish."
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -430,7 +435,7 @@ jobs:
       # Salvaged from repo-standardization@319159f. Implements [SWR-VSIX-PUBLISH].
       - name: Publish each platform VSIX
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          VSCE_PAT: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         run: |
           set -uo pipefail
           shopt -s globstar nullglob
@@ -552,9 +557,34 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     continue-on-error: true
+    # Protected environment so GitHub injects the `environment` claim into the OIDC token.
+    # The nuget.org trusted-publishing policy is scoped to Environment=release, and the
+    # token only carries that claim when the job is bound to the environment. MUST match.
+    environment: release
+    # KEYLESS publish — OIDC Trusted Publishing, NO long-lived NuGet API key.
+    # The job exchanges a short-lived GitHub OIDC token for a ~1h nuget.org API key
+    # via a trusted-publishing policy (owner + repository + this workflow file). This
+    # is MANDATORY: a static API-key secret for a package registry is forbidden.
+    # Implements [SWR-SEC-OIDC-PUBLISH], [SWR-SEC-NO-PAT].
+    permissions:
+      id-token: write # mint the GitHub OIDC token for the nuget.org exchange
+      contents: read # least privilege: drop the inherited contents: write
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
+      # Turn a missing trusted-publishing config into an actionable operator error
+      # before any pack/push runs. NUGET_USER is the nuget.org account name, NOT a
+      # credential — it is a repo variable, not a secret.
+      - name: Require NuGet trusted-publishing config
+        env:
+          NUGET_USER: ${{ vars.NUGET_USER }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NUGET_USER:-}" ]; then
+            echo "::error title=NUGET_USER variable is not set::Set the repo VARIABLE NUGET_USER to your nuget.org account/profile name (NOT email), and create a Trusted Publishing policy on nuget.org (owner + repository 'napper' + workflow file 'release.yml'). Publishing is keyless via OIDC — NO API-key secret is used. Guide: https://learn.microsoft.com/nuget/nuget-org/trusted-publishing"
+            exit 1
+          fi
+          echo "NUGET_USER present — proceeding with OIDC trusted publishing."
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
         with:
@@ -568,10 +598,18 @@ jobs:
           bash scripts/generate-types.sh
       - name: Pack dotnet tool (version from tag)
         run: dotnet pack src/Napper.Cli/Napper.Cli.fsproj -c Release -p:Version="$VERSION" --nologo
+      # Exchange the GitHub OIDC token for a short-lived (~1h) nuget.org API key.
+      # Minted immediately before the push so it cannot expire in transit; the key is
+      # single-use and never stored. Implements [SWR-SEC-OIDC-PUBLISH].
+      - name: NuGet login (OIDC → short-lived API key)
+        uses: NuGet/login@v1
+        id: nuget_login
+        with:
+          user: ${{ vars.NUGET_USER }}
       - name: Push to NuGet (skip if already published)
         run: |
           dotnet nuget push "src/Napper.Cli/nupkg/napper.${VERSION}.nupkg" \
-            --api-key "${{ secrets.NIMBLESITE_NUGET_KEY }}" \
+            --api-key "${{ steps.nuget_login.outputs.NUGET_API_KEY }}" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
 
