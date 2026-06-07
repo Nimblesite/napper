@@ -571,20 +571,11 @@ jobs:
       contents: read # least privilege: drop the inherited contents: write
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
+      # nuget.org account that owns the trusted-publishing policy. NuGet/login@v1
+      # declares `user` as required (action.yml: required: true), so it must be supplied;
+      # hardcoded here in one place (not a secret — it is just the account name).
+      NUGET_USER: MelbourneDeveloper
     steps:
-      # Turn a missing trusted-publishing config into an actionable operator error
-      # before any pack/push runs. NUGET_USER is the nuget.org account name, NOT a
-      # credential — it is a repo variable, not a secret.
-      - name: Require NuGet trusted-publishing config
-        env:
-          NUGET_USER: ${{ vars.NUGET_USER }}
-        run: |
-          set -euo pipefail
-          if [ -z "${NUGET_USER:-}" ]; then
-            echo "::error title=NUGET_USER variable is not set::Set the repo VARIABLE NUGET_USER to your nuget.org account/profile name (NOT email), and create a Trusted Publishing policy on nuget.org (owner + repository 'napper' + workflow file 'release.yml'). Publishing is keyless via OIDC — NO API-key secret is used. Guide: https://learn.microsoft.com/nuget/nuget-org/trusted-publishing"
-            exit 1
-          fi
-          echo "NUGET_USER present — proceeding with OIDC trusted publishing."
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
         with:
@@ -605,7 +596,7 @@ jobs:
         uses: NuGet/login@v1
         id: nuget_login
         with:
-          user: ${{ vars.NUGET_USER }}
+          user: ${{ env.NUGET_USER }}
       - name: Push to NuGet (skip if already published)
         run: |
           dotnet nuget push "src/Napper.Cli/nupkg/napper.${VERSION}.nupkg" \
