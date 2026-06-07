@@ -1,4 +1,4 @@
-// Specs: vscode-env-switcher, vscode-settings
+// Tests [VSCODE-ENV-SWITCHER], [VSCODE-SETTINGS]
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as fs from 'fs';

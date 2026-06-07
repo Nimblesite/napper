@@ -6,7 +6,7 @@
 
 **API Testing, Supercharged.**
 
-Napper is a free, open-source API testing tool that runs from the command line and integrates natively with VS Code. Define HTTP requests as plain text `.nap` files, add declarative assertions, chain them into test suites, and run everything in CI/CD with JUnit output. As simple as curl for quick requests. As powerful as F# and C# for full test suites.
+Napper is a free, open-source API testing tool that runs from the command line and integrates natively with VS Code. Define HTTP requests as plain text `.nap` files, add declarative assertions, chain them into test suites, and run everything in CI/CD with JUnit output. As simple as curl for quick requests. As powerful as your own code — script in JavaScript, Python, F#, or C#.
 
 [Documentation](https://napperapi.dev) | [GitHub Repository](https://github.com/Nimblesite/napper) | [Releases](https://github.com/Nimblesite/napper/releases)
 
@@ -22,7 +22,7 @@ Everything you need for API testing. Nothing you don't.
 
 - **CLI First** (`cli-run`) -- The command line is the product. Run requests, execute test suites, and integrate with CI/CD pipelines from your terminal.
 - **VS Code Native** (`vscode-extension`) -- Full extension with syntax highlighting (`vscode-syntax`), request explorer (`vscode-explorer`), environment switching (`vscode-env-switcher`), and Test Explorer integration (`vscode-test-explorer`). Never leave your editor.
-- **F# and C# Scripting** (`script-fsx`, `script-csx`) -- Full power of F# and C# for pre/post request hooks. Extract tokens, build dynamic payloads, orchestrate complex flows with the entire .NET ecosystem.
+- **Script in Any Language** (`script-js`, `script-py`, `script-fsx`, `script-csx`) -- Playlist steps and pre/post request hooks in JavaScript, Python, F#, or C#, on real runtimes (Node.js, Python 3, .NET) with full npm/PyPI/NuGet access — no sandbox. Scripts pass/fail by exit code; JavaScript and Python additionally get an injected `ctx` object (response, variables, `ctx.set`/`ctx.fail`/`ctx.log`).
 - **Declarative Assertions** (`nap-assert`) -- Assert on status codes (`assert-status`), JSON paths (`assert-equals`, `assert-exists`), headers (`assert-contains`), and response times (`assert-lt`) with a clean, readable syntax. No scripting required for simple checks.
 - **Composable Playlists** (`naplist-file`) -- Chain requests into test suites with `.naplist` files. Nest playlists (`naplist-nested`), reference folders (`naplist-folder-step`), pass variables between steps (`naplist-var-scope`).
 - **Plain Text, Git Friendly** (`nap-file`) -- Every request is a `.nap` file. Every environment is a `.napenv` file (`env-file`). Version control everything. No binary blobs, no lock-in.
@@ -53,7 +53,8 @@ GET https://httpbin.org/get
 
 ```
 [request]
-POST {{baseUrl}}/posts
+method = POST
+url = {{baseUrl}}/posts
 
 [request.headers]
 Content-Type = application/json
@@ -87,7 +88,8 @@ tags = users, smoke
 userId = 42
 
 [request]
-GET https://api.example.com/users/{{userId}}
+method = GET
+url = https://api.example.com/users/{{userId}}
 
 [request.headers]
 Authorization = Bearer {{token}}
@@ -127,8 +129,8 @@ napper run ./tests/ --env staging --output junit
 | `.napenv` | Environment variables (base config, checked into git) | `.napenv` |
 | `.napenv.local` | Local secrets (gitignored) | `.napenv.local` |
 | `.napenv.<name>` | Named environment | `.napenv.staging` |
-| `.fsx` | F# scripts for pre/post hooks and orchestration | `setup.fsx` |
-| `.csx` | C# scripts for pre/post hooks and orchestration | `setup.csx` |
+| `.js` / `.py` | JavaScript / Python scripts — playlist steps and pre/post hooks, with an injected `ctx` | `setup.js` |
+| `.fsx` / `.csx` | F# / C# scripts — playlist steps and pre/post hooks (exit-code) | `setup.fsx` |
 
 ### Playlists
 
@@ -206,7 +208,7 @@ Options:
 | VS Code integration | Native | Separate app | Separate app | Built-in |
 | Git-friendly files | Yes | JSON blobs | Yes | Yes |
 | Assertions | Declarative + scripts | JS scripts | JS scripts | None |
-| Full scripting language | F# + C# (.fsx/.csx) | Sandboxed JS | Sandboxed JS | None |
+| Full scripting language | JS, Python, F#, C# | Sandboxed JS | Sandboxed JS | None |
 | CI/CD output formats | JUnit, JSON, NDJSON | Via Newman | Via CLI | None |
 | Test Explorer | Native | No | No | No |
 | Free & open source | Yes | Freemium | Yes | Yes |

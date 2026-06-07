@@ -1,3 +1,4 @@
+// Implements [LSP-DEDUP], [LSP-CUSTOM]
 module Napper.Lsp.Workspace
 
 open System.Collections.Concurrent

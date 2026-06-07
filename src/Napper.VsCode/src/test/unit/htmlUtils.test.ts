@@ -1,4 +1,4 @@
-// Specs: vscode-layout
+// Tests [VSCODE-LAYOUT]
 import * as assert from 'assert';
 import {
   buildResultDetailHtml,

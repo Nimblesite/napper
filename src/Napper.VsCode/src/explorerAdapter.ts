@@ -1,4 +1,4 @@
-// Specs: vscode-explorer, vscode-impl
+// Implements [VSCODE-EXPLORER], [VSCODE-IMPL]
 // VSCode adapter for the Explorer tree view
 // This is the only file that touches the vscode SDK for the explorer
 

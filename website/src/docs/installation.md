@@ -10,7 +10,7 @@ eleventyNavigation:
 
 # Installation
 
-![Screenshot: Napper VS Code extension installed and active in the VS Code Activity Bar, showing the Napper panel icon](installation-vscode-activity-bar.png)
+![Screenshot: Napper VS Code extension installed and active in the VS Code Activity Bar, showing the Napper panel icon](/assets/images/docs/installation-vscode-activity-bar.png)
 
 Napper has two parts: the **CLI binary** and an **editor integration**. The CLI is a self-contained native binary (not a .NET DLL) with no runtime dependencies — it ships the [language server](/docs/) inside it too. The editor integration shells out to the CLI, so you need both for the full experience. There are native extensions for **VS Code** and **Zed**, and any LSP-capable editor can connect to the bundled language server.
 
@@ -18,7 +18,7 @@ Napper has two parts: the **CLI binary** and an **editor integration**. The CLI 
 
 ## VS Code Extension
 
-![Screenshot: Napper extension listing on the VS Code Marketplace, showing install button, ratings, and feature highlights](installation-marketplace-listing.png)
+![Screenshot: Napper extension listing on the VS Code Marketplace, showing install button, ratings, and feature highlights](/assets/images/docs/installation-marketplace-listing.png)
 
 ### Install from the Marketplace
 
@@ -73,7 +73,7 @@ Once installed, Napper adds:
 
 ## CLI Binary
 
-![Screenshot: Napper CLI running a test suite in a terminal, showing coloured pass/fail output for each assertion](installation-cli-terminal.png)
+![Screenshot: Napper CLI running a test suite in a terminal, showing coloured pass/fail output for each assertion](/assets/images/docs/installation-cli-terminal.png)
 
 The CLI is a self-contained binary with **no runtime dependencies** — no .NET, no Node, no Python required.
 
@@ -165,7 +165,7 @@ You only need a script runtime for the language you actually script in — a Jav
 
 ## First-time setup
 
-![Screenshot: VS Code workspace with a .nap file open, CodeLens Run button visible above the request line, and the Napper Explorer panel populated with discovered requests](installation-first-time-setup.png)
+![Screenshot: VS Code workspace with a .nap file open, CodeLens Run button visible above the request line, and the Napper Explorer panel populated with discovered requests](/assets/images/docs/installation-first-time-setup.png)
 
 After installing both components:
 
@@ -239,7 +239,7 @@ xattr -dr com.apple.quarantine /usr/local/bin/napper
 
 **Script hooks fail with "runtime not found"**
 
-Script hooks need the runtime for the language they are written in — and only that one. JavaScript (`.js`) needs [Node.js 18+](https://nodejs.org/), Python (`.py`) needs [Python 3.9+](https://www.python.org/downloads/), and F# (`.fsx`) / C# (`.csx`) need the [.NET 10 SDK](https://dotnet.microsoft.com/download). Napper resolves each runtime from its setting (`nap.nodePath`, `nap.pythonPath`, `nap.dotnetPath`), the matching environment variable, or your `PATH`. Plain `.nap` and `.naplist` files need no runtime at all. The JavaScript and Python SDKs are bundled with Napper, so `import "napper"` works with no `npm install` or `pip install`.
+Script hooks need the runtime for the language they are written in — and only that one. JavaScript (`.js`) needs [Node.js 18+](https://nodejs.org/), Python (`.py`) needs [Python 3.9+](https://www.python.org/downloads/), and F# (`.fsx`) / C# (`.csx`) need the [.NET 10 SDK](https://dotnet.microsoft.com/download). Napper invokes each runtime by its command name (`node`, `python3`, `dotnet fsi`, `dotnet script`) from your system `PATH` — make sure the right one is installed and on `PATH`. Plain `.nap` and `.naplist` files need no runtime at all. In JavaScript and Python the `ctx` object is injected automatically — there is nothing to `import` and no `npm install` or `pip install`.
 
 ---
 

@@ -1,6 +1,5 @@
 module CliArgTests
-// Specs: cli-run, cli-check, cli-var, cli-exit-codes, cli-output,
-//        output-json, output-junit, output-ndjson, output-pretty
+// Tests [CLI-RUN], [CLI-CHECK], [CLI-VAR], [CLI-EXIT-CODES], [CLI-OUTPUT], [OUTPUT-JSON], [OUTPUT-JUNIT], [OUTPUT-NDJSON], [OUTPUT-PRETTY]
 
 open System
 open System.IO
@@ -20,7 +19,7 @@ let private cleanupDir (dir: string) =
     if Directory.Exists(dir) then
         Directory.Delete(dir, true)
 
-// ─── Version in Directory.Build.props ────── Spec: build-version
+// ─── Version in Directory.Build.props ────── Spec: [SWR-VERSION-BUILD-STAMPING]
 
 [<Fact>]
 let ``Directory.Build.props declares a non-empty Version`` () =
@@ -43,7 +42,7 @@ let ``Directory.Build.props declares a non-empty Version`` () =
     Assert.False(String.IsNullOrWhiteSpace(propsVersion), "Version must not be empty")
     Assert.Matches(@"^\d+\.\d+\.\d+", propsVersion)
 
-// ─── Help variations ─────────────────────── Spec: cli-exit-codes
+// ─── Help variations ─────────────────────── Spec: [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``No args shows help with exit 0`` () =
@@ -92,7 +91,7 @@ let ``-h flag shows usage`` () =
     finally
         cleanupDir dir
 
-// ─── Unknown command ─────────────────────── Spec: cli-exit-codes
+// ─── Unknown command ─────────────────────── Spec: [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``unknown command returns exit 2`` () =
@@ -105,7 +104,7 @@ let ``unknown command returns exit 2`` () =
     finally
         cleanupDir dir
 
-// ─── check edge cases ────────────────────── Spec: cli-check, cli-exit-codes
+// ─── check edge cases ────────────────────── Spec: [CLI-CHECK], [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``check no file returns exit 2`` () =
@@ -129,7 +128,7 @@ let ``check missing file returns exit 2`` () =
     finally
         cleanupDir dir
 
-// ─── run edge cases ──────────────────────── Spec: cli-run, cli-exit-codes
+// ─── run edge cases ──────────────────────── Spec: [CLI-RUN], [CLI-EXIT-CODES]
 
 [<Fact>]
 let ``run no file returns exit 2`` () =
@@ -164,40 +163,40 @@ let ``run empty directory returns exit 2`` () =
     finally
         cleanupDir dir
 
-// ─── --var with equals in value ──────────── Spec: cli-var
+// ─── --var with equals in value ──────────── Spec: [CLI-VAR]
 
 [<Fact>]
 let ``--var handles equals in value`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let exitCode, _, _ = runCli "run test.nap --var token=abc==def --output json" dir
         Assert.Equal(0, exitCode)
     finally
         cleanupDir dir
 
-// ─── Flags before file path ──────────────── Spec: cli-run
+// ─── Flags before file path ──────────────── Spec: [CLI-RUN]
 
 [<Fact>]
 let ``flags before file path work`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let exitCode, _, _ = runCli "run --output json test.nap" dir
         Assert.Equal(0, exitCode)
     finally
         cleanupDir dir
 
-// ─── All output formats ─────────────────── Spec: cli-output, output-json, output-junit, output-ndjson, output-pretty
+// ─── All output formats ─────────────────── Spec: [CLI-OUTPUT], [OUTPUT-JSON], [OUTPUT-JUNIT], [OUTPUT-NDJSON], [OUTPUT-PRETTY]
 
 [<Fact>]
 let ``json output is valid JSON`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap --output json" dir
         let doc = System.Text.Json.JsonDocument.Parse(stdout)
         Assert.True(doc.RootElement.TryGetProperty("file") |> fst)
@@ -209,7 +208,7 @@ let ``junit output is valid XML`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap --output junit" dir
         Assert.Contains("<?xml", stdout)
         Assert.Contains("testsuites", stdout)
@@ -221,7 +220,7 @@ let ``ndjson output gives one line per result`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap --output ndjson" dir
         let lines = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries)
         Assert.Equal(1, lines.Length)
@@ -235,7 +234,7 @@ let ``pretty output is default`` () =
     let dir = createTempDir ()
 
     try
-        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET https://httpbin.org/get")
+        File.WriteAllText(Path.Combine(dir, "test.nap"), "GET " + LocalHttpServer.baseUrl + "/get")
         let _, stdout, _ = runCli "run test.nap" dir
         Assert.Contains("PASS", stdout)
     finally

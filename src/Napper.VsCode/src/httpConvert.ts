@@ -1,4 +1,4 @@
-// Specs: vscode-http-convert, vscode-commands
+// Implements [HTTP-IDE], [VSCODE-COMMANDS]
 // .http → .nap conversion — calls CLI `nap convert http` subprocess
 // Decoupled from vscode SDK where possible; thin vscode layer for dialogs
 

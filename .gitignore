@@ -57,6 +57,7 @@ coverage.out
 coverage-summary.json
 TestResults/
 mutants.out/
+.stryker-tmp/
 
 # =============================================================================
 # F# / .NET
@@ -106,3 +107,7 @@ tests/Napper.Core.Tests/.spec-cache/
 scripts/logs/
 
 scripts/.too_many_cooks/
+
+__pycache__/
+
+.playwright-mcp/

@@ -105,6 +105,7 @@ type NapResult {
   Passed:     Bool
   Error:      Option<String>
   Log:        List<String>
+  SetVars:    Map<String, String>
 }
 
 # A step in a .naplist playlist

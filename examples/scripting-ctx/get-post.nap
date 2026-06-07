@@ -1,0 +1,14 @@
+[meta]
+name = "Get the seeded post (JavaScript ctx)"
+description = "Uses {{postId}} set by seed.js, then validates the response in a JS post hook"
+
+[request]
+method = GET
+url = {{baseUrl}}/posts/{{postId}}
+
+[assert]
+status = 200
+body.id = {{postId}}
+
+[script]
+post = ./validate.js

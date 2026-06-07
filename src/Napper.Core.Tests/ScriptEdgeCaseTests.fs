@@ -1,5 +1,5 @@
 module ScriptEdgeCaseTests
-// Specs: script-fsx, script-runner
+// Tests [SCRIPT-FSX]
 
 open System
 open System.IO
@@ -19,7 +19,7 @@ let private cleanupScript (path: string) =
     if File.Exists(path) then
         File.Delete(path)
 
-// ─── Passing scripts ─────────────────────── Spec: script-fsx
+// ─── Passing scripts ─────────────────────── Spec: [SCRIPT-FSX]
 
 [<Fact>]
 let ``Script with single output line`` () =
@@ -85,7 +85,7 @@ let ``Script result has correct file path`` () =
     finally
         cleanupScript path
 
-// ─── Failing scripts ─────────────────────── Spec: script-fsx
+// ─── Failing scripts ─────────────────────── Spec: [SCRIPT-FSX]
 
 [<Fact>]
 let ``Script with type error fails`` () =
@@ -131,7 +131,7 @@ let ``Script with runtime exception fails`` () =
     finally
         cleanupScript path
 
-// ─── Script doing actual work ────────────── Spec: script-fsx
+// ─── Script doing actual work ────────────── Spec: [SCRIPT-FSX]
 
 [<Fact>]
 let ``Script can do computation and print result`` () =
@@ -181,7 +181,7 @@ let ``Script can write and read temp file`` () =
         if File.Exists(tempFile) then
             File.Delete(tempFile)
 
-// ─── Non-existent script ─────────────────── Spec: script-fsx
+// ─── Non-existent script ─────────────────── Spec: [SCRIPT-FSX]
 
 [<Fact>]
 let ``Non-existent script path fails`` () =
@@ -190,17 +190,14 @@ let ``Non-existent script path fails`` () =
     Assert.False(result.Passed)
     Assert.True(result.Error.IsSome)
 
-// ─── Script with HTTP call ───────────────── Spec: script-fsx
+// ─── Script with HTTP call ───────────────── Spec: [SCRIPT-FSX]
 
 [<Fact>]
 let ``Script can make HTTP request`` () =
     let script =
-        """
-open System.Net.Http
-let client = new HttpClient()
-let response = client.GetAsync("https://httpbin.org/get") |> Async.AwaitTask |> Async.RunSynchronously
-printfn "Status: %d" (int response.StatusCode)
-"""
+        "\nopen System.Net.Http\nlet client = new HttpClient()\nlet response = client.GetAsync(\""
+        + LocalHttpServer.baseUrl
+        + "/get\") |> Async.AwaitTask |> Async.RunSynchronously\nprintfn \"Status: %d\" (int response.StatusCode)\n"
 
     let path = createTempScript script
 
@@ -215,7 +212,7 @@ printfn "Status: %d" (int response.StatusCode)
     finally
         cleanupScript path
 
-// ─── Script with async computation ───────── Spec: script-fsx
+// ─── Script with async computation ───────── Spec: [SCRIPT-FSX]
 
 [<Fact>]
 let ``Script with async workflow`` () =

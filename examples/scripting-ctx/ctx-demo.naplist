@@ -1,0 +1,7 @@
+[meta]
+name = "ctx demo (JavaScript)"
+description = "seed.js sets postId via ctx.set; get-post.nap consumes it and validates with a JS post hook"
+
+[steps]
+./seed.js
+./get-post.nap

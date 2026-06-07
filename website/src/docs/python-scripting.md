@@ -1,8 +1,8 @@
 ---
 layout: layouts/docs.njk
 title: Python Scripting
-description: "Use Python scripts for pre/post request hooks and test orchestration in Napper. Real Python 3 runtime, full PyPI access, no sandbox."
-keywords: "Python scripting, Python API testing, py, pre-request script, post-request script, test orchestration, napper sdk"
+description: "Script Napper in Python on the real Python 3 runtime — full PyPI access, no sandbox. An injected ctx global gives you the response, variables, and pass/fail control. No import, no install."
+keywords: "Python scripting, Python API testing, py, post-request script, pre-request script, ctx, mixed language tests"
 eleventyNavigation:
   key: "Python Scripting"
   order: 6.2
@@ -10,11 +10,27 @@ eleventyNavigation:
 
 # Python Scripting (spec: script-py)
 
-Napper runs Python scripts (`.py` files) via **Python 3** for pre/post request hooks and test orchestration. Scripts run on the real Python runtime with full access to PyPI — no sandbox, no limits.
+Napper runs Python scripts (`.py`) via **Python 3**, found as `python3` on your `PATH`. Scripts run on the real Python runtime with full access to PyPI — no sandbox, no limits.
+
+A script can be a **step** in a `.naplist`, or a **pre/post hook** on a `.nap` request. It **passes when it exits `0`** and fails on any non-zero exit; everything it prints to stdout is captured into the run output.
+
+## The injected `ctx` object (spec: script-context)
+
+Napper injects a global named `ctx` into every Python script and hook. **There is no `import` and nothing to install** — `ctx` is already in scope.
+
+| Member | Available | Description |
+|--------|-----------|-------------|
+| `ctx.env` | step + hook | Current environment name (`--env`), or `""` |
+| `ctx.vars` | step + hook | Dict of all resolved variables (read) |
+| `ctx.request` | hook | The request: `method`, `url`, `headers`, `body` |
+| `ctx.response` | post hook | The response: `status`, `headers`, `body`, `json`, `duration_ms` |
+| `ctx.set(key, value)` | step + hook | Set a variable visible to every later step |
+| `ctx.fail(message)` | step + hook | Fail the step — even if the process exits 0 |
+| `ctx.log(message)` | step + hook | Write a line to the run output |
 
 ## Pre/post request hooks (spec: script-pre, script-post)
 
-Reference scripts in your `.nap` file:
+Reference hooks from a `.nap` file's `[script]` block:
 
 ```
 [script]
@@ -22,113 +38,52 @@ pre = ./scripts/setup_auth.py
 post = ./scripts/validate_response.py
 ```
 
-Import the injected `ctx` from the bundled `napper` module — no `pip install` required:
-
-### Pre-request scripts (spec: script-pre)
-
-Run before the HTTP request is sent. Use them to set up authentication, generate dynamic data, or modify variables.
+A **pre** hook runs before the request is sent — set up variables or log:
 
 ```python
 # setup_auth.py
-from napper import ctx
-
-token = generate_token()
-ctx.set("token", token)
-ctx.log(f"Token generated: {token[:8]}...")
+token = "demo-" + ctx.vars["userId"]
+ctx.set("token", token)               # {% raw %}{{token}}{% endraw %} is now available to this request and later steps
+ctx.log("token ready for env " + ctx.env)
 ```
 
-### Post-request scripts (spec: script-post)
-
-Run after the response is received. Use them for complex validation, data extraction, or chaining.
+A **post** hook runs after the response — validate, extract, or chain. If it calls `ctx.fail` (or exits non-zero), the request step fails even when the HTTP assertions passed:
 
 ```python
 # validate_response.py
-from napper import ctx
-
-body = ctx.response.json
-
-# Extract and pass to the next step
-ctx.set("userId", str(body["id"]))
-
-# Complex validation
+if ctx.response.status != 200:
+    ctx.fail("expected 200, got " + str(ctx.response.status))
+body = ctx.response.json              # parsed JSON, or None if the body isn't JSON
 if body["id"] <= 0:
-    ctx.fail("User ID must be positive")
-
-ctx.log(f"Created user {body['id']}")
+    ctx.fail("id must be positive")
+ctx.set("postId", str(body["id"]))    # hand the id to the next step
+ctx.log("created post " + str(body["id"]) + " in " + str(ctx.response.duration_ms) + "ms")
 ```
 
-## NapContext (spec: script-context)
+## Scripts as playlist steps (spec: naplist-script-step)
 
-Scripts receive a `ctx` object with these members:
-
-| Member | Available | Description |
-|--------|-----------|-------------|
-| `ctx.vars` | Pre + Post | Dict of all resolved variables |
-| `ctx.request` | Pre + Post | The request about to be sent (`method`, `url`, `headers`, `body`) |
-| `ctx.response` | Post only | Response with `status`, `headers`, `body`, `json`, `duration_ms` |
-| `ctx.env` | Pre + Post | Current environment name |
-| `ctx.set(key, value)` | Pre + Post | Set a variable for downstream steps |
-| `ctx.fail(message)` | Pre + Post | Fail the test with a message |
-| `ctx.log(message)` | Pre + Post | Write to test output |
-
-## Orchestration scripts (spec: script-orchestration)
-
-For complex flows, a `.py` file can be the entry point and drive requests directly with the injected `nap` runner:
+A `.py` step shares the playlist's variable scope through `ctx`, so it can seed data for the steps that follow:
 
 ```python
-# orchestration.py
-from napper import nap
-
-# Run a request and get the result
-login = nap.run("./auth/login.nap")
-
-# Extract token from the response
-nap.vars["token"] = login.response.json["token"]
-
-# Run a suite of tests with the token
-results = nap.run_list("./crud-tests.naplist")
-
-# Data-driven testing
-for user_id in (1, 2, 3, 42, 99):
-    nap.vars["userId"] = str(user_id)
-    result = nap.run("./users/get-user.nap")
-    if result.response.status != 200:
-        nap.fail(f"User {user_id} failed")
+# seed.py
+ctx.set("postId", "7")
+ctx.log("seeded postId=7")
 ```
-
-Reference orchestration scripts in a `.naplist`:
 
 ```
 [steps]
-./scripts/orchestration.py
+./seed.py
+./get-post.nap        # this request can use {% raw %}{{postId}}{% endraw %}
 ```
 
-## NapRunner (spec: script-runner)
+Runnable end-to-end: [`examples/scripting-ctx/ctx-demo-python.naplist`](https://github.com/Nimblesite/napper/blob/main/examples/scripting-ctx/ctx-demo-python.naplist).
 
-Orchestration scripts receive a `nap` object:
+## Mixing with other languages (spec: script-dispatch)
 
-| Member | Description |
-|--------|-------------|
-| `nap.run(path)` | Run a `.nap` file, returns a result (`status`, `json`, `body`, `headers`, `duration_ms`, `passed`) |
-| `nap.run_list(path)` | Run a `.naplist` file, returns a list of results |
-| `nap.vars` | Shared, mutable variable dict |
-| `nap.log(message)` | Write to test output |
-| `nap.fail(message)` | Fail the orchestration with a message |
-
-## How it works (spec: script-protocol)
-
-Napper hands the context to your script as JSON and reads back any `set`/`fail`/`log` calls — the bundled `napper` SDK wraps this protocol into the idiomatic `ctx` / `nap` objects above. Orchestration calls (`nap.run`) invoke the Napper binary itself with `--output json`, so script-driven and direct runs behave identically.
-
-## Editor autocomplete
-
-The bundled SDK ships `.pyi` type stubs, so editors give full completion on `ctx` and `nap`. For explicit vendoring or CI caching, install the published package:
-
-```bash
-pip install napper
-```
+Dispatch is by extension, so a `.naplist` can interleave Python with JavaScript, F#, and C# steps — see [`examples/jsonplaceholder/mixed-scripts.naplist`](https://github.com/Nimblesite/napper/blob/main/examples/jsonplaceholder/mixed-scripts.naplist) and the [Scripting Overview](/docs/scripting/).
 
 ## Requirements (spec: script-runtime)
 
-Python scripts require **Python 3.9+** on the machine. The Napper CLI binary itself is self-contained; `.py` scripts are executed via `python3` (falling back to `python`), resolved from the `nap.pythonPath` setting, the `NAPPER_PYTHON` environment variable, or your `PATH`. Plain `.nap` and `.naplist` files need no runtime at all.
+Python scripts require **Python 3** available as `python3` on your `PATH`. The Napper CLI binary itself is self-contained; plain `.nap` and `.naplist` files need no runtime at all.
 
-Prefer JavaScript? See [JavaScript Scripting](/docs/javascript-scripting/). Already in .NET? [F#](/docs/fsharp-scripting/) and [C#](/docs/csharp-scripting/) give the same surface.
+Prefer JavaScript? See [JavaScript Scripting](/docs/javascript-scripting/) — it has the same `ctx` surface. F# and C# scripts also run (as exit-code steps and hooks); see [F#](/docs/fsharp-scripting/) and [C#](/docs/csharp-scripting/).

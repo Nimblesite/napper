@@ -1,5 +1,4 @@
-// Implements [LSP-VSCODE-CURL]
-// Specs: vscode-commands
+// Implements [VSCODE-CODELENS], [VSCODE-COMMANDS], [LSP-CUSTOM]
 // Curl copy command — delegates to LSP napper.copyCurl command.
 
 import * as vscode from 'vscode';

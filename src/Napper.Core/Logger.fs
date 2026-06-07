@@ -1,4 +1,4 @@
-// Specs: cli-verbose
+// Implements [CLI-VERBOSE]
 module Napper.Core.Logger
 
 open System

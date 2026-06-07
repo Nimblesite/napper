@@ -1,0 +1,224 @@
+@APP-VERSION = 1.20.1
+
+###
+
+# @name login
+POST https://accsmart.panasonic.com/auth/login HTTP/1.1
+X-APP-TYPE: 1
+X-APP-VERSION: {{APP-VERSION}}
+User-Agent: G-RAC
+X-APP-TIMESTAMP: 1
+X-APP-NAME: Comfort Cloud
+X-CFC-API-KEY: Comfort Cloud
+Accept: application/json; charset=utf-8
+Content-Type: application/json; charset=utf-8
+
+{
+    "language": 0,
+    "loginId": "{{$dotenv USERNAME}}",
+    "password": "{{$dotenv PASSWORD}}"
+}
+
+### 
+# @name device
+GET https://accsmart.panasonic.com/device/group HTTP/1.1
+X-User-Authorization: {{login.response.body.$.uToken}}
+X-APP-TYPE: 1
+X-APP-VERSION: {{APP-VERSION}}
+X-APP-TIMESTAMP: 1
+X-APP-NAME: Comfort Cloud
+X-CFC-API-KEY: Comfort Cloud
+User-Agent: G-RAC
+Accept: application/json; charset=utf-8
+Content-Type: application/json; charset=utf-8
+
+###
+
+GET https://accsmart.panasonic.com/deviceStatus/now/{{device.response.body.$.groupList[0].deviceList[0].deviceGuid}} HTTP/1.1
+X-User-Authorization: {{login.response.body.$.uToken}}
+X-APP-TYPE: 1
+X-APP-VERSION: {{APP-VERSION}}
+X-APP-TIMESTAMP: 1
+X-APP-NAME: Comfort Cloud
+X-CFC-API-KEY: Comfort Cloud
+User-Agent: G-RAC
+Accept: application/json; charset=utf-8
+Content-Type: application/json; charset=utf-8
+
+###
+
+GET https://accsmart.panasonic.com/deviceStatus/{{device.response.body.$.groupList[0].deviceList[0].deviceGuid}} HTTP/1.1
+X-User-Authorization: {{login.response.body.$.uToken}}
+X-APP-TYPE: 1
+X-APP-VERSION: {{APP-VERSION}}
+X-APP-TIMESTAMP: 1
+X-APP-NAME: Comfort Cloud
+X-CFC-API-KEY: Comfort Cloud
+User-Agent: G-RAC
+Accept: application/json; charset=utf-8
+Content-Type: application/json; charset=utf-8
+
+
+###
+
+POST https://accsmart.panasonic.com/deviceHistoryData HTTP/1.1
+X-User-Authorization: {{login.response.body.$.uToken}}
+X-APP-TYPE: 1
+X-APP-VERSION: {{APP-VERSION}}
+X-APP-TIMESTAMP: 1
+X-APP-NAME: Comfort Cloud
+X-CFC-API-KEY: Comfort Cloud
+User-Agent: G-RAC
+Accept: application/json; charset=utf-8
+Content-Type: application/json; charset=utf-8
+
+{ 
+    "dataMode": 0, "date": "20190610", "deviceGuid": "{{device.response.body.$.groupList[0].deviceList[0].deviceGuid}}", "osTimezone": "+01:00" 
+}
+
+###
+
+POST https://accsmart.panasonic.com/deviceStatus/control HTTP/1.1
+X-User-Authorization: {{login.response.body.$.uToken}}
+X-APP-TYPE: 1
+X-APP-VERSION: {{APP-VERSION}}
+X-APP-TIMESTAMP: 1
+X-APP-NAME: Comfort Cloud
+X-CFC-API-KEY: Comfort Cloud
+User-Agent: G-RAC
+Accept: application/json; charset=utf-8
+Content-Type: application/json; charset=utf-8
+
+{
+    "deviceGuid": "{{device.response.body.$.groupList[0].deviceList[0].deviceGuid}}",
+    "parameters": {
+        "operate": 1,
+        "operationMode": 3,
+        "ecoMode": null,
+        "temperatureSet": 22.5,
+        "airSwingUD": null,
+        "airSwingLR": null,
+        "fanAutoMode": null,
+        "fanSpeed": null
+    }
+}
+
+###
+POST https://accsmart.panasonic.com/deviceStatus/control HTTP/1.1
+X-User-Authorization: {{login.response.body.$.uToken}}
+X-APP-TYPE: 1
+X-APP-VERSION: {{APP-VERSION}}
+X-APP-TIMESTAMP: 1
+X-APP-NAME: Comfort Cloud
+X-CFC-API-KEY: Comfort Cloud
+User-Agent: G-RAC
+Accept: application/json
+Content-Type: application/json
+
+{
+    "deviceGuid": "{{device.response.body.$.groupList[0].deviceList[0].deviceGuid}}",
+    "parameters": {
+        "temperatureSet": 21.0
+    }
+}
+
+###
+GET https://accsmart.panasonic.com/auth/agreement/status/1 HTTP/1.1
+X-User-Authorization: {{login.response.body.$.uToken}}
+X-APP-TYPE: 1
+X-APP-VERSION: {{APP-VERSION}}
+Accept: application/json; charset=utf-8
+Content-Type: application/json
+X-APP-TIMESTAMP: 1
+X-APP-NAME: Comfort Cloud
+X-CFC-API-KEY: Comfort Cloud
+User-Agent: G-RAC
+Host: accsmart.panasonic.com
+Connection: Keep-Alive
+Accept-Encoding: gzip
+
+### 
+GET https://accsmart.panasonic.com/auth/agreement/documents/0/1 HTTP/1.1
+X-User-Authorization: {{login.response.body.$.uToken}}
+X-APP-TYPE: 1
+X-APP-VERSION: {{APP-VERSION}}
+Accept: application/json; charset=utf-8
+Content-Type: application/json
+User-Agent: G-RAC
+Host: accsmart.panasonic.com
+Connection: Keep-Alive
+Accept-Encoding: gzip
+
+###
+GET https://accsmart.panasonic.com/auth/agreement/status/ HTTP/1.1
+X-User-Authorization: {{login.response.body.$.uToken}}
+X-APP-TYPE: 1
+X-APP-VERSION: {{APP-VERSION}}
+User-Agent: G-RAC
+Accept: application/json; charset=utf-8
+Content-Type: application/json; charset=utf-8
+
+###
+# type may be 0,1,2
+PUT https://accsmart.panasonic.com/auth/agreement/status/ HTTP/1.1
+X-User-Authorization: {{login.response.body.$.uToken}}
+X-APP-TYPE: 1
+X-APP-VERSION: {{APP-VERSION}}
+User-Agent: G-RAC
+Accept: application/json
+Content-Type: application/json
+
+{ "agreementStatus": 0, "type": 0 } 
+
+###
+
+"airSwingUD": {
+    "Up": 0,
+    "Down": 1,
+    "Mid": 2,
+    "UpMid": 3,
+    "DownMid": 4
+}
+
+"airSwingLR": {
+    "Left": 0,
+    "Right": 1,
+    "Mid": 2,
+    "RightMid": 3,
+    "LeftMid": 4
+}
+
+"ecoMode": {
+    "Auto": 0,
+    "Powerful": 1,
+    "Quiet": 2
+}
+
+"fanAutoMode": {
+    "Disabled": 1,
+    "AirSwingAuto": 0,
+    "AirSwingLR": 3,
+    "AirSwingUD": 2
+}
+
+"fanSpeed": {
+    "Auto": 0,
+    "Low": 1,
+    "LowMid": 2,
+    "Mid": 3,
+    "HighMid": 4,
+    "High": 5,
+}
+
+"operate": {
+    "Off": 0,
+    "On": 1
+}
+
+"operationMode": {
+    "Auto": 0,
+    "Dry": 1,
+    "Cool": 2,
+    "Heat": 3,
+    "Fan": 4 // not sure
+}

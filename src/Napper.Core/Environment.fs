@@ -1,4 +1,4 @@
-// Specs: env-file, env-base, env-local, env-named, env-resolution, env-interpolation, cli-var
+// Implements [ENV-FILE], [ENV-BASE], [ENV-LOCAL], [ENV-NAMED], [ENV-RESOLUTION], [ENV-INTERPOLATION], [CLI-VAR]
 module Napper.Core.Environment
 
 open System
@@ -71,8 +71,12 @@ let resolveVars (vars: Map<string, string>) (input: string) : string =
             let start = i + 2
             let mutable j = start
 
-            while j < input.Length && input.[j] <> '}' && Char.IsLetterOrDigit(input.[j])
-                  || input.[j] = '_' do
+            // Bounds-safe: the `j < input.Length` guard MUST cover the whole predicate.
+            // The previous form `(.. && ..) || input.[j] = '_'` let the `_` clause read
+            // input.[j] when j == Length, throwing IndexOutOfRange on a trailing `{{var`.
+            while j < input.Length
+                  && input.[j] <> '}'
+                  && (Char.IsLetterOrDigit(input.[j]) || input.[j] = '_') do
                 j <- j + 1
 
             if j + 1 < input.Length && input.[j] = '}' && input.[j + 1] = '}' && j > start then
