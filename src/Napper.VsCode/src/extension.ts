@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import type { activateDeploymentToolkit } from '@nimblesite/shipwright-vscode' with {
+import type { activateShipwright } from '@nimblesite/shipwright-vscode' with {
   'resolution-mode': 'import',
 };
 import { ExplorerAdapter } from './explorerAdapter';
@@ -112,7 +112,7 @@ const getCliPath = (): string => {
         vscode.window.showWarningMessage(msg, opts, ...items) as Promise<string | undefined>,
     },
   }),
-  logShipwrightResult = (result: Awaited<ReturnType<typeof activateDeploymentToolkit>>): void => {
+  logShipwrightResult = (result: Awaited<ReturnType<typeof activateShipwright>>): void => {
     outputChannel.appendLine(`Shipwright result: ok=${String(result.ok)}`);
     for (const d of result.diagnostics) {
       outputChannel.appendLine(`  [${d.componentId}] ${d.resolution.status}: ${d.message}`);
@@ -126,7 +126,7 @@ const getCliPath = (): string => {
   // One Shipwright probe under an explicit deadline, with the library's own modal suppressed
   // (showMessages: false) so retries are silent — we own the user-facing failure surface.
   runShipwrightAttempt = async (timeoutMs: number): Promise<CliResolutionAttempt> => {
-    const { activateDeploymentToolkit: deployToolkit } =
+    const { activateShipwright: deployToolkit } =
       await import('@nimblesite/shipwright-vscode');
     const result = await deployToolkit(extensionContext, {
       vscode: makeVscodeAdapter(),
