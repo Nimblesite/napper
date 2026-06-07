@@ -254,7 +254,7 @@ _test_rust:
 
 _test_vsix: _build_cli _build_extension
 	$(_MKDIR) "$(_LOG_DIR)" "$(_TS_COV)"
-	cd src/Napper.VsCode && npm run compile && npm run compile:tests
+	cd src/Napper.VsCode && npm run compile && npm run compile:tests && npm run compile:e2e
 	cd src/Napper.VsCode && NODE_V8_COVERAGE="../../$(_TS_COV)/tmp" \
 	  npx mocha out/test/unit/**/*.test.js --ui tdd --timeout 5000 \
 	  2>&1 | tee "../../$(_LOG_DIR)/test-vsix-unit.log"
@@ -271,24 +271,23 @@ _coverage_check:
 	$(call _cov_check,src/Napper.Core.Tests,$(_FSHARP_COV)/report/Summary.txt,Napper.Core)
 	$(call _cov_check,src/DotHttp.Tests,$(_DOTHTTP_COV)/report/Summary.txt,DotHttp)
 	$(call _cov_check,src/Napper.Lsp.Tests,$(_LSP_COV)/report/Summary.txt,Napper.Lsp)
+	@# Rust is CHECK-ONLY — no auto-ratchet. tarpaulin's line attribution is
+	@# platform-divergent (macOS reports 67/67=100%; Linux CI reports 66/68=97.1%
+	@# for the SAME code — lines like `match name {` and struct-literal fields are
+	@# attributed differently by the host LLVM). Auto-ratcheting would capture the
+	@# inflated macOS number and set a threshold CI can never meet, so the Rust
+	@# threshold is pinned manually in coverage-thresholds.json to floor(CI%)-1.
 	@{ \
 	  t=$$(jq -r '.projects["src/Napper.Zed"].threshold // .default_threshold' coverage-thresholds.json); \
 	  if [ -f "$(_RUST_COV)/report/cobertura.xml" ]; then \
-	    lr=$$(sed -n 's/.*line-rate="\([0-9.]*\)".*/\1/p' "$(_RUST_COV)/report/cobertura.xml" | head -1); \
+	    lr=$$(python3 -c "import xml.etree.ElementTree as ET,sys; print(ET.parse(sys.argv[1]).getroot().get('line-rate'))" "$(_RUST_COV)/report/cobertura.xml" 2>/dev/null); \
 	    c=$$(echo "$${lr:-0} * 100" | bc -l | xargs printf "%.1f"); \
 	    echo "  Rust: $${c}% (threshold $${t}%)"; \
 	    if [ $$(echo "$${c} < $${t}" | bc -l) -eq 1 ]; then \
 	      echo "  *** FAIL: Rust coverage $${c}% is below threshold $${t}% — ABORTING ***"; \
 	      exit 1; \
 	    fi; \
-	    new_t=$$(( $$(echo "scale=0; $${c}/1" | bc) - 1 )); \
-	    if [ $$(echo "$${new_t} > $${t}" | bc -l) -eq 1 ]; then \
-	      tmp=$$(mktemp); \
-	      jq --argjson nt "$${new_t}" '.projects["src/Napper.Zed"].threshold = $$nt' coverage-thresholds.json > "$${tmp}" && mv "$${tmp}" coverage-thresholds.json; \
-	      echo "  RATCHET: Rust threshold -> $${new_t}%"; \
-	    else \
-	      echo "  OK"; \
-	    fi; \
+	    echo "  OK"; \
 	  else echo "  Rust: no data (skipping)"; fi; \
 	}
 	@{ \

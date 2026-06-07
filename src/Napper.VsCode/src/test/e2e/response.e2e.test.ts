@@ -35,7 +35,7 @@ suite('Response Panel', () => {
     await closeAllEditors();
     await sleep(500);
 
-    const doc = await openDocument('get-httpbin.nap');
+    const doc = await openDocument('get-shorthand.nap');
     await executeCommand(CMD_RUN_FILE, doc.uri);
 
     await waitForCondition(() => findTabByLabel(RESPONSE_PANEL_TITLE) !== undefined, 10000);
@@ -87,7 +87,7 @@ suite('Response Panel', () => {
     await closeAllEditors();
     await sleep(500);
 
-    await openDocument('get-httpbin.nap');
+    await openDocument('get-shorthand.nap');
     const groupsBefore = vscode.window.tabGroups.all.length;
 
     await executeCommand(CMD_RUN_FILE, vscode.window.activeTextEditor?.document.uri);
@@ -106,7 +106,7 @@ suite('Response Panel', () => {
     await closeAllEditors();
     await sleep(500);
 
-    const doc1 = await openDocument('get-httpbin.nap');
+    const doc1 = await openDocument('get-shorthand.nap');
     await executeCommand(CMD_RUN_FILE, doc1.uri);
 
     await waitForCondition(() => findTabByLabel(RESPONSE_PANEL_TITLE) !== undefined, 10000);
