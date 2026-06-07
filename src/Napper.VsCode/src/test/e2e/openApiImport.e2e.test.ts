@@ -4,6 +4,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as http from 'http';
+import type { AddressInfo } from 'net';
 import { execFile } from 'child_process';
 import {
   activateExtension,
@@ -92,15 +94,37 @@ suite('OpenAPI Import', () => {
     );
   });
 
+  // Hermetic: a local http server 302-redirects to its own /spec.json endpoint so
+  // redirect-following is verified deterministically, offline, and immune to outages
+  // (the previous version depended on httpbin.org, which routinely goes down).
   test('downloadSpec follows redirects', async function () {
     this.timeout(15_000);
-    const redirectUrl =
-        'https://httpbin.org/redirect-to?url=https%3A%2F%2Fpetstore3.swagger.io%2Fapi%2Fv3%2Fopenapi.json&status_code=302',
-      result = await downloadSpec(redirectUrl);
-    assert.ok(result.ok, 'Download should succeed after redirect');
-    const parsed: unknown = JSON.parse(result.value),
-      spec = parsed as { openapi?: string };
-    assert.ok(spec.openapi !== undefined, 'Redirected spec must have openapi version field');
+    const specBody = '{"openapi":"3.0.0","info":{"title":"Redirect","version":"1.0.0"},"paths":{}}';
+    let port = 0;
+    const server = http.createServer((req, res) => {
+      if (req.url === '/spec.json') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(specBody);
+        return;
+      }
+      res.writeHead(302, { location: `http://127.0.0.1:${port}/spec.json` });
+      res.end();
+    });
+    try {
+      await new Promise<void>((resolve) => {
+        server.listen(0, '127.0.0.1', () => {
+          resolve();
+        });
+      });
+      port = (server.address() as AddressInfo).port;
+      const result = await downloadSpec(`http://127.0.0.1:${port}/redirect`);
+      assert.ok(result.ok, 'Download should succeed after redirect');
+      const parsed: unknown = JSON.parse(result.value),
+        spec = parsed as { openapi?: string };
+      assert.ok(spec.openapi !== undefined, 'Redirected spec must have openapi version field');
+    } finally {
+      server.close();
+    }
   });
 
   test('saveTempSpec writes file and returns path', () => {
