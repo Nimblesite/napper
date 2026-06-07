@@ -1,0 +1,15 @@
+# agent-pmo:b636503
+# Deslop duplication gate — REPO-STANDARDS-SPEC [CI-DESLOP]
+# Single source of truth for this repo's duplication budget. Committed, PR-reviewed,
+# ratcheted DOWN only (never up without written justification).
+# CI runs `deslop .`, which reads this file and exits 3 (tanking the build) when
+# measured repo-wide duplication exceeds the value below.
+# Docs: https://deslop.live/docs/for-ai/
+#
+# SCOPE NOTE: Napper's primary language is F#, which Deslop does not yet analyse.
+# Deslop here measures the supported component only — the Rust Zed extension
+# (src/Napper.Zed, ~1033 LOC). max_duplication_percent below is the CURRENTLY
+# MEASURED 15.0% rounded up by a small float-jitter buffer. Ratchet it DOWN as the
+# Rust duplication is reduced; never raise it without written PR justification.
+[threshold]
+max_duplication_percent = 15.2
