@@ -1,13 +1,15 @@
 # Keeps SHA-pinned GitHub Actions and every language dependency fresh.
 # Implements [SWR-SEC-ACTION-PINNING]: each ecosystem groups ALL updates into ONE
 # combined PR per run (patterns: ["*"]) so pinned action SHAs get bumped together
-# instead of one PR per package.
+# instead of one PR per package. Monthly cadence + one-open-PR-per-ecosystem caps
+# CI spend (security updates are exempt from `schedule` and still arrive promptly).
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    open-pull-requests-limit: 1
     groups:
       actions:
         patterns: ["*"]
@@ -15,7 +17,8 @@ updates:
   - package-ecosystem: npm
     directory: /src/Napper.VsCode
     schedule:
-      interval: weekly
+      interval: monthly
+    open-pull-requests-limit: 1
     groups:
       vscode-extension:
         patterns: ["*"]
@@ -23,7 +26,8 @@ updates:
   - package-ecosystem: npm
     directory: /website
     schedule:
-      interval: weekly
+      interval: monthly
+    open-pull-requests-limit: 1
     groups:
       website:
         patterns: ["*"]
@@ -31,7 +35,8 @@ updates:
   - package-ecosystem: nuget
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
+    open-pull-requests-limit: 1
     groups:
       dotnet:
         patterns: ["*"]
@@ -39,7 +44,8 @@ updates:
   - package-ecosystem: cargo
     directory: /src/Napper.Zed
     schedule:
-      interval: weekly
+      interval: monthly
+    open-pull-requests-limit: 1
     groups:
       zed-extension:
         patterns: ["*"]
