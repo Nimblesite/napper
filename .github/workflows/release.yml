@@ -571,10 +571,12 @@ jobs:
       contents: read # least privilege: drop the inherited contents: write
     env:
       VERSION: ${{ needs.validate-tag.outputs.version }}
-      # nuget.org account that owns the trusted-publishing policy. NuGet/login@v1
-      # declares `user` as required (action.yml: required: true), so it must be supplied;
-      # hardcoded here in one place (not a secret — it is just the account name).
-      NUGET_USER: MelbourneDeveloper
+      # nuget.org username of the trusted-publishing policy CREATOR (NuGet/login@v1 needs
+      # the creator, not the package owner: a wrong value 401s with "No matching trust
+      # policy owned by user '<x>'"). The package owner is the Nimblesite org, but the
+      # individual account that created the policy / owns the packages is ChristianFindlay.
+      # Required input (action.yml: required: true); hardcoded here in one place.
+      NUGET_USER: ChristianFindlay
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-dotnet@v5
