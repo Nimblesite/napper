@@ -56,7 +56,7 @@ Or search **"Napper"** in the Extensions panel (`Ctrl+Shift+X` / `Cmd+Shift+X`) 
 
 **Any other editor** &mdash; the CLI ships a language server (`napper lsp`); point your editor's LSP client at it for completions, diagnostics, and hover.
 
-> **Requirements:** VS Code 1.95.0 or later (or an equivalent fork). The extension shells out to the CLI, so install it too (below).
+> **Requirements:** VS Code 1.99.0 or later (or an equivalent fork). The extension shells out to the CLI, so install it too (below).
 
 ### CLI
 

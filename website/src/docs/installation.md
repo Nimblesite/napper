@@ -177,7 +177,7 @@ You should see the version number and the list of available commands.
 | Scenario | Requirement |
 |----------|-------------|
 | Running `.nap` / `.naplist` files | None — the CLI is a self-contained native binary, not a .NET DLL |
-| VS Code extension | VS Code 1.95.0 or later |
+| VS Code extension | VS Code 1.99.0 or later |
 | VS Code forks (Cursor, Windsurf, Antigravity, VSCodium) | Latest version — installs via Open VSX |
 | Zed extension | Zed (latest) |
 | JavaScript script hooks (`.js`) | [Node.js 18+](https://nodejs.org/) |
