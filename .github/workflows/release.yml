@@ -601,8 +601,10 @@ jobs:
         with:
           user: ${{ env.NUGET_USER }}
       - name: Push to NuGet (skip if already published)
+        # Glob the single packed .nupkg so the push is decoupled from the PackageId
+        # (currently Nimblesite.Napper.<version>.nupkg, not napper.<version>.nupkg).
         run: |
-          dotnet nuget push "src/Napper.Cli/nupkg/napper.${VERSION}.nupkg" \
+          dotnet nuget push src/Napper.Cli/nupkg/*.nupkg \
             --api-key "${{ steps.nuget_login.outputs.NUGET_API_KEY }}" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate

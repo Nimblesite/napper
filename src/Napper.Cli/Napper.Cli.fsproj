@@ -17,7 +17,12 @@
          the NuGet publish job is non-blocking and never gates the release. -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>napper</ToolCommandName>
-    <PackageId>napper</PackageId>
+    <!-- The bare `napper` id is owned on nuget.org by an unrelated "Napper ORM Project",
+         so we publish under the org-prefixed id (matches Nimblesite's existing
+         Nimblesite.* packages and is pushable by the Nimblesite trusted-publishing
+         policy). ToolCommandName stays `napper`: `dotnet tool install -g Nimblesite.Napper`
+         still installs a `napper` command. -->
+    <PackageId>Nimblesite.Napper</PackageId>
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <PackageTags>http;api;testing;cli;rest;fsharp;dotnet-tool</PackageTags>
 
