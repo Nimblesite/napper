@@ -18,7 +18,7 @@ Bruno is a GUI-first tool with a standalone desktop application. It focuses on p
 
 ## How do the editors compare?
 
-Bruno has its own standalone desktop application built with Electron. Napper integrates directly into VS Code and Zed as native extensions — and into any editor through a portable language server — with syntax highlighting, a request explorer, environment switching, and Test Explorer integration. If you already work in an editor, Napper fits into your existing workflow without switching applications.
+Bruno has its own standalone desktop application built with Electron. Napper integrates directly into VS Code and Zed as native extensions — and into VS Code-compatible editors like Cursor, Windsurf, and Antigravity via Open VSX, plus any editor through a portable language server — with syntax highlighting, a request explorer, environment switching, and Test Explorer integration. If you already work in an editor, Napper fits into your existing workflow without switching applications.
 
 ## How does scripting compare? (spec: script-js, script-py, script-fsx, script-csx)
 
@@ -41,7 +41,7 @@ Bruno provides a CLI for running collections from the terminal. Napper is design
 | File format | `.nap` (TOML-inspired) | `.bru` (custom markup) |
 | Assertions | Declarative + scripts | JavaScript scripts |
 | Scripting | JavaScript, Python, F#, C# on real runtimes | Sandboxed JavaScript |
-| Editor integration | VS Code & Zed extensions + LSP | Standalone Electron app |
+| Editor integration | VS Code, Cursor, Windsurf, Antigravity & Zed + LSP | Standalone Electron app |
 | Test Explorer | Native VS Code support | No |
 | CI/CD output | JUnit, JSON, NDJSON | JSON via CLI |
 | OpenAPI import | URL + file + AI | Import only |

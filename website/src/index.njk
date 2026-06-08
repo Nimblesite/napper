@@ -80,7 +80,7 @@ permalink: /
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
         </div>
         <h3>Editor-Native, LSP-Powered</h3>
-        <p>First-class extensions for VS Code and Zed, plus a portable language server that brings completions, diagnostics, and hover to any editor. Syntax highlighting, request explorer, environment switching, and Test Explorer integration. Never leave your editor.</p>
+        <p>First-class extensions for VS Code and Zed &mdash; and every VS Code-compatible editor (Cursor, Windsurf, Antigravity, VSCodium) via Open VSX &mdash; plus a portable language server that brings completions, diagnostics, and hover to any editor. Syntax highlighting, request explorer, environment switching, and Test Explorer integration. Never leave your editor.</p>
       </div>
 
       <div class="feature-card">
@@ -162,7 +162,7 @@ permalink: /
         </tr>
         <tr>
           <td>Editor integration</td>
-          <td><span class="check">VS Code, Zed &amp; LSP</span></td>
+          <td><span class="check">VS Code, Cursor, Windsurf, Antigravity, Zed &amp; LSP</span></td>
           <td><span class="cross">Separate app</span></td>
           <td><span class="cross">Separate app</span></td>
           <td><span class="check">VS Code only</span></td>
@@ -365,7 +365,7 @@ permalink: /
 
     <div class="faq-item">
       <h3>Does Napper require VS Code?</h3>
-      <p>No. The Napper CLI runs independently from any editor or IDE. You can use it entirely from the terminal. The VS Code extension is optional and provides syntax highlighting, a request explorer, environment switching, and Test Explorer integration for developers who prefer working in an editor.</p>
+      <p>No. The Napper CLI runs independently from any editor or IDE. You can use it entirely from the terminal. The editor extension is optional &mdash; it works in VS Code, in VS Code-compatible editors like Cursor, Windsurf, and Antigravity (via Open VSX), and in Zed, providing syntax highlighting, a request explorer, environment switching, and Test Explorer integration. Any other editor can connect to the bundled language server.</p>
     </div>
   </div>
 </section>
@@ -373,7 +373,7 @@ permalink: /
 {# ---- Install CTA ---- #}
 <section class="install-banner">
   <h2>Ready to ship faster?</h2>
-  <p>Install from the VS Code Marketplace or grab the CLI binary.</p>
+  <p>Install the extension from the Marketplace (or Open VSX for Cursor, Windsurf, and Antigravity), and the CLI with Homebrew or Scoop.</p>
   <div class="install-command">
     <span class="prompt">$</span> code --install-extension nimblesite.napper
   </div>
@@ -459,7 +459,7 @@ permalink: /
       "name": "Does Napper require VS Code?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "No. The Napper CLI runs independently from any editor or IDE. You can use it entirely from the terminal. The VS Code extension is optional and provides syntax highlighting, a request explorer, environment switching, and Test Explorer integration."
+        "text": "No. The Napper CLI runs independently from any editor or IDE. You can use it entirely from the terminal. The editor extension is optional and works in VS Code, in VS Code-compatible editors like Cursor, Windsurf, and Antigravity via Open VSX, and in Zed, providing syntax highlighting, a request explorer, environment switching, and Test Explorer integration. Any other editor can connect to the bundled language server."
       }
     }
   ]
@@ -489,7 +489,7 @@ permalink: /
   "programmingLanguage": ["JavaScript", "Python", "F#", "C#"],
   "featureList": [
     "CLI-first HTTP API testing",
-    "Native VS Code and Zed extensions plus a portable language server for any editor",
+    "Native VS Code and Zed extensions — plus Cursor, Windsurf, Antigravity, and VSCodium via Open VSX — and a portable language server for any editor",
     "Declarative assertions on status, body, headers, timing",
     "Scripting in JavaScript, Python, F#, or C# for advanced request flows",
     "Composable test suites with .naplist playlists",

@@ -73,7 +73,7 @@ The converter auto-detects the dialect, or you can specify it explicitly with `-
 | Feature | Napper | .http files |
 |---------|--------|-------------|
 | Plain text requests | Yes (`.nap` files) | Yes (`.http` files) |
-| Editor support | VS Code, Zed & LSP | REST Client extension |
+| Editor support | VS Code, Cursor, Windsurf, Antigravity, Zed & LSP | REST Client extension |
 | CLI execution | Yes (primary interface) | No |
 | Assertions | Declarative + scripts | None |
 | Test suites | `.naplist` playlists | None |
