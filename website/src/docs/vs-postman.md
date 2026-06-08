@@ -14,7 +14,7 @@ Napper is a free, open-source, CLI-first alternative to Postman for API testing.
 
 ## What is the main difference between Napper and Postman?
 
-Postman is a GUI-first application with a standalone desktop client. The command line interface (Newman) is a secondary tool. Napper takes the opposite approach: the CLI is the primary product, and the IDE extension provides a visual interface within your existing editor. Currently, the main IDE extension is vscode, but the LSP decoupling means that we will soon be able to deliver for Zed, neovim, Intellij etc.
+Postman is a GUI-first application with a standalone desktop client. The command line interface (Newman) is a secondary tool. Napper takes the opposite approach: the CLI is the primary product, and the editor extension provides a visual interface within your existing editor. Napper ships native extensions for VS Code and Zed, installs in VS Code-compatible editors like Cursor, Windsurf, and Antigravity via Open VSX, and connects to any other editor through its portable language server.
 
 ## Does Napper require an account?
 
@@ -37,7 +37,7 @@ Postman requires Newman (a separate npm package) for running collections from th
 | Feature | Napper | Postman |
 |---------|--------|---------|
 | CLI-first design | Yes | No (Newman is secondary) |
-| Editor integration | VS Code, Zed & LSP | Separate app |
+| Editor integration | VS Code, Cursor, Windsurf, Antigravity, Zed & LSP | Separate app |
 | Git-friendly files | Plain text `.nap` files | JSON blobs |
 | Assertions | Declarative + scripts | JavaScript scripts |
 | Scripting | JavaScript, Python, F#, C# on real runtimes | Sandboxed JavaScript |

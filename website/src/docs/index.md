@@ -19,7 +19,7 @@ Napper is built for anyone who wants:
 - **Simple things to be simple** — a one-off request is nearly as terse as curl (spec: nap-minimal)
 - **Complex things to be possible** — script advanced flows in JavaScript, Python, F#, or C# (spec: script-js, script-py, script-fsx, script-csx)
 - **Everything in version control** — plain text files, no binary blobs (spec: nap-file, naplist-file, env-file)
-- **First-class editor support** — VS Code & Zed extensions plus a portable LSP: syntax highlighting, Test Explorer, environment switching
+- **First-class editor support** — VS Code, Cursor, Windsurf, Antigravity, and Zed extensions plus a portable LSP: syntax highlighting, Test Explorer, environment switching
 - **No runtime to install** — Napper ships as a self-contained native binary, not a .NET DLL
 - **Easy migration** — convert existing `.http` files with a single CLI command (spec: cli-convert)
 

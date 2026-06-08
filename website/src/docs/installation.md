@@ -1,8 +1,8 @@
 ---
 layout: layouts/docs.njk
 title: Installation
-description: "Install Napper CLI and VS Code extension. Available for macOS, Linux, and Windows. No account required, no runtime dependencies."
-keywords: "install napper, VS Code extension, VSIX install, CLI binary, macOS, Linux, Windows, dotnet tool"
+description: "Install Napper with Homebrew or Scoop, plus the editor extension for VS Code, Cursor, Windsurf, Antigravity, and Zed. macOS, Linux, and Windows. No account, no runtime dependencies."
+keywords: "install napper, homebrew, scoop, VS Code extension, Cursor, Windsurf, Antigravity, Open VSX, VSIX install, CLI binary, macOS, Linux, Windows"
 eleventyNavigation:
   key: Installation
   order: 2
@@ -12,7 +12,7 @@ eleventyNavigation:
 
 ![Screenshot: Napper VS Code extension installed and active in the VS Code Activity Bar, showing the Napper panel icon](/assets/images/docs/installation-vscode-activity-bar.png)
 
-Napper has two parts: the **CLI binary** and an **editor integration**. The CLI is a self-contained native binary (not a .NET DLL) with no runtime dependencies — it ships the [language server](/docs/) inside it too. The editor integration shells out to the CLI, so you need both for the full experience. There are native extensions for **VS Code** and **Zed**, and any LSP-capable editor can connect to the bundled language server.
+Napper has two parts: the **CLI binary** and an **editor integration**. The CLI is a self-contained native binary (not a .NET DLL) with no runtime dependencies — it ships the [language server](/docs/) inside it too. The editor integration shells out to the CLI, so you need both for the full experience. There are native extensions for **VS Code** and **Zed**; the VS Code extension also installs in every VS Code-compatible editor — **Cursor**, **Windsurf**, **Antigravity**, and **VSCodium** — via the Open VSX Registry. Any other LSP-capable editor can connect to the bundled language server.
 
 ---
 
@@ -57,6 +57,14 @@ If you need a specific version or are working in an air-gapped environment, down
 code --install-extension napper-0.10.0.vsix
 ```
 
+### VS Code forks — Cursor, Windsurf, Antigravity, VSCodium
+
+Napper is published to the [Open VSX Registry](https://open-vsx.org/extension/nimblesite/napper), which is the extension source these editors use by default. Open the Extensions panel in your editor, search for **Napper**, and click **Install** — or download the `.vsix` from [GitHub Releases](https://github.com/Nimblesite/napper/releases) and use **Install from VSIX...**. Each per-platform `.vsix` bundles the matching CLI binary, so the extension works out of the box.
+
+### Zed
+
+Install the **Napper** extension from Zed's extension registry (open the command palette and run `zed: extensions`, then search **Napper**). The Zed extension launches the bundled language server through the CLI, so install the CLI too.
+
 ### What the extension provides
 
 Once installed, Napper adds:
@@ -75,7 +83,25 @@ Once installed, Napper adds:
 
 ![Screenshot: Napper CLI running a test suite in a terminal, showing coloured pass/fail output for each assertion](/assets/images/docs/installation-cli-terminal.png)
 
-The CLI is a self-contained binary with **no runtime dependencies** — no .NET, no Node, no Python required.
+The CLI is a self-contained binary with **no runtime dependencies** — no .NET, no Node, no Python required. The recommended way to install it is with **Homebrew** (macOS / Linux) or **Scoop** (Windows).
+
+### Homebrew (macOS / Linux)
+
+```bash
+brew tap Nimblesite/tap
+brew install napper
+```
+
+Update to the latest release at any time with `brew upgrade napper`.
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add Nimblesite https://github.com/Nimblesite/scoop-bucket
+scoop install napper
+```
+
+Update to the latest release at any time with `scoop update napper`.
 
 ### Download from GitHub Releases
 
@@ -151,7 +177,8 @@ You should see the version number and the list of available commands.
 | Scenario | Requirement |
 |----------|-------------|
 | Running `.nap` / `.naplist` files | None — the CLI is a self-contained native binary, not a .NET DLL |
-| VS Code extension | VS Code 1.95.0 or later |
+| VS Code extension | VS Code 1.99.0 or later |
+| VS Code forks (Cursor, Windsurf, Antigravity, VSCodium) | Latest version — installs via Open VSX |
 | Zed extension | Zed (latest) |
 | JavaScript script hooks (`.js`) | [Node.js 18+](https://nodejs.org/) |
 | Python script hooks (`.py`) | [Python 3.9+](https://www.python.org/downloads/) |

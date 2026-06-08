@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/Nap.VsCode/media/napper-icon.png" alt="Napper logo" width="100" height="100">
+  <img src="src/Napper.VsCode/media/napper-icon.png" alt="Napper logo" width="100" height="100">
 </p>
 
 <h1 align="center">Napper</h1>
@@ -31,7 +31,7 @@
 Everything you need for API testing. Nothing you don't.
 
 - **CLI First** (`cli-run`) &mdash; The command line is the product. Run requests, execute test suites, and integrate with CI/CD pipelines from your terminal. Napper ships as a self-contained **native binary** &mdash; not a .NET DLL &mdash; with zero runtime dependencies.
-- **Editor-Native, LSP-Powered** (`vscode-extension`, `lsp`) &mdash; First-class extensions for VS Code and Zed, plus a portable language server that brings completions, diagnostics, and hover to any editor. Syntax highlighting (`vscode-syntax`), request explorer (`vscode-explorer`), environment switching (`vscode-env-switcher`), and Test Explorer integration (`vscode-test-explorer`). Never leave your editor.
+- **Editor-Native, LSP-Powered** (`vscode-extension`, `lsp`) &mdash; First-class extensions for VS Code and Zed &mdash; plus every VS Code-compatible editor (Cursor, Windsurf, Antigravity, VSCodium) via the [Open VSX Registry](https://open-vsx.org/extension/nimblesite/napper) &mdash; and a portable language server that brings completions, diagnostics, and hover to any LSP editor. Syntax highlighting (`vscode-syntax`), request explorer (`vscode-explorer`), environment switching (`vscode-env-switcher`), and Test Explorer integration (`vscode-test-explorer`). Never leave your editor.
 - **Script in Any Language** (`script-js`, `script-py`, `script-fsx`, `script-csx`) &mdash; Add playlist steps and `[script]` pre/post hooks in JavaScript, Python, F#, or C# &mdash; whatever your team already runs, mixed freely in a single playlist. Real runtimes (Node.js, Python 3, .NET), full ecosystem access (npm, PyPI, NuGet), no sandbox. Scripts pass/fail by exit code; JavaScript and Python additionally get an injected `ctx` object (response, variables, `ctx.set` / `ctx.fail` / `ctx.log`).
 - **Declarative Assertions** (`nap-assert`) &mdash; Assert on status codes (`assert-status`), JSON paths (`assert-equals`, `assert-exists`), headers (`assert-contains`), and response times (`assert-lt`) with a clean, readable syntax. No scripting required for simple checks.
 - **Composable Playlists** (`naplist-file`) &mdash; Chain requests into test suites with `.naplist` files. Nest playlists (`naplist-nested`), reference folders (`naplist-folder-step`), pass variables between steps (`naplist-var-scope`).
@@ -40,36 +40,51 @@ Everything you need for API testing. Nothing you don't.
 
 ## Installation
 
-### VS Code Extension
+### Editor Extension
 
-Install from the marketplace in one command:
+**VS Code** &mdash; install from the Marketplace in one command:
 
 ```sh
 code --install-extension nimblesite.napper
 ```
 
-Or search **"Napper"** in the VS Code Extensions panel (`Ctrl+Shift+X` / `Cmd+Shift+X`) and click Install.
+Or search **"Napper"** in the Extensions panel (`Ctrl+Shift+X` / `Cmd+Shift+X`) and click Install.
 
-To install a specific `.vsix` manually: open the Extensions panel → `...` menu → **Install from VSIX...**.
+**VS Code forks &mdash; Cursor, Windsurf, Antigravity, VSCodium** &mdash; open the editor's Extensions panel and search **"Napper"**. The extension is published to the [Open VSX Registry](https://open-vsx.org/extension/nimblesite/napper) that these editors use. You can also grab the `.vsix` from [Releases](https://github.com/Nimblesite/napper/releases) and use **Install from VSIX...**.
 
-> **Requirements:** VS Code 1.95.0 or later. The extension shells out to the CLI, so install the CLI binary too.
+**Zed** &mdash; install the Napper extension from Zed's extension registry.
 
-### CLI Binary
+**Any other editor** &mdash; the CLI ships a language server (`napper lsp`); point your editor's LSP client at it for completions, diagnostics, and hover.
 
-The CLI is a self-contained binary with **no runtime dependencies**.
+> **Requirements:** VS Code 1.99.0 or later (or an equivalent fork). The extension shells out to the CLI, so install it too (below).
 
-| Platform | Download |
-|----------|----------|
-| macOS (Apple Silicon) | [`napper-osx-arm64`](https://github.com/Nimblesite/napper/releases/latest/download/napper-osx-arm64) |
-| macOS (Intel) | [`napper-osx-x64`](https://github.com/Nimblesite/napper/releases/latest/download/napper-osx-x64) |
-| Linux (x64) | [`napper-linux-x64`](https://github.com/Nimblesite/napper/releases/latest/download/napper-linux-x64) |
-| Windows (x64) | [`napper-win-x64.exe`](https://github.com/Nimblesite/napper/releases/latest/download/napper-win-x64.exe) |
+### CLI
 
-**macOS / Linux:**
+The CLI is a self-contained native binary with **no runtime dependencies** &mdash; no .NET, Node, or Python required.
+
+**macOS / Linux &mdash; [Homebrew](https://brew.sh):**
 ```sh
-chmod +x napper-osx-arm64
-mv napper-osx-arm64 /usr/local/bin/napper
+brew tap Nimblesite/tap
+brew install napper
+```
+
+**Windows &mdash; [Scoop](https://scoop.sh):**
+```powershell
+scoop bucket add Nimblesite https://github.com/Nimblesite/scoop-bucket
+scoop install napper
+```
+
+Verify the install:
+```sh
 napper --version
+```
+
+<details>
+<summary><strong>Other install options</strong> &mdash; direct binary, install script, build from source</summary>
+
+**Direct download** &mdash; grab the binary for your platform from the [latest release](https://github.com/Nimblesite/napper/releases/latest) (`napper-osx-arm64`, `napper-osx-x64`, `napper-linux-x64`, `napper-win-x64.exe`). On macOS / Linux, make it executable and put it on your `PATH`:
+```sh
+chmod +x napper-osx-arm64 && mv napper-osx-arm64 /usr/local/bin/napper
 ```
 
 **Install script (macOS / Linux):**
@@ -77,21 +92,16 @@ napper --version
 curl -fsSL https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.sh | bash
 ```
 
-**Install script (Windows PowerShell):**
-```powershell
-irm https://raw.githubusercontent.com/Nimblesite/napper/main/scripts/install.ps1 | iex
-```
-
-**Build from source** (requires .NET SDK + `make`):
+**Build from source** (requires the .NET SDK + `make`):
 ```sh
 git clone https://github.com/Nimblesite/napper.git && cd napper && make install-binaries
 ```
 
+</details>
+
 > **Note:** Script hooks need a runtime only for the language you write in — JavaScript (`.js`) needs [Node.js 18+](https://nodejs.org/), Python (`.py`) needs [Python 3.9+](https://www.python.org/downloads/), and F# (`.fsx`) / C# (`.csx`) need the [.NET 10 SDK](https://dotnet.microsoft.com/download). Runtimes are found by command name (`node`, `python3`, `dotnet`) on your `PATH`. Plain `.nap` and `.naplist` files need nothing extra. In JavaScript and Python the `ctx` object is injected automatically — nothing to `import`, no `npm install` / `pip install`.
 
 See the [full installation guide](https://napperapi.dev/docs/installation/) for VSIX manual install, troubleshooting, and macOS Gatekeeper notes.
-
-## Quick Start
 
 ## How do you use Napper?
 
@@ -321,7 +331,7 @@ Options:
 | Feature | Napper | Postman | Bruno | .http files |
 |---------|--------|---------|-------|-------------|
 | CLI-first design | Yes | No | GUI-first | No CLI |
-| Editor integration | VS Code, Zed & LSP | Separate app | Separate app | VS Code only |
+| Editor integration | VS Code, Cursor, Windsurf, Antigravity, Zed & LSP | Separate app | Separate app | VS Code only |
 | Git-friendly files | Yes | JSON blobs | Yes | Yes |
 | OpenAPI import | URL + file + AI | Import only | Import only | No |
 | Assertions | Declarative + scripts | JS scripts | JS scripts | None |
@@ -330,6 +340,17 @@ Options:
 | Test Explorer | Native | No | No | No |
 | Free & open source | Yes | Freemium | Yes | Yes |
 | No account required | Yes | Account needed | Yes | Yes |
+
+## Built with F#
+
+Napper's engine is written entirely in **F#**. Parsing, environment resolution, the HTTP runner, assertions, OpenAPI generation, and the language server all live in a single shared core (`Napper.Core`) &mdash; the CLI (`Napper.Cli`) and the language server (`Napper.Lsp`) are thin shells over it, so behaviour is identical in your terminal and your editor.
+
+- **One shared core, zero duplication** &mdash; `Napper.Cli` and `Napper.Lsp` both build on `Napper.Core`. The same parser that powers `napper run` powers editor completions and diagnostics.
+- **Compiled to a native binary** &mdash; the CLI publishes as a self-contained [NativeAOT](https://learn.microsoft.com/dotnet/core/deploying/native-aot/) executable: no .NET runtime, ~10 ms cold start, one statically-linked binary per platform.
+- **Parser combinators, not regex** &mdash; `.nap`, `.naplist`, and `.napenv` files are parsed with [FParsec](https://www.quanttec.com/fparsec/) for precise, position-aware diagnostics.
+- **Functional core** &mdash; immutable models, `Result`-based error handling, and pure functions over the request/response pipeline.
+
+Curious how it fits together? Start with [`src/Napper.Core/`](src/Napper.Core/).
 
 ## Project Structure
 

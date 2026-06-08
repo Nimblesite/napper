@@ -7,14 +7,14 @@ tags: posts
 category: announcements
 excerpt: "Meet Napper — a free, open-source API testing tool for anyone testing APIs. The CLI is the product, everything is plain text, and you script in the language you already use: JavaScript, Python, F#, or C#."
 description: "Introducing Napper, a free, open-source, CLI-first API testing tool for VS Code, Zed, and any editor. A modern alternative to Postman, Bruno, and .http files with scripting in JavaScript, Python, F#, or C#, declarative assertions, composable test suites, built-in .http file conversion, and CI/CD integration via JUnit XML."
-keywords: "API testing, VS Code extension, Zed extension, language server, JavaScript scripting, Python scripting, F# scripting, C# scripting, CLI API testing, Postman alternative, Bruno alternative, HTTP testing, REST API testing, CI/CD testing, JUnit XML, open source API testing tool, http file converter, convert http to nap"
+keywords: "API testing, VS Code extension, Zed extension, Cursor, Windsurf, Antigravity, Open VSX, language server, JavaScript scripting, Python scripting, F# scripting, C# scripting, CLI API testing, Postman alternative, Bruno alternative, HTTP testing, REST API testing, CI/CD testing, JUnit XML, open source API testing tool, http file converter, convert http to nap"
 ---
 
 # Introducing Napper: CLI-First API Testing, Scripted in Your Language
 
 API testing tools have a problem. They're either too simple ([.http files](/docs/vs-http-files/) with no assertions and no CLI) or too heavy ([Postman](/docs/vs-postman/) with its mandatory accounts, cloud sync, and paid tiers). [Bruno](/docs/vs-bruno/) moved the needle with git-friendly collections, but it's still a GUI-first tool with sandboxed JavaScript.
 
-**[Napper](https://github.com/Nimblesite/napper)** takes a different approach. It's a free, open-source API testing tool for *anyone* testing APIs: the CLI is the primary interface, everything is stored as plain text, and you script in the language you already use — **JavaScript, Python, F#, or C#** — on a real runtime, with no sandbox. Napper ships as a self-contained native binary (not a .NET DLL) and edits natively in [VS Code](https://code.visualstudio.com/), [Zed](https://zed.dev/), and any editor via a portable language server.
+**[Napper](https://github.com/Nimblesite/napper)** takes a different approach. It's a free, open-source API testing tool for *anyone* testing APIs: the CLI is the primary interface, everything is stored as plain text, and you script in the language you already use — **JavaScript, Python, F#, or C#** — on a real runtime, with no sandbox. Napper ships as a self-contained native binary (not a .NET DLL) and edits natively in [VS Code](https://code.visualstudio.com/), [Zed](https://zed.dev/), the VS Code-compatible editors Cursor, Windsurf, and Antigravity, and any editor via a portable language server.
 
 ## The CLI is the product
 
@@ -31,7 +31,7 @@ napper run ./smoke.naplist
 napper run ./tests/ --env staging --output junit > results.xml
 ```
 
-The CLI binary is self-contained with no runtime dependencies. It runs on Windows, macOS, and Linux. Download it from [GitHub Releases](https://github.com/Nimblesite/napper/releases) and you're ready to go.
+The CLI binary is self-contained with no runtime dependencies. It runs on Windows, macOS, and Linux. Install it with [Homebrew](https://brew.sh) (`brew tap Nimblesite/tap && brew install napper`) or [Scoop](https://scoop.sh) (`scoop bucket add Nimblesite https://github.com/Nimblesite/scoop-bucket && scoop install napper`), or download it from [GitHub Releases](https://github.com/Nimblesite/napper/releases).
 
 ## Plain text everything — git-friendly by design
 
@@ -203,7 +203,7 @@ See [Napper vs .http files](/docs/vs-http-files/) for a full comparison.
 
 ## Editor-native, LSP-powered
 
-Napper meets you in your editor. There are first-class extensions for [VS Code](https://marketplace.visualstudio.com/items?itemName=nimblesite.napper) and [Zed](https://zed.dev/), plus a portable **language server** that brings completions, diagnostics, and hover to any editor that speaks LSP. The [Napper VS Code extension](https://marketplace.visualstudio.com/items?itemName=nimblesite.napper) brings the full experience into your editor:
+Napper meets you in your editor. There are first-class extensions for [VS Code](https://marketplace.visualstudio.com/items?itemName=nimblesite.napper) and [Zed](https://zed.dev/) — and because the extension is published to the [Open VSX Registry](https://open-vsx.org/extension/nimblesite/napper), it installs in every VS Code-compatible editor too: **Cursor**, **Windsurf**, **Antigravity**, and **VSCodium**. A portable **language server** brings completions, diagnostics, and hover to any other editor that speaks LSP. The [Napper VS Code extension](https://marketplace.visualstudio.com/items?itemName=nimblesite.napper) brings the full experience into your editor:
 
 - **Syntax highlighting** for `.nap`, `.naplist`, and `.napenv` files
 - **Request explorer** in the sidebar with a tree view of all requests and playlists
@@ -213,7 +213,7 @@ Napper meets you in your editor. There are first-class extensions for [VS Code](
 - **Response inspection** with headers, body, and timing information
 - **Copy as curl** to share requests with teammates who don't use Napper
 
-The extension relies on the CLI binary to run requests — [install the CLI](/docs/installation/) first, then install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=nimblesite.napper):
+The extension relies on the CLI binary to run requests — [install the CLI](/docs/installation/) first, then install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=nimblesite.napper) (or search **Napper** in the Extensions panel of Cursor, Windsurf, or Antigravity):
 
 ```bash
 code --install-extension nimblesite.napper
@@ -224,7 +224,7 @@ code --install-extension nimblesite.napper
 | Feature | Napper | [Postman](/docs/vs-postman/) | [Bruno](/docs/vs-bruno/) | [.http files](/docs/vs-http-files/) |
 |---------|--------|---------|-------|-------------|
 | CLI-first design | Yes | No | GUI-first | No CLI |
-| Editor integration | VS Code, Zed & LSP | Separate app | Separate app | REST Client |
+| Editor integration | VS Code, Cursor, Windsurf, Antigravity, Zed & LSP | Separate app | Separate app | REST Client |
 | Git-friendly files | Plain text | JSON blobs | Yes | Yes |
 | Assertions | Declarative + scripts | JS scripts | JS scripts | None |
 | Scripting language | **JS, Python, F#, C#** | Sandboxed JS | Sandboxed JS | None |
