@@ -113,3 +113,11 @@ scripts/.too_many_cooks/
 __pycache__/
 
 .playwright-mcp/
+
+# =============================================================================
+# Build artifacts — NEVER commit packed packages (a stale napper.1.0.0.nupkg
+# here once broke the NuGet publish: the push glob matched it and 403'd on the
+# foreign-owned `napper` id). dotnet pack regenerates these every release.
+# =============================================================================
+**/nupkg/
+*.nupkg
