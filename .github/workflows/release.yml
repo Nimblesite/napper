@@ -601,10 +601,11 @@ jobs:
         with:
           user: ${{ env.NUGET_USER }}
       - name: Push to NuGet (skip if already published)
-        # Glob the single packed .nupkg so the push is decoupled from the PackageId
-        # (currently Nimblesite.Napper.<version>.nupkg, not napper.<version>.nupkg).
+        # Push ONLY this version's package. A bare *.nupkg glob once also matched a
+        # stale committed napper.1.0.0.nupkg and 403'd on the foreign-owned `napper` id;
+        # the artifact is now gitignored, and this explicit path is belt-and-suspenders.
         run: |
-          dotnet nuget push src/Napper.Cli/nupkg/*.nupkg \
+          dotnet nuget push "src/Napper.Cli/nupkg/Nimblesite.Napper.${VERSION}.nupkg" \
             --api-key "${{ steps.nuget_login.outputs.NUGET_API_KEY }}" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
