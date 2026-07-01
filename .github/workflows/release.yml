@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
@@ -104,7 +104,7 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
       TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -224,7 +224,7 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
       TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -579,7 +579,7 @@ jobs:
       # Required input (action.yml: required: true); hardcoded here in one place.
       NUGET_USER: Nimblesite
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
@@ -621,7 +621,7 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
       - name: Checkout homebrew-tap
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: Nimblesite/homebrew-tap
           token: ${{ secrets.BREW_SCOOP_PAT }}
@@ -706,7 +706,7 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
       - name: Checkout scoop-bucket
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: Nimblesite/scoop-bucket
           token: ${{ secrets.BREW_SCOOP_PAT }}
