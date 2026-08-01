@@ -56,11 +56,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       # Types.Generated.fs is gitignored and rebuilt from Types.td (typeDiagram DSL).
@@ -104,13 +104,13 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
       TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -224,13 +224,13 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
       TAG: ${{ needs.validate-tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -410,7 +410,7 @@ jobs:
             exit 1
           fi
           echo "VSCODE_MARKETPLACE_PAT present — proceeding with Marketplace publish."
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       # Install vsce ONCE at a pinned, known-replicated version. `npx @vscode/vsce`
@@ -511,7 +511,7 @@ jobs:
             exit 1
           fi
           echo "OPEN_VSX_PAT present — proceeding with Open VSX publish."
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Download all per-platform VSIXs
@@ -579,11 +579,11 @@ jobs:
       # Required input (action.yml: required: true); hardcoded here in one place.
       NUGET_USER: Nimblesite
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Generate F# types (typeDiagram)
@@ -621,7 +621,7 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
       - name: Checkout homebrew-tap
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: Nimblesite/homebrew-tap
           token: ${{ secrets.BREW_SCOOP_PAT }}
@@ -706,11 +706,11 @@ jobs:
       VERSION: ${{ needs.validate-tag.outputs.version }}
     steps:
       - name: Checkout scoop-bucket
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: Nimblesite/scoop-bucket
           token: ${{ secrets.BREW_SCOOP_PAT }}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Read SHA256 from release sidecar
