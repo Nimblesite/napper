@@ -20,7 +20,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="G-Research.FSharp.Analyzers" Version="0.20.0">
+    <PackageReference Include="G-Research.FSharp.Analyzers" Version="0.23.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
